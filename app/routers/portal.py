@@ -22,7 +22,7 @@ from app.models import (
     MetodoPagamento, Nota, Pagamento, Perfil, PeriodoLectivo, PreferenciaContacto, TipoAvaliacao, Turma, Utilizador,
     UtilizadorPerfil,
 )
-from app.schemas import Canal, Entrada
+from app.schemas import Canal, Entrada, com_exemplo
 from app.security import Contexto, auditar, contexto_actual, exige, hash_senha
 from app.services import documentos as docs
 from app.services.alertas import comportamento_actual
@@ -34,15 +34,18 @@ extra = APIRouter(prefix="/api", tags=["Portal do encarregado"])
 log = logging.getLogger("clacs.portal")
 
 
+@com_exemplo({"cobranca_ids": [12, 13]})
 class ReferenciaIn(Entrada):
     cobranca_ids: list[int] = Field(min_length=1)
 
 
+@com_exemplo({"canal": "whatsapp", "activo": True})
 class PreferenciaPortalIn(Entrada):
     canal: Canal
     activo: bool
 
 
+@com_exemplo({"email": "isabel.domingos@gmail.com", "senha": "Primeira-senha-2026"})
 class ContaIn(Entrada):
     email: str
     senha: str = Field(min_length=8)
@@ -223,6 +226,7 @@ def preferencias(dados: PreferenciaPortalIn, ee: Encarregado = Depends(encarrega
     return {"canal": p.canal, "activo": p.activo}
 
 
+@com_exemplo({"token": "fcm-token-do-telemovel-dEf456GhI789", "plataforma": "android"})
 class DispositivoIn(Entrada):
     token: str = Field(min_length=10, max_length=4096)
     plataforma: Literal["android", "ios", "web"] = "android"

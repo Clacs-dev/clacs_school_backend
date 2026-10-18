@@ -1,7 +1,9 @@
+import json
 import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -108,6 +110,23 @@ for r in (auth, academico, cadastro, financeiro, refeitorio, comunicacao, pedago
           importacao, documentos, portal):
     app.include_router(r.router)
 app.include_router(portal.extra)
+
+# Respostas reais (dados de demonstração) como exemplo no /api/docs; gerado por scripts/gerar_exemplos.py.
+EXEMPLOS_RESPOSTA = json.loads((Path(__file__).parent / "exemplos_respostas.json").read_text(encoding="utf-8"))
+
+
+def openapi_com_exemplos():
+    if app.openapi_schema is None:
+        esquema = FastAPI.openapi(app)
+        for chave, exemplo in EXEMPLOS_RESPOSTA.items():
+            metodo, caminho = chave.split(" ", 1)
+            operacao = esquema["paths"].get(caminho, {}).get(metodo.lower())
+            if operacao:
+                operacao["responses"]["200"]["content"]["application/json"]["example"] = exemplo
+    return app.openapi_schema
+
+
+app.openapi = openapi_com_exemplos
 
 
 @app.get("/", include_in_schema=False)

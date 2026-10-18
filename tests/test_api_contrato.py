@@ -8,9 +8,11 @@ from datetime import date
 
 import pyotp
 from fastapi.routing import APIRoute
+from pydantic import TypeAdapter, ValidationError
 
+from app import schemas as S
 from app.config import get_settings
-from app.main import app
+from app.main import EXEMPLOS_RESPOSTA, app
 from tests.conftest import login
 
 PDF = b"%PDF-1.4\n%teste\n"
@@ -29,6 +31,27 @@ def test_todas_as_rotas_tem_resposta_documentada():
     assert sem == []
     esquema = app.openapi()
     assert "LinhaCobranca" in esquema["components"]["schemas"]
+
+
+def test_exemplos_de_pedido():
+    """Cada corpo de pedido tem um exemplo no /api/docs e o exemplo passa na validação do próprio esquema."""
+    esquemas = app.openapi()["components"]["schemas"]
+    sem = [nome for nome, e in esquemas.items() if nome.endswith(("In", "Upd")) and "examples" not in e]
+    assert sem == []
+    for esquema, exemplo in S.EXEMPLOS.items():
+        esquema.model_validate(exemplo)
+
+
+def test_exemplos_de_resposta():
+    """Os exemplos de resposta (scripts/gerar_exemplos.py) continuam a cumprir os modelos documentados."""
+    rotas = {f"GET {r.path}": r for r in app.routes if isinstance(r, APIRoute) and "GET" in r.methods}
+    assert len(EXEMPLOS_RESPOSTA) >= 60
+    for chave, exemplo in EXEMPLOS_RESPOSTA.items():
+        assert chave in rotas, f"{chave}: a rota já não existe; corra python -m scripts.gerar_exemplos"
+        try:
+            TypeAdapter(rotas[chave].response_model).validate_python(exemplo)
+        except ValidationError as erro:
+            raise AssertionError(f"{chave} desactualizado; corra python -m scripts.gerar_exemplos\n{erro}") from None
 
 
 def test_consultas(client, admin):

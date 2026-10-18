@@ -18,7 +18,7 @@ from app.models import (
     Alerta, Aluno, AuditoriaLog, IaConsultaLog, Indicador, Matricula, Pagamento, Perfil, RelatorioAgendado,
     RelatorioExecucao, Turma, Utilizador,
 )
-from app.schemas import Entrada, EstadoIn, PerguntaIn, RelatorioIn
+from app.schemas import Entrada, EstadoIn, PerguntaIn, RelatorioIn, com_exemplo
 from app.security import Contexto, exige
 from app.services import financeiro as fin
 from app.services import assistente_ia, indicadores, relatorios
@@ -53,6 +53,7 @@ def painel(ctx: Contexto = Depends(exige("painel")), db: Session = Depends(get_d
 
 
 # ---------------------------------------------------------------- indicadores configuráveis
+@com_exemplo({"codigo": "taxa_cobranca", "nome": "Taxa de cobrança do mês", "perfil_minimo": "direccao"})
 class IndicadorIn(Entrada):
     codigo: str
     nome: str | None = None

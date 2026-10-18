@@ -495,3 +495,118 @@ class RelatorioIn(Entrada):
     agenda_cron: str
     destinatarios: list[str]
     activo: bool = True
+
+
+# ---------------------------------------------------------------- exemplos para o /api/docs
+# Um pedido de exemplo por esquema (o "Example Value" do Swagger). O teste test_exemplos_de_pedido garante
+# que cada exemplo passa na validação do próprio esquema.
+EXEMPLOS: dict[type[Entrada], dict] = {
+    LoginIn: {"email": "secretaria@clacs.ao", "senha": "senha-forte-123"},
+    UtilizadorIn: {"nome": "Marta Kiala", "email": "marta.kiala@clacs.ao", "senha": "Mudar-2026!",
+                   "telefone": "+244923456789", "perfis": ["secretaria"]},
+    UtilizadorUpd: {"telefone": "+244923000111", "perfis": ["secretaria", "financeiro"], "activo": True},
+    RecuperarIn: {"email": "marta.kiala@clacs.ao"},
+    RedefinirIn: {"token": "token-recebido-por-email", "senha_nova": "Nova-senha-2026"},
+    CodigoIn: {"codigo": "482913"},
+    SenhaIn: {"senha_actual": "Mudar-2026!", "senha_nova": "Nova-senha-2026"},
+    EstabelecimentoUpd: {"nome": "Colégio Cota Lionel", "nif": "5417098765", "morada": "Rua da Missão 12, Luanda",
+                         "telefone": "+244222123456", "email": "geral@clacs.ao"},
+    ParametroIn: {"valor": 3, "descricao": "Número máximo de faltas injustificadas antes de alerta"},
+    AnoIn: {"designacao": "2026/2027", "data_inicio": "2026-09-01", "data_fim": "2027-07-15",
+            "criar_trimestres": True},
+    PeriodoIn: {"designacao": "1.º Trimestre", "ordem": 1, "data_inicio": "2026-09-01", "data_fim": "2026-12-15"},
+    NivelIn: {"nome": "Ensino Primário", "ordem": 2},
+    ClasseIn: {"nivel_id": 2, "designacao": "3.ª Classe", "ordem": 3},
+    SalaIn: {"designacao": "Sala 12", "capacidade": 32},
+    DisciplinaIn: {"nome": "Língua Portuguesa", "sigla": "LP"},
+    ClasseDisciplinaIn: {"disciplina_id": 1, "carga_horaria": 6},
+    FuncionarioIn: {"nome_completo": "João Manuel Sebastião", "cargo": "professor", "telefone": "+244912345678",
+                    "email": "joao.sebastiao@clacs.ao"},
+    FuncionarioUpd: {"cargo": "coordenador", "telefone": "+244912000222"},
+    TurmaIn: {"designacao": "3.ª A", "classe_id": 3, "sala_id": 1, "periodo_dia": "manha",
+              "director_turma_id": 1, "capacidade": 30},
+    TurmaUpd: {"sala_id": 2, "capacidade": 32},
+    AtribuicaoIn: {"disciplina_id": 1, "funcionario_id": 1},
+    AlunoIn: {"nome_completo": "Ana Paula Domingos", "data_nascimento": "2018-03-14", "sexo": "F",
+              "nacionalidade": "Angolana", "bi_numero": "006123456LA041", "morada": "Talatona, Luanda",
+              "alergias": "Amendoim", "encarregado_id": 1, "parentesco": "mae", "turma_id": 1},
+    AlunoUpd: {"morada": "Kilamba, Bloco Q, Luanda", "estado": "activo"},
+    EncarregadoIn: {"nome_completo": "Isabel Domingos", "nif": "004567891LA033", "telefone": "+244923111222",
+                    "whatsapp": "+244923111222", "email": "isabel.domingos@gmail.com", "profissao": "Enfermeira",
+                    "morada": "Talatona, Luanda"},
+    EncarregadoUpd: {"whatsapp": "+244934555666", "email": "isabel.d@hotmail.com"},
+    LigacaoIn: {"encarregado_id": 2, "parentesco": "pai", "principal": False, "responsavel_financeiro": True,
+                "autorizado_recolha": True},
+    DocumentoIn: {"tipo": "certidao_nascimento", "ficheiro_url": "/api/ficheiros/alunos/1/certidao.pdf"},
+    MatriculaIn: {"aluno_id": 1, "turma_id": 1, "tipo": "renovacao", "observacoes": "Transita da 2.ª A"},
+    MudancaTurmaIn: {"turma_id": 2, "motivo": "Pedido do encarregado (horário da tarde)"},
+    ServicoIn: {"codigo": "TRANSP", "nome": "Transporte escolar", "categoria": "transporte",
+                "periodicidade": "mensal", "artigo_primavera": "SRV-TRANSP"},
+    PrecoIn: {"servico_id": 1, "valor": 45000, "classe_id": 3},
+    PlanoIn: {"designacao": "10 prestações (Set a Jun)", "num_prestacoes": 10, "mes_inicio": 9,
+              "dia_vencimento": 10},
+    MultaIn: {"servico_id": 1, "dias_tolerancia": 15, "tipo": "percentual", "valor": 10, "maximo": 9000},
+    DescontoIn: {"designacao": "Desconto de irmãos", "origem": "irmaos", "tipo": "percentual", "valor": 10,
+                 "servico_id": 1},
+    MatriculaDescontoIn: {"desconto_id": 1, "valido_ate": "2027-07-15"},
+    MetodoIn: {"nome": "Multicaixa Express", "tipo": "multicaixa"},
+    GerarIn: {"competencia": "2026-10-01"},
+    CobrancaAvulsaIn: {"aluno_id": 1, "servico_id": 5, "competencia": "2026-10-01", "valor_base": 15000,
+                       "vencimento": "2026-10-20", "descricao": "Fardamento (2 camisolas)"},
+    AlocacaoIn: {"cobranca_id": 12, "valor": 45000},
+    PagamentoIn: {"metodo_id": 2, "valor": 63000, "encarregado_id": 1, "cobranca_ids": [12, 13],
+                  "data_pagamento": "2026-10-08", "referencia": "TRF-0045821", "estado": "confirmado"},
+    LembreteIn: {"canais": ["whatsapp", "sms"], "turma_id": 1, "categoria": "propina"},
+    AdesaoIn: {"aluno_id": 1, "servico_id": 2, "modalidade": "padrao", "data_inicio": "2026-10-01"},
+    AdesaoUpd: {"estado": "suspensa", "data_fim": "2026-12-31"},
+    RefeicaoTipoIn: {"designacao": "Almoço", "hora_inicio": "12:30:00"},
+    EmentaIn: {"refeicao_tipo_id": 1, "data": "2026-10-20", "descricao": "Muamba de galinha com funge e salada"},
+    RefeicaoRegistoIn: {"refeicao_tipo_id": 1, "data": "2026-10-20", "aluno_ids": [1, 2, 5, 8]},
+    ModeloIn: {"codigo": "propina_atraso", "canal": "whatsapp",
+               "corpo": "Olá {encarregado}, a propina de {aluno} ({mes}) de {valor} Kz está em atraso.",
+               "variaveis": ["encarregado", "aluno", "mes", "valor"]},
+    RegraIn: {"nome": "Lembrete 3 dias antes do vencimento", "evento": "antes_vencimento", "dias_offset": 3,
+              "canais": ["whatsapp"], "modelo_id": 1, "destino": "encarregado", "activa": True},
+    RegraUpd: {"dias_offset": 5, "activa": False},
+    MensagemAlunoIn: {"assunto": "Reunião de pais", "corpo": "A reunião de pais é na sexta-feira às 17h.",
+                      "canais": ["whatsapp", "email"]},
+    ComunicadoIn: {"titulo": "Feriado de 11 de Novembro", "corpo": "Não haverá aulas no dia 11 de Novembro.",
+                   "alvo": "turma", "turma_ids": [1, 2], "canais": ["app", "whatsapp"]},
+    PreferenciaIn: {"canal": "sms", "activo": False},
+    TipoAvaliacaoIn: {"designacao": "Prova trimestral", "peso": 2},
+    AvaliacaoIn: {"turma_id": 1, "disciplina_id": 1, "periodo_id": 1, "tipo_id": 1, "data": "2026-11-12",
+                  "descricao": "Prova do 1.º trimestre"},
+    NotaItem: {"aluno_id": 1, "valor": 14.5},
+    NotasIn: {"notas": [{"aluno_id": 1, "valor": 14.5}, {"aluno_id": 2, "valor": 9},
+                        {"aluno_id": 3, "valor": None, "observacao": "Faltou à prova"}]},
+    PresencaItem: {"aluno_id": 1, "estado": "presente"},
+    AssiduidadeIn: {"turma_id": 1, "data": "2026-10-20",
+                    "registos": [{"aluno_id": 1, "estado": "presente"}, {"aluno_id": 2, "estado": "atraso"},
+                                 {"aluno_id": 3, "estado": "falta_justificada", "justificacao": "Consulta médica"}]},
+    TipoOcorrenciaIn: {"designacao": "Comportamento exemplar", "gravidade": "positiva"},
+    OcorrenciaIn: {"aluno_id": 1, "tipo_id": 2, "data": "2026-10-20",
+                   "descricao": "Conflito com um colega no intervalo.", "accao_tomada": "Conversa com a coordenação",
+                   "notificar_ee": True},
+    OcorrenciaUpd: {"estado": "fechada", "accao_tomada": "Reunião com o encarregado realizada"},
+    RegistoDiarioIn: {"turma_id": 1, "aluno_id": 1, "data": "2026-10-20", "comportamento": "bom",
+                      "nota_texto": "Participou muito bem na aula de leitura."},
+    EstadoIn: {"estado": "tratado"},
+    PerguntaIn: {"pergunta": "Quantos alunos da 3.ª A têm propinas em atraso?"},
+    IntegracaoIn: {"versao": "V10", "url_base": "https://primavera.clacs.ao/api", "credenciais_ref": "PRIMAVERA",
+                   "activo": True},
+    RelatorioIn: {"nome": "Devedores (segunda-feira)", "tipo": "devedores", "filtros": {"dias_min": 30},
+                  "formato": "xlsx", "agenda_cron": "0 8 * * 1", "destinatarios": ["direccao@clacs.ao"]},
+}
+
+def com_exemplo(exemplo: dict):
+    """Decorador para esquemas de entrada definidos nos routers: regista o pedido de exemplo."""
+    def aplicar(esquema: type[Entrada]) -> type[Entrada]:
+        EXEMPLOS[esquema] = exemplo
+        esquema.model_config["json_schema_extra"] = {"examples": [exemplo]}
+        esquema.model_rebuild(force=True)
+        return esquema
+    return aplicar
+
+
+for _esquema, _exemplo in list(EXEMPLOS.items()):
+    com_exemplo(_exemplo)(_esquema)

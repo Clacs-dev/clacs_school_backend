@@ -13,7 +13,7 @@ from app.models import (
     Matricula, NivelEnsino, Parametro, PeriodoLectivo, ResultadoFinal, Sala, Turma,
 )
 from app.schemas import (
-    AnoIn, AtribuicaoIn, ClasseDisciplinaIn, ClasseIn, DisciplinaIn, Entrada, EstabelecimentoUpd, FuncionarioIn,
+    AnoIn, AtribuicaoIn, ClasseDisciplinaIn, ClasseIn, DisciplinaIn, Entrada, com_exemplo, EstabelecimentoUpd, FuncionarioIn,
     FuncionarioUpd, NivelIn, ParametroIn, PeriodoIn, SalaIn, TurmaIn, TurmaUpd,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas
@@ -288,11 +288,14 @@ def atribuir(tid: int, dados: AtribuicaoIn, ctx: Contexto = Depends(editar), db:
 
 
 # ---------------------------------------------------------------- fecho do ano e passagem
+@com_exemplo({"de": 1, "para": 7})
 class ParTurmas(Entrada):
     de: int
     para: int
 
 
+@com_exemplo({"de_ano_id": 1, "turmas": [{"de": 1, "para": 7}, {"de": 2, "para": 8}],
+              "repetentes": [{"de": 1, "para": 5}], "copiar_servicos": True})
 class TransitarIn(Entrada):
     de_ano_id: int
     turmas: list[ParTurmas]          # aprovados: turma do ano anterior → turma do novo ano
