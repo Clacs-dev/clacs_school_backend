@@ -12,6 +12,7 @@ os.environ["JWT_SECRET"] = "segredo-de-testes-com-mais-de-32-bytes"
 os.environ["UPLOAD_DIR"] = str(_tmp.parent / "uploads")
 os.environ["PAGAMENTOS_WEBHOOK_SEGREDO"] = "segredo-webhook-testes"
 os.environ["AGENDADOR_ACTIVO"] = "false"
+os.environ["AUTO_MIGRAR"] = "false"  # os testes preparam a base eles próprios
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402

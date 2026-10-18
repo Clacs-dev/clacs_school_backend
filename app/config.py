@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     login_max_tentativas: int = 5
     login_bloqueio_minutos: int = 15
 
+    # Aplica as migrações e cria os dados iniciais quando a API arranca (desligar com várias instâncias).
+    auto_migrar: bool = True
+
     # Agendador interno (tarefas diárias e relatórios). Desligado nos testes.
     agendador_activo: bool = False
     agendador_hora: str = "06:00"

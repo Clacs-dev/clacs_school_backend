@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from app import agendador
+from app import agendador, arranque
 from app.config import get_settings
 from app.routers import (
     academico, auth, cadastro, comunicacao, documentos, financeiro, importacao, painel, pedagogico, portal,
@@ -20,6 +20,8 @@ log = logging.getLogger("clacs.http")
 
 @asynccontextmanager
 async def ciclo_de_vida(_: FastAPI):
+    if get_settings().auto_migrar:
+        arranque.preparar_base()
     if get_settings().agendador_activo:
         agendador.iniciar()
     yield
