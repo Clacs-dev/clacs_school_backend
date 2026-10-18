@@ -1,0 +1,153 @@
+"""Terceira fase: plano de pagamento, desconto de irmãos, refeição avulsa, indicadores, assistente com IA, push, Z-API.
+
+Corre antes de test_completo.py (ordem alfabética), cujo último teste encerra o ano lectivo activo.
+"""
+from datetime import date
+from types import SimpleNamespace
+
+import httpx
+import pytest
+
+from app.config import get_settings
+from app.database import SessionLocal
+from app.integracoes import mensagens
+from app.services import assistente_ia
+from tests.conftest import login
+
+
+def _ano(client, admin):
+    return next(a for a in client.get("/api/anos-lectivos", headers=admin).json() if a["estado"] == "activo")
+
+
+def _aluno(client, admin, nome):
+    return client.get("/api/alunos", headers=admin, params={"q": nome}).json()[0]
+
+
+# ---------------------------------------------------------------- plano de pagamento
+def test_nao_gera_fora_do_plano(client, admin):
+    ano = _ano(client, admin)
+    julho = f"{ano['data_fim'][:4]}-07-01"  # o plano de demonstração vai de Setembro a Junho
+    r = client.post("/api/cobrancas/gerar", headers=admin, json={"competencia": julho}).json()
+    assert r["fora_do_plano"] and r["criadas"] == 0 and "plano" in r["motivo"]
+    r = client.post("/api/cobrancas/gerar", headers=admin, json={"competencia": "2040-01-01"}).json()
+    assert r["fora_do_plano"] and "ano lectivo" in r["motivo"]
+
+
+def test_desconto_de_irmaos_automatico(client, admin):
+    ana, bento = _aluno(client, admin, "Ana Cota"), _aluno(client, admin, "Bento Lima")
+    ee_ana = client.get(f"/api/alunos/{ana['id']}", headers=admin).json()["encarregados"][0]["encarregado_id"]
+    r = client.post(f"/api/alunos/{bento['id']}/encarregados", headers=admin,
+                    json={"encarregado_id": ee_ana, "parentesco": "mae", "principal": True, "responsavel_financeiro": True})
+    assert r.status_code == 201
+    ano = _ano(client, admin)
+    dezembro = f"{ano['data_inicio'][:4]}-12-01"
+    r = client.post("/api/cobrancas/gerar", headers=admin, json={"competencia": dezembro}).json()
+    assert r["criadas"] > 0 and r["com_desconto_irmaos"] >= 1
+
+    def propina(aid):
+        linhas = client.get("/api/cobrancas", headers=admin, params={"aluno_id": aid, "competencia": dezembro}).json()["linhas"]
+        return next(x for x in linhas if x["categoria"] == "propina")
+    assert propina(ana["id"])["valor_total"] == 45000           # o primeiro educando paga o valor inteiro
+    assert propina(bento["id"])["valor_total"] == 45000 * 0.9   # os seguintes têm 10% de desconto
+
+
+# ---------------------------------------------------------------- refeitório
+def test_refeicao_avulsa_gera_uma_conta_mensal(client, admin):
+    carla = _aluno(client, admin, "Carla Neto")  # sem adesão ao refeitório nos dados de demonstração
+    tipos = client.get("/api/refeitorio/tipos", headers=admin).json()
+    hoje = date.today().isoformat()
+    for t in tipos:
+        r = client.post("/api/refeitorio/registos", headers=admin,
+                        json={"refeicao_tipo_id": t["id"], "data": hoje, "aluno_ids": [carla["id"]], "valor_avulso": 1500})
+        assert r.json()["refeicoes_cobradas"] == 1
+    linhas = client.get("/api/cobrancas", headers=admin, params={"aluno_id": carla["id"]}).json()["linhas"]
+    avulsas = [x for x in linhas if x["servico"] == "Refeições avulsas"]
+    assert len(avulsas) == 1 and avulsas[0]["valor_total"] == 1500 * len(tipos)
+
+
+# ---------------------------------------------------------------- indicadores
+def test_indicadores_configuraveis(client, admin):
+    base = client.get("/api/indicadores", headers=admin).json()
+    assert [i["codigo"] for i in base] == ["recebido_mes", "em_atraso", "alunos_incumprimento", "taxa_cobranca"]
+    assert client.post("/api/indicadores", headers=admin, json={"codigo": "nao_existe"}).status_code == 422
+    novo = client.post("/api/indicadores", headers=admin, json={"codigo": "ocorrencias_abertas", "perfil_minimo": "coordenacao"})
+    assert novo.status_code == 201
+    painel = client.get("/api/painel", headers=admin).json()
+    assert "ocorrencias_abertas" in [i["codigo"] for i in painel["indicadores"]]
+    assert client.delete(f"/api/indicadores/{novo.json()['id']}", headers=admin).status_code == 204
+    prof = login(client, "professor@clacs.ao", get_settings().admin_password)
+    assert client.get("/api/indicadores", headers=prof).status_code == 403
+
+
+# ---------------------------------------------------------------- assistente
+class ClienteFalso:
+    """Imita client.beta.messages.create: 1.º pede a ferramenta contar_alunos, 2.º responde com o resultado."""
+
+    def __init__(self):
+        self.pedidos = []
+        self.beta = SimpleNamespace(messages=SimpleNamespace(create=self._create))
+
+    def _create(self, **kw):
+        self.pedidos.append(kw)
+        if len(self.pedidos) == 1:
+            uso = SimpleNamespace(type="tool_use", id="t1", name="contar_alunos", input={"turma": "7.ª A"})
+            return SimpleNamespace(stop_reason="tool_use", content=[uso])
+        resultado = kw["messages"][-1]["content"][0]["content"]
+        return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text=f"Dados: {resultado}")])
+
+
+def test_assistente_ia_usa_ferramentas_do_estabelecimento():
+    falso = ClienteFalso()
+    with SessionLocal() as db:
+        resposta, chamadas = assistente_ia.responder(db, 1, "Quantos alunos tem a 7.ª A?", cliente=falso)
+    assert chamadas == [{"ferramenta": "contar_alunos", "entrada": {"turma": "7.ª A"}}]
+    assert '"alunos": 4' in resposta
+    pedido = falso.pedidos[0]
+    assert pedido["model"] == "claude-opus-5-5" and pedido["fallbacks"] == "default"
+    assert all(f["strict"] for f in pedido["tools"])
+
+
+def test_assistente_sem_chave_responde_por_regras(client, admin):
+    r = client.post("/api/assistente", headers=admin, json={"pergunta": "Qual a turma com mais atraso?"}).json()
+    assert r["fonte"] == "regras" and r["resposta"].startswith("A turma")
+
+
+# ---------------------------------------------------------------- push e Z-API
+def test_mensagem_app_chega_ao_dispositivo(client, admin):
+    ee = login(client, "encarregado@clacs.ao", get_settings().admin_password)
+    assert client.post("/api/portal/dispositivos", headers=ee,
+                       json={"token": "token-de-teste-123456", "plataforma": "android"}).status_code == 201
+    ana = _aluno(client, admin, "Ana Cota")
+    client.post(f"/api/alunos/{ana['id']}/mensagem", headers=admin, json={"corpo": "Reunião de pais", "canais": ["app"]})
+    client.post("/api/mensagens/despachar", headers=admin)
+    msg = client.get("/api/mensagens", headers=admin, params={"aluno_id": ana["id"]}).json()[0]
+    assert msg["estado"] == "entregue" and msg["id_externo"] == "push:1"
+    assert any(m["corpo"] == "Reunião de pais" for m in client.get("/api/portal/mensagens", headers=ee).json())
+
+
+def test_whatsapp_por_zapi(monkeypatch):
+    s = get_settings()
+    monkeypatch.setattr(s, "whatsapp_provedor", "zapi")
+    monkeypatch.setattr(s, "zapi_instance_id", "INST")
+    monkeypatch.setattr(s, "zapi_token", "TOK")
+    monkeypatch.setattr(s, "zapi_client_token", "SEG")
+    enviado = {}
+
+    def post(url, json=None, headers=None, timeout=None):
+        enviado.update(url=url, json=json, headers=headers)
+        return httpx.Response(200, json={"zaapId": "z1", "messageId": "m1"})
+
+    monkeypatch.setattr(mensagens.httpx, "post", post)
+    assert mensagens.enviar_whatsapp("+244 923 000 111", "Olá") == "m1"
+    assert enviado["url"] == "https://api.z-api.io/instances/INST/token/TOK/send-text"
+    assert enviado["json"] == {"phone": "244923000111", "message": "Olá"}
+    assert enviado["headers"] == {"Client-Token": "SEG"}
+
+
+def test_whatsapp_zapi_erro(monkeypatch):
+    s = get_settings()
+    monkeypatch.setattr(s, "zapi_instance_id", "INST")
+    monkeypatch.setattr(s, "zapi_token", "TOK")
+    monkeypatch.setattr(mensagens.httpx, "post", lambda *a, **k: httpx.Response(401, text="instância desligada"))
+    with pytest.raises(mensagens.ErroIntegracao):
+        mensagens.enviar_whatsapp("923000111", "Olá")
