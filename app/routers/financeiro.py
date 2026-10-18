@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import respostas as R
 from app.common import ano_activo, aplicar, as_dict, obter
 from app.database import get_db
 from app.exportar import tabela
@@ -41,7 +42,7 @@ def gravar(db: Session, obj, msg="Registo duplicado"):
 
 
 # ---------------------------------------------------------------- catálogo
-@router.get("/servicos")
+@router.get("/servicos", response_model=list[R.ServicoComPreco])
 def servicos(ctx: Contexto = Depends(exige("propinas")), db: Session = Depends(get_db)):
     ano = ano_activo(db, ctx.estabelecimento_id, obrigatorio=False)
     precos = {}
@@ -53,19 +54,19 @@ def servicos(ctx: Contexto = Depends(exige("propinas")), db: Session = Depends(g
                                 .order_by(Servico.categoria, Servico.nome))]
 
 
-@router.post("/servicos", status_code=201)
+@router.post("/servicos", response_model=R.Servico, status_code=201)
 def criar_servico(dados: ServicoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     return gravar(db, Servico(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()), "Código de serviço já usado")
 
 
-@router.patch("/servicos/{sid}")
+@router.patch("/servicos/{sid}", response_model=R.Servico)
 def editar_servico(sid: int, dados: ServicoIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     s = obter(db, Servico, sid, ctx.estabelecimento_id, "Serviço")
     aplicar(s, dados.model_dump(exclude_unset=True))
     return gravar(db, s, "Código de serviço já usado")
 
 
-@router.get("/precos")
+@router.get("/precos", response_model=list[R.PrecoComNomes])
 def precos(ano_id: int | None = None, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     ano_id = ano_id or ano_activo(db, ctx.estabelecimento_id).id
     rows = db.execute(select(TabelaPreco, Servico.nome, Classe.designacao)
@@ -75,7 +76,7 @@ def precos(ano_id: int | None = None, ctx: Contexto = Depends(ver), db: Session 
     return [{**as_dict(p), "servico": s, "classe": c or "Todas"} for p, s, c in rows]
 
 
-@router.put("/precos", summary="Define (ou actualiza) o preço de um serviço no ano")
+@router.put("/precos", response_model=R.TabelaPreco, summary="Define (ou actualiza) o preço de um serviço no ano")
 def definir_preco(dados: PrecoIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     ano_id = dados.ano_id or ano_activo(db, est).id
@@ -89,42 +90,42 @@ def definir_preco(dados: PrecoIn, ctx: Contexto = Depends(editar), db: Session =
     return gravar(db, p)
 
 
-@router.get("/planos-pagamento")
+@router.get("/planos-pagamento", response_model=list[R.PlanoPagamento])
 def planos(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(p) for p in db.scalars(select(PlanoPagamento).where(PlanoPagamento.estabelecimento_id == ctx.estabelecimento_id))]
 
 
-@router.post("/planos-pagamento", status_code=201)
+@router.post("/planos-pagamento", response_model=R.PlanoPagamento, status_code=201)
 def criar_plano(dados: PlanoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     return gravar(db, PlanoPagamento(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()))
 
 
-@router.get("/multas")
+@router.get("/multas", response_model=list[R.MultaRegra])
 def multas(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(m) for m in db.scalars(select(MultaRegra).where(MultaRegra.estabelecimento_id == ctx.estabelecimento_id))]
 
 
-@router.post("/multas", status_code=201)
+@router.post("/multas", response_model=R.MultaRegra, status_code=201)
 def criar_multa(dados: MultaIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     return gravar(db, MultaRegra(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()))
 
 
-@router.get("/descontos")
+@router.get("/descontos", response_model=list[R.Desconto])
 def descontos(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(d) for d in db.scalars(select(Desconto).where(Desconto.estabelecimento_id == ctx.estabelecimento_id))]
 
 
-@router.post("/descontos", status_code=201)
+@router.post("/descontos", response_model=R.Desconto, status_code=201)
 def criar_desconto(dados: DescontoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     return gravar(db, Desconto(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()))
 
 
-@router.get("/metodos-pagamento")
+@router.get("/metodos-pagamento", response_model=list[R.MetodoPagamento])
 def metodos(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(m) for m in db.scalars(select(MetodoPagamento).where(MetodoPagamento.estabelecimento_id == ctx.estabelecimento_id))]
 
 
-@router.post("/metodos-pagamento", status_code=201)
+@router.post("/metodos-pagamento", response_model=R.MetodoPagamento, status_code=201)
 def criar_metodo(dados: MetodoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     return gravar(db, MetodoPagamento(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()))
 
@@ -133,7 +134,7 @@ def criar_metodo(dados: MetodoIn, ctx: Contexto = Depends(criar), db: Session = 
 EstadoFiltro = Literal["pago", "divida", "atraso", "pendente", "parcial", "paga"] | None
 
 
-@router.get("/cobrancas", summary="Quem pagou e quem deve (com filtros)")
+@router.get("/cobrancas", response_model=R.ListaCobrancas, summary="Quem pagou e quem deve (com filtros)")
 def listar_cobrancas(turma_id: int | None = None, servico_id: int | None = None, categoria: str | None = None,
                      estado: EstadoFiltro = None, q: str | None = None, aluno_id: int | None = None,
                      encarregado_id: int | None = None, competencia: date | None = None,
@@ -144,7 +145,7 @@ def listar_cobrancas(turma_id: int | None = None, servico_id: int | None = None,
     return {"resumo": fin.resumo(linhas), "linhas": linhas}
 
 
-@router.get("/cobrancas/exportar", summary="Mapa de cobranças em Excel ou CSV")
+@router.get("/cobrancas/exportar", responses=R.EXCEL, summary="Mapa de cobranças em Excel ou CSV")
 def exportar_cobrancas(formato: Literal["xlsx", "csv"] = "xlsx", turma_id: int | None = None,
                        servico_id: int | None = None, estado: EstadoFiltro = None, q: str | None = None,
                        aluno_id: int | None = None,
@@ -156,13 +157,13 @@ def exportar_cobrancas(formato: Literal["xlsx", "csv"] = "xlsx", turma_id: int |
     return tabela(COLUNAS_COBRANCA, linhas, "cobrancas", formato)
 
 
-@router.get("/cobrancas/devedores")
+@router.get("/cobrancas/devedores", response_model=list[R.Devedor])
 def devedores(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     """Equivalente a vw_devedores: quem tem cobranças vencidas por pagar."""
     return fin.devedores(db, ctx.estabelecimento_id)
 
 
-@router.post("/cobrancas/gerar", summary="Gera as cobranças mensais (idempotente)")
+@router.post("/cobrancas/gerar", response_model=R.ResultadoGeracao, summary="Gera as cobranças mensais (idempotente)")
 def gerar(dados: GerarIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     res = fin.gerar_cobrancas(db, ctx.estabelecimento_id, dados.competencia)
     auditar(db, ctx, "cobranca", None, "insert", res | {"competencia": str(res["competencia"])})
@@ -170,7 +171,7 @@ def gerar(dados: GerarIn, ctx: Contexto = Depends(criar), db: Session = Depends(
     return res
 
 
-@router.post("/cobrancas", status_code=201, summary="Cobrança avulsa (fardamento, actividade, ...)")
+@router.post("/cobrancas", response_model=R.Cobranca, status_code=201, summary="Cobrança avulsa (fardamento, actividade, ...)")
 def cobranca_avulsa(dados: CobrancaAvulsaIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     ano = ano_activo(db, est)
@@ -195,7 +196,7 @@ def cobranca_avulsa(dados: CobrancaAvulsaIn, ctx: Contexto = Depends(criar), db:
     return res
 
 
-@router.post("/cobrancas/{cid}/anular")
+@router.post("/cobrancas/{cid}/anular", response_model=R.Cobranca)
 def anular(cid: int, ctx: Contexto = Depends(exige("propinas", "apagar")), db: Session = Depends(get_db)):
     c = obter(db, Cobranca, cid, ctx.estabelecimento_id, "Cobrança")
     if fin.valor_em_aberto(db, c) < c.valor_base - c.valor_desconto + c.valor_multa:
@@ -206,12 +207,12 @@ def anular(cid: int, ctx: Contexto = Depends(exige("propinas", "apagar")), db: S
     return as_dict(c)
 
 
-@router.post("/cobrancas/aplicar-multas")
+@router.post("/cobrancas/aplicar-multas", response_model=R.MultasAplicadas)
 def multas_atraso(ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     return {"cobrancas_actualizadas": fin.aplicar_multas(db, ctx.estabelecimento_id)}
 
 
-@router.post("/cobrancas/lembretes", summary="Enviar lembrete aos devedores")
+@router.post("/cobrancas/lembretes", response_model=R.LembretesEnviados, summary="Enviar lembrete aos devedores")
 def lembretes(dados: LembreteIn, ctx: Contexto = Depends(exige("comunicacao", "criar")), db: Session = Depends(get_db)):
     linhas = fin.cobrancas_detalhe(db, ctx.estabelecimento_id, turma_id=dados.turma_id, servico_id=dados.servico_id,
                                    categoria=dados.categoria, q=dados.q, estado="divida")
@@ -222,7 +223,7 @@ def lembretes(dados: LembreteIn, ctx: Contexto = Depends(exige("comunicacao", "c
 
 
 # ---------------------------------------------------------------- pagamentos
-@router.get("/pagamentos")
+@router.get("/pagamentos", response_model=list[R.PagamentoLista])
 def listar_pagamentos(encarregado_id: int | None = None, desde: date | None = None, ate: date | None = None,
                       estado: str | None = None, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     stmt = (select(Pagamento, Encarregado.nome_completo, MetodoPagamento.nome)
@@ -244,7 +245,7 @@ def listar_pagamentos(encarregado_id: int | None = None, desde: date | None = No
     return [{**as_dict(p), "encarregado": e, "metodo": m, "alocacoes": aloc.get(p.id, [])} for p, e, m in pags]
 
 
-@router.post("/pagamentos", status_code=201, summary="Regista um pagamento e salda as cobranças")
+@router.post("/pagamentos", response_model=R.PagamentoComAlocacoes, status_code=201, summary="Regista um pagamento e salda as cobranças")
 def pagar(dados: PagamentoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     if dados.encarregado_id:
         obter(db, Encarregado, dados.encarregado_id, ctx.estabelecimento_id, "Encarregado")
@@ -268,11 +269,11 @@ def _decidir(pid: int, novo: str, ctx: Contexto, db: Session):
     return as_dict(pg)
 
 
-@router.post("/pagamentos/{pid}/confirmar", summary="Confirma um pagamento pendente (ex.: comprovativo verificado)")
+@router.post("/pagamentos/{pid}/confirmar", response_model=R.Pagamento, summary="Confirma um pagamento pendente (ex.: comprovativo verificado)")
 def confirmar_pagamento(pid: int, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     return _decidir(pid, "confirmado", ctx, db)
 
 
-@router.post("/pagamentos/{pid}/rejeitar", summary="Rejeita um pagamento pendente; as cobranças voltam a ficar em dívida")
+@router.post("/pagamentos/{pid}/rejeitar", response_model=R.Pagamento, summary="Rejeita um pagamento pendente; as cobranças voltam a ficar em dívida")
 def rejeitar_pagamento(pid: int, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     return _decidir(pid, "rejeitado", ctx, db)

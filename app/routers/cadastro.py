@@ -5,6 +5,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import respostas as R
 from app.common import ano_activo, aplicar, as_dict, obter
 from app.database import get_db
 from app.models import (
@@ -52,7 +53,7 @@ def _matricula_activa(db: Session, aluno_id: int, est: int) -> Matricula | None:
 
 
 # ---------------------------------------------------------------- alunos
-@router.get("/alunos")
+@router.get("/alunos", response_model=list[R.AlunoLista])
 def listar_alunos(q: str | None = None, turma_id: int | None = None, estado: str | None = None,
                   limit: int = 500, offset: int = 0, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
@@ -79,7 +80,7 @@ def listar_alunos(q: str | None = None, turma_id: int | None = None, estado: str
             for a, tid, t, e, tel in db.execute(stmt)]
 
 
-@router.post("/alunos", status_code=201)
+@router.post("/alunos", response_model=R.Aluno, status_code=201)
 def criar_aluno(dados: AlunoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     campos = dados.model_dump(exclude={"encarregado_id", "parentesco", "turma_id"}, exclude_none=True)
@@ -108,7 +109,7 @@ def criar_aluno(dados: AlunoIn, ctx: Contexto = Depends(criar), db: Session = De
     return as_dict(a)
 
 
-@router.get("/alunos/{aid}")
+@router.get("/alunos/{aid}", response_model=R.AlunoDetalhe)
 def ver_aluno(aid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     a = obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
     ees = db.execute(select(Encarregado, AlunoEncarregado).join(AlunoEncarregado, AlunoEncarregado.encarregado_id == Encarregado.id)
@@ -124,7 +125,7 @@ def ver_aluno(aid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_
             "documentos": [as_dict(d) for d in docs]}
 
 
-@router.patch("/alunos/{aid}")
+@router.patch("/alunos/{aid}", response_model=R.Aluno)
 def editar_aluno(aid: int, dados: AlunoUpd, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     a = obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
     antes = as_dict(a)
@@ -139,7 +140,7 @@ def editar_aluno(aid: int, dados: AlunoUpd, ctx: Contexto = Depends(editar), db:
     return as_dict(a)
 
 
-@router.post("/alunos/{aid}/encarregados", status_code=201)
+@router.post("/alunos/{aid}/encarregados", response_model=R.AlunoEncarregado, status_code=201)
 def ligar_encarregado(aid: int, dados: LigacaoIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
     obter(db, Encarregado, dados.encarregado_id, ctx.estabelecimento_id, "Encarregado")
@@ -162,7 +163,7 @@ def desligar_encarregado(aid: int, eid: int, ctx: Contexto = Depends(editar), db
     db.commit()
 
 
-@router.post("/alunos/{aid}/documentos", status_code=201)
+@router.post("/alunos/{aid}/documentos", response_model=R.DocumentoAluno, status_code=201)
 def anexar_documento(aid: int, dados: DocumentoIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
     d = DocumentoAluno(aluno_id=aid, **dados.model_dump())
@@ -171,7 +172,7 @@ def anexar_documento(aid: int, dados: DocumentoIn, ctx: Contexto = Depends(edita
     return as_dict(d)
 
 
-@router.get("/alunos/{aid}/360", summary="Visão 360° do aluno")
+@router.get("/alunos/{aid}/360", response_model=R.Aluno360, summary="Visão 360° do aluno")
 def aluno_360(aid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     a = obter(db, Aluno, aid, est, "Aluno")
@@ -208,7 +209,7 @@ def aluno_360(aid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_
 
 
 # ---------------------------------------------------------------- encarregados
-@router.get("/encarregados")
+@router.get("/encarregados", response_model=list[R.EncarregadoLista])
 def listar_encarregados(q: str | None = None, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     stmt = select(Encarregado).where(Encarregado.estabelecimento_id == ctx.estabelecimento_id)
     if q:
@@ -225,7 +226,7 @@ def listar_encarregados(q: str | None = None, ctx: Contexto = Depends(ver), db: 
     return out
 
 
-@router.post("/encarregados", status_code=201)
+@router.post("/encarregados", response_model=R.Encarregado, status_code=201)
 def criar_encarregado(dados: EncarregadoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     e = Encarregado(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump(exclude_none=True))
     if not e.whatsapp:
@@ -239,7 +240,7 @@ def criar_encarregado(dados: EncarregadoIn, ctx: Contexto = Depends(criar), db: 
     return as_dict(e)
 
 
-@router.get("/encarregados/{eid}")
+@router.get("/encarregados/{eid}", response_model=R.EncarregadoDetalhe)
 def ver_encarregado(eid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     e = obter(db, Encarregado, eid, ctx.estabelecimento_id, "Encarregado")
     educandos = db.execute(select(Aluno, AlunoEncarregado).join(AlunoEncarregado, AlunoEncarregado.aluno_id == Aluno.id)
@@ -253,7 +254,7 @@ def ver_encarregado(eid: int, ctx: Contexto = Depends(ver), db: Session = Depend
                                                                              encarregado_id=eid, estado="divida"))}
 
 
-@router.patch("/encarregados/{eid}")
+@router.patch("/encarregados/{eid}", response_model=R.Encarregado)
 def editar_encarregado(eid: int, dados: EncarregadoUpd, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     e = obter(db, Encarregado, eid, ctx.estabelecimento_id, "Encarregado")
     antes = as_dict(e)
@@ -263,7 +264,7 @@ def editar_encarregado(eid: int, dados: EncarregadoUpd, ctx: Contexto = Depends(
     return as_dict(e)
 
 
-@router.put("/encarregados/{eid}/preferencias")
+@router.put("/encarregados/{eid}/preferencias", response_model=R.PreferenciaContacto)
 def preferencia(eid: int, dados: PreferenciaIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     obter(db, Encarregado, eid, ctx.estabelecimento_id, "Encarregado")
     p = db.get(PreferenciaContacto, (eid, dados.canal)) or PreferenciaContacto(encarregado_id=eid, canal=dados.canal)
@@ -274,7 +275,7 @@ def preferencia(eid: int, dados: PreferenciaIn, ctx: Contexto = Depends(editar),
 
 
 # ---------------------------------------------------------------- matrículas
-@router.get("/matriculas")
+@router.get("/matriculas", response_model=list[R.MatriculaLista])
 def listar_matriculas(ano_id: int | None = None, turma_id: int | None = None, ctx: Contexto = Depends(ver),
                       db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
@@ -289,7 +290,7 @@ def listar_matriculas(ano_id: int | None = None, turma_id: int | None = None, ct
             for m, a, t, an in db.execute(stmt.order_by(Matricula.data_matricula.desc(), Matricula.id.desc()))]
 
 
-@router.post("/matriculas", status_code=201)
+@router.post("/matriculas", response_model=R.MatriculaRegistada, status_code=201)
 def matricular(dados: MatriculaIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     """Regista a matrícula no ano activo. Se o aluno já estiver matriculado, muda-o de turma."""
     est = ctx.estabelecimento_id
@@ -315,7 +316,7 @@ def matricular(dados: MatriculaIn, ctx: Contexto = Depends(criar), db: Session =
             "mudanca_de_turma": existente is not None}
 
 
-@router.post("/matriculas/{mid}/turma")
+@router.post("/matriculas/{mid}/turma", response_model=R.Matricula)
 def mudar_turma(mid: int, dados: MudancaTurmaIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     m = obter(db, Matricula, mid, ctx.estabelecimento_id, "Matrícula")
     turma = _turma_do_ano(db, dados.turma_id, ctx.estabelecimento_id, m.ano_id)
@@ -326,7 +327,7 @@ def mudar_turma(mid: int, dados: MudancaTurmaIn, ctx: Contexto = Depends(editar)
     return as_dict(m)
 
 
-@router.post("/matriculas/{mid}/anular")
+@router.post("/matriculas/{mid}/anular", response_model=R.Matricula)
 def anular_matricula(mid: int, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     m = obter(db, Matricula, mid, ctx.estabelecimento_id, "Matrícula")
     m.estado = "anulada"
@@ -335,14 +336,14 @@ def anular_matricula(mid: int, ctx: Contexto = Depends(editar), db: Session = De
     return as_dict(m)
 
 
-@router.get("/matriculas/{mid}/historico")
+@router.get("/matriculas/{mid}/historico", response_model=list[R.MatriculaHistorico])
 def historico(mid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     obter(db, Matricula, mid, ctx.estabelecimento_id, "Matrícula")
     return [as_dict(h) for h in db.scalars(select(MatriculaHistorico).where(MatriculaHistorico.matricula_id == mid)
                                            .order_by(MatriculaHistorico.data_alteracao))]
 
 
-@router.get("/matriculas/{mid}/descontos")
+@router.get("/matriculas/{mid}/descontos", response_model=list[R.DescontoDaMatricula])
 def descontos_matricula(mid: int, ctx: Contexto = Depends(exige("propinas")), db: Session = Depends(get_db)):
     obter(db, Matricula, mid, ctx.estabelecimento_id, "Matrícula")
     rows = db.execute(select(MatriculaDesconto, Desconto).join(Desconto, Desconto.id == MatriculaDesconto.desconto_id)
@@ -350,7 +351,7 @@ def descontos_matricula(mid: int, ctx: Contexto = Depends(exige("propinas")), db
     return [{**as_dict(md), "desconto": as_dict(d)} for md, d in rows]
 
 
-@router.post("/matriculas/{mid}/descontos", status_code=201)
+@router.post("/matriculas/{mid}/descontos", response_model=R.MatriculaDesconto, status_code=201)
 def aplicar_desconto(mid: int, dados: MatriculaDescontoIn, ctx: Contexto = Depends(exige("propinas", "editar")),
                      db: Session = Depends(get_db)):
     obter(db, Matricula, mid, ctx.estabelecimento_id, "Matrícula")

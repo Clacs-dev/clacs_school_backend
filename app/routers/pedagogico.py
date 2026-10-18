@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import respostas as R
 from app.common import aplicar, as_dict, obter
 from app.database import get_db
 from app.models import (
@@ -44,12 +45,12 @@ def _alunos_turma(db: Session, turma_id: int) -> list[tuple[int, int, str]]:
                       .order_by(Aluno.nome_completo)).all()
 
 
-@router.get("/tipos-avaliacao")
+@router.get("/tipos-avaliacao", response_model=list[R.TipoAvaliacao])
 def tipos_avaliacao(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(t) for t in db.scalars(select(TipoAvaliacao).where(TipoAvaliacao.estabelecimento_id == ctx.estabelecimento_id))]
 
 
-@router.post("/tipos-avaliacao", status_code=201)
+@router.post("/tipos-avaliacao", response_model=R.TipoAvaliacao, status_code=201)
 def criar_tipo_avaliacao(dados: TipoAvaliacaoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     t = TipoAvaliacao(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump())
     db.add(t)
@@ -57,7 +58,7 @@ def criar_tipo_avaliacao(dados: TipoAvaliacaoIn, ctx: Contexto = Depends(criar),
     return as_dict(t)
 
 
-@router.get("/avaliacoes")
+@router.get("/avaliacoes", response_model=list[R.AvaliacaoComNomes])
 def avaliacoes(turma_id: int, periodo_id: int | None = None, disciplina_id: int | None = None,
                ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     _turma(db, ctx, turma_id)
@@ -71,7 +72,7 @@ def avaliacoes(turma_id: int, periodo_id: int | None = None, disciplina_id: int 
     return [{**as_dict(a), "disciplina": d, "tipo": t} for a, d, t in db.execute(stmt.order_by(Avaliacao.data))]
 
 
-@router.post("/avaliacoes", status_code=201)
+@router.post("/avaliacoes", response_model=R.Avaliacao, status_code=201)
 def criar_avaliacao(dados: AvaliacaoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     _turma(db, ctx, dados.turma_id)
@@ -91,7 +92,7 @@ def _avaliacao(db: Session, avid: int, ctx: Contexto) -> Avaliacao:
     return a
 
 
-@router.get("/avaliacoes/{avid}/notas")
+@router.get("/avaliacoes/{avid}/notas", response_model=list[R.NotaDoAluno])
 def notas(avid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     a = _avaliacao(db, avid, ctx)
     lancadas = {n.aluno_id: n for n in db.scalars(select(Nota).where(Nota.avaliacao_id == avid))}
@@ -101,7 +102,7 @@ def notas(avid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)
             for _, aid, nome in _alunos_turma(db, a.turma_id)]
 
 
-@router.put("/avaliacoes/{avid}/notas", summary="Lança ou corrige as notas da avaliação")
+@router.put("/avaliacoes/{avid}/notas", response_model=R.Lancadas, summary="Lança ou corrige as notas da avaliação")
 def lancar_notas(avid: int, dados: NotasIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     a = _avaliacao(db, avid, ctx)
     da_turma = {aid for _, aid, _ in _alunos_turma(db, a.turma_id)}
@@ -117,7 +118,7 @@ def lancar_notas(avid: int, dados: NotasIn, ctx: Contexto = Depends(editar), db:
     return {"lancadas": len(dados.notas)}
 
 
-@router.get("/pautas", summary="Pauta da turma no período: média por aluno e disciplina")
+@router.get("/pautas", response_model=R.Pauta, summary="Pauta da turma no período: média por aluno e disciplina")
 def pauta(turma_id: int, periodo_id: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     _turma(db, ctx, turma_id)
     discs = db.execute(select(Disciplina.id, Disciplina.nome).join(Avaliacao, Avaliacao.disciplina_id == Disciplina.id)
@@ -133,7 +134,7 @@ def pauta(turma_id: int, periodo_id: int, ctx: Contexto = Depends(ver), db: Sess
     return {"disciplinas": [n for _, n in discs], "linhas": linhas}
 
 
-@router.post("/pautas/fechar", summary="Grava as médias do período em resultado_periodo")
+@router.post("/pautas/fechar", response_model=R.Resultados, summary="Grava as médias do período em resultado_periodo")
 def fechar_pauta(turma_id: int, periodo_id: int, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     _turma(db, ctx, turma_id)
     n = 0
@@ -155,7 +156,7 @@ def fechar_pauta(turma_id: int, periodo_id: int, ctx: Contexto = Depends(editar)
 
 
 # ---------------------------------------------------------------- assiduidade
-@router.post("/assiduidade", summary="Chamada: presenças e faltas da turma num dia")
+@router.post("/assiduidade", response_model=R.Registos, summary="Chamada: presenças e faltas da turma num dia")
 def chamada(dados: AssiduidadeIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     _turma(db, ctx, dados.turma_id)
     da_turma = {aid for _, aid, _ in _alunos_turma(db, dados.turma_id)}
@@ -174,7 +175,7 @@ def chamada(dados: AssiduidadeIn, ctx: Contexto = Depends(criar), db: Session = 
     return {"registos": len(dados.registos)}
 
 
-@router.get("/assiduidade")
+@router.get("/assiduidade", response_model=list[R.AssiduidadeComAluno])
 def assiduidade(turma_id: int | None = None, aluno_id: int | None = None, desde: date | None = None,
                 ate: date | None = None, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     stmt = (select(Assiduidade, Aluno.nome_completo).join(Aluno, Aluno.id == Assiduidade.aluno_id)
@@ -194,12 +195,12 @@ def assiduidade(turma_id: int | None = None, aluno_id: int | None = None, desde:
 
 
 # ---------------------------------------------------------------- ocorrências e registo diário
-@router.get("/tipos-ocorrencia")
+@router.get("/tipos-ocorrencia", response_model=list[R.TipoOcorrencia])
 def tipos_ocorrencia(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(t) for t in db.scalars(select(TipoOcorrencia).where(TipoOcorrencia.estabelecimento_id == ctx.estabelecimento_id))]
 
 
-@router.post("/tipos-ocorrencia", status_code=201)
+@router.post("/tipos-ocorrencia", response_model=R.TipoOcorrencia, status_code=201)
 def criar_tipo_ocorrencia(dados: TipoOcorrenciaIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     t = TipoOcorrencia(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump())
     db.add(t)
@@ -207,7 +208,7 @@ def criar_tipo_ocorrencia(dados: TipoOcorrenciaIn, ctx: Contexto = Depends(criar
     return as_dict(t)
 
 
-@router.get("/ocorrencias")
+@router.get("/ocorrencias", response_model=list[R.OcorrenciaComNomes])
 def ocorrencias(aluno_id: int | None = None, estado: str | None = None, ctx: Contexto = Depends(ver),
                 db: Session = Depends(get_db)):
     stmt = (select(Ocorrencia, Aluno.nome_completo, TipoOcorrencia.designacao, TipoOcorrencia.gravidade)
@@ -225,7 +226,7 @@ def ocorrencias(aluno_id: int | None = None, estado: str | None = None, ctx: Con
             for o, a, t, g in db.execute(stmt.order_by(Ocorrencia.data.desc()))]
 
 
-@router.post("/ocorrencias", status_code=201)
+@router.post("/ocorrencias", response_model=R.Ocorrencia, status_code=201)
 def criar_ocorrencia(dados: OcorrenciaIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     obter(db, Aluno, dados.aluno_id, ctx.estabelecimento_id, "Aluno")
     _aluno_permitido(db, ctx, dados.aluno_id)
@@ -236,7 +237,7 @@ def criar_ocorrencia(dados: OcorrenciaIn, ctx: Contexto = Depends(criar), db: Se
     return as_dict(o)
 
 
-@router.patch("/ocorrencias/{oid}")
+@router.patch("/ocorrencias/{oid}", response_model=R.Ocorrencia)
 def editar_ocorrencia(oid: int, dados: OcorrenciaUpd, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     o = obter(db, Ocorrencia, oid, nome="Ocorrência")
     obter(db, Aluno, o.aluno_id, ctx.estabelecimento_id, "Ocorrência")
@@ -246,7 +247,7 @@ def editar_ocorrencia(oid: int, dados: OcorrenciaUpd, ctx: Contexto = Depends(ed
     return as_dict(o)
 
 
-@router.post("/registo-diario", status_code=201)
+@router.post("/registo-diario", response_model=R.RegistoDiario, status_code=201)
 def registo_diario(dados: RegistoDiarioIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     _turma(db, ctx, dados.turma_id)
     if dados.aluno_id:
@@ -258,7 +259,7 @@ def registo_diario(dados: RegistoDiarioIn, ctx: Contexto = Depends(criar), db: S
     return as_dict(r)
 
 
-@router.get("/registo-diario")
+@router.get("/registo-diario", response_model=list[R.RegistoDiario])
 def ver_registo_diario(turma_id: int, data: date | None = None, ctx: Contexto = Depends(ver),
                        db: Session = Depends(get_db)):
     _turma(db, ctx, turma_id)

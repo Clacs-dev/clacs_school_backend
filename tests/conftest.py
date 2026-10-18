@@ -12,6 +12,7 @@ os.environ["JWT_SECRET"] = "segredo-de-testes-com-mais-de-32-bytes"
 os.environ["UPLOAD_DIR"] = str(_tmp.parent / "uploads")
 os.environ["PAGAMENTOS_WEBHOOK_SEGREDO"] = "segredo-webhook-testes"
 os.environ["AGENDADOR_ACTIVO"] = "false"
+os.environ["CLACS_TESTES"] = "1"  # respostas validadas em modo estrito contra app/respostas.py
 os.environ["AUTO_MIGRAR"] = "false"  # os testes preparam a base eles próprios
 
 from alembic import command  # noqa: E402
@@ -24,6 +25,17 @@ from app.main import app  # noqa: E402
 from scripts.seed import base, demo  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parent.parent
+
+# Com CLACS_COBERTURA=<ficheiro>, regista cada rota chamada (para ver que rotas os testes não cobrem).
+if os.environ.get("CLACS_COBERTURA"):
+    @app.middleware("http")
+    async def _registar_rota(request, call_next):
+        resposta = await call_next(request)
+        rota = request.scope.get("route")
+        if rota is not None:
+            with open(os.environ["CLACS_COBERTURA"], "a", encoding="utf-8") as f:
+                f.write(f"{request.method} {rota.path} {resposta.status_code}\n")
+        return resposta
 
 
 @pytest.fixture(scope="session", autouse=True)

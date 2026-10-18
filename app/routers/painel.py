@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import agendador
+from app import respostas as R
 from app.common import ano_activo, as_dict, obter, primeiro_dia, soma_meses
 from app.database import get_db
 from app.exportar import tabela
@@ -27,7 +28,7 @@ from app.services.comunicacao import kz
 router = APIRouter(prefix="/api", tags=["Painel, alertas e assistente"])
 
 
-@router.get("/painel", summary="Painel da Direcção")
+@router.get("/painel", response_model=R.Painel, summary="Painel da Direcção")
 def painel(ctx: Contexto = Depends(exige("painel")), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     hoje = date.today()
@@ -58,17 +59,17 @@ class IndicadorIn(Entrada):
     perfil_minimo: str = "direccao"
 
 
-@router.get("/indicadores/catalogo", summary="Indicadores que o sistema sabe calcular")
+@router.get("/indicadores/catalogo", response_model=list[R.IndicadorDoCatalogo], summary="Indicadores que o sistema sabe calcular")
 def catalogo(ctx: Contexto = Depends(exige("painel"))):
     return [{"codigo": c, "nome": d.nome, "formato": d.formato, "fonte": d.fonte} for c, d in indicadores.CATALOGO.items()]
 
 
-@router.get("/indicadores", summary="Indicadores do painel visíveis para o utilizador, com o valor de hoje")
+@router.get("/indicadores", response_model=list[R.IndicadorComValor], summary="Indicadores do painel visíveis para o utilizador, com o valor de hoje")
 def listar_indicadores(ctx: Contexto = Depends(exige("painel")), db: Session = Depends(get_db)):
     return indicadores.visiveis(db, ctx.estabelecimento_id, ctx.perfis)
 
 
-@router.post("/indicadores", status_code=201, summary="Acrescenta um indicador ao painel")
+@router.post("/indicadores", response_model=R.Indicador, status_code=201, summary="Acrescenta um indicador ao painel")
 def criar_indicador(dados: IndicadorIn, ctx: Contexto = Depends(exige("painel", "editar")), db: Session = Depends(get_db)):
     d = indicadores.CATALOGO.get(dados.codigo)
     if not d:
@@ -93,7 +94,7 @@ def apagar_indicador(iid: int, ctx: Contexto = Depends(exige("painel", "editar")
 
 
 # ---------------------------------------------------------------- alertas
-@router.get("/alertas")
+@router.get("/alertas", response_model=list[R.AlertaComAluno])
 def alertas(estado: str | None = None, ctx: Contexto = Depends(exige("painel")), db: Session = Depends(get_db)):
     stmt = (select(Alerta, Aluno.nome_completo).outerjoin(Aluno, Aluno.id == Alerta.aluno_id)
             .where(Alerta.estabelecimento_id == ctx.estabelecimento_id))
@@ -102,12 +103,12 @@ def alertas(estado: str | None = None, ctx: Contexto = Depends(exige("painel")),
     return [{**as_dict(a), "aluno": n} for a, n in db.execute(stmt.order_by(Alerta.criado_em.desc()).limit(500))]
 
 
-@router.post("/alertas/gerar", summary="Calcula e grava os alertas novos (para correr diariamente)")
+@router.post("/alertas/gerar", response_model=R.Novos, summary="Calcula e grava os alertas novos (para correr diariamente)")
 def gerar_alertas(ctx: Contexto = Depends(exige("painel")), db: Session = Depends(get_db)):
     return {"novos": persistir_alertas(db, ctx.estabelecimento_id)}
 
 
-@router.patch("/alertas/{aid}")
+@router.patch("/alertas/{aid}", response_model=R.Alerta)
 def tratar_alerta(aid: int, dados: EstadoIn, ctx: Contexto = Depends(exige("painel")), db: Session = Depends(get_db)):
     a = obter(db, Alerta, aid, ctx.estabelecimento_id, "Alerta")
     a.estado = dados.estado
@@ -173,7 +174,7 @@ def responder(db: Session, est: int, pergunta: str) -> str:
             "valores recebidos, número de alunos ou refeitório.")
 
 
-@router.post("/assistente", summary="Perguntas em linguagem natural (só leitura)")
+@router.post("/assistente", response_model=R.RespostaAssistente, summary="Perguntas em linguagem natural (só leitura)")
 def assistente(dados: PerguntaIn, ctx: Contexto = Depends(exige("painel")), db: Session = Depends(get_db)):
     fonte, consulta = "regras", "regras:v1"
     resposta = None
@@ -192,7 +193,7 @@ def assistente(dados: PerguntaIn, ctx: Contexto = Depends(exige("painel")), db: 
 
 
 # ---------------------------------------------------------------- relatórios e auditoria
-@router.get("/relatorios/devedores")
+@router.get("/relatorios/devedores", responses=R.EXCEL)
 def relatorio_devedores(formato: str = "xlsx", ctx: Contexto = Depends(exige("propinas", "exportar")),
                         db: Session = Depends(get_db)):
     linhas = fin.devedores(db, ctx.estabelecimento_id)
@@ -202,7 +203,7 @@ def relatorio_devedores(formato: str = "xlsx", ctx: Contexto = Depends(exige("pr
     return tabela(cols, linhas, "devedores", formato)
 
 
-@router.get("/relatorios/cobranca-turma")
+@router.get("/relatorios/cobranca-turma", responses=R.EXCEL)
 def relatorio_turmas(formato: str = "xlsx", ctx: Contexto = Depends(exige("propinas", "exportar")),
                      db: Session = Depends(get_db)):
     cols = [("turma", "Turma"), ("alunos", "Alunos"), ("facturado", "Facturado (Kz)"), ("recebido", "Recebido (Kz)"),
@@ -210,13 +211,13 @@ def relatorio_turmas(formato: str = "xlsx", ctx: Contexto = Depends(exige("propi
     return tabela(cols, fin.resumo_por_turma(db, ctx.estabelecimento_id), "cobranca-por-turma", formato)
 
 
-@router.get("/relatorios/agendados")
+@router.get("/relatorios/agendados", response_model=list[R.RelatorioAgendado])
 def relatorios_agendados(ctx: Contexto = Depends(exige("painel")), db: Session = Depends(get_db)):
     return [as_dict(r) for r in db.scalars(select(RelatorioAgendado).where(
         RelatorioAgendado.estabelecimento_id == ctx.estabelecimento_id))]
 
 
-@router.post("/relatorios/agendados", status_code=201, summary="Agenda um relatório (cron, ex.: '0 7 * * 1' = segundas às 7h)")
+@router.post("/relatorios/agendados", response_model=R.RelatorioCriado, status_code=201, summary="Agenda um relatório (cron, ex.: '0 7 * * 1' = segundas às 7h)")
 def agendar_relatorio(dados: RelatorioIn, ctx: Contexto = Depends(exige("painel", "criar")), db: Session = Depends(get_db)):
     r = RelatorioAgendado(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump())
     try:
@@ -228,7 +229,7 @@ def agendar_relatorio(dados: RelatorioIn, ctx: Contexto = Depends(exige("painel"
     return {**as_dict(r), "proxima_execucao": proxima}
 
 
-@router.patch("/relatorios/agendados/{rid}", summary="Activa ou desactiva um relatório agendado")
+@router.patch("/relatorios/agendados/{rid}", response_model=R.RelatorioAgendado, summary="Activa ou desactiva um relatório agendado")
 def activar_relatorio(rid: int, activo: bool, ctx: Contexto = Depends(exige("painel", "editar")),
                       db: Session = Depends(get_db)):
     r = obter(db, RelatorioAgendado, rid, ctx.estabelecimento_id, "Relatório")
@@ -237,7 +238,7 @@ def activar_relatorio(rid: int, activo: bool, ctx: Contexto = Depends(exige("pai
     return as_dict(r)
 
 
-@router.post("/relatorios/agendados/{rid}/executar", summary="Gera e envia o relatório agora")
+@router.post("/relatorios/agendados/{rid}/executar", response_model=R.RelatorioExecucao, summary="Gera e envia o relatório agora")
 def executar_relatorio(rid: int, ctx: Contexto = Depends(exige("painel", "criar")), db: Session = Depends(get_db)):
     r = obter(db, RelatorioAgendado, rid, ctx.estabelecimento_id, "Relatório")
     try:
@@ -246,19 +247,19 @@ def executar_relatorio(rid: int, ctx: Contexto = Depends(exige("painel", "criar"
         raise HTTPException(502, str(e))
 
 
-@router.get("/relatorios/agendados/{rid}/execucoes")
+@router.get("/relatorios/agendados/{rid}/execucoes", response_model=list[R.RelatorioExecucao])
 def execucoes(rid: int, ctx: Contexto = Depends(exige("painel")), db: Session = Depends(get_db)):
     obter(db, RelatorioAgendado, rid, ctx.estabelecimento_id, "Relatório")
     return [as_dict(e) for e in db.scalars(select(RelatorioExecucao).where(RelatorioExecucao.relatorio_id == rid)
                                            .order_by(RelatorioExecucao.id.desc()).limit(50))]
 
 
-@router.get("/agendador", summary="Estado do agendador interno e próximas execuções")
+@router.get("/agendador", response_model=R.EstadoAgendador, summary="Estado do agendador interno e próximas execuções")
 def estado_agendador(ctx: Contexto = Depends(exige("utilizadores"))):
     return agendador.estado()
 
 
-@router.get("/auditoria")
+@router.get("/auditoria", response_model=list[R.AuditoriaComUtilizador])
 def auditoria(tabela_: str | None = None, limit: int = 200, ctx: Contexto = Depends(exige("utilizadores")),
               db: Session = Depends(get_db)):
     stmt = (select(AuditoriaLog, Utilizador.nome).outerjoin(Utilizador, Utilizador.id == AuditoriaLog.utilizador_id)
@@ -268,7 +269,7 @@ def auditoria(tabela_: str | None = None, limit: int = 200, ctx: Contexto = Depe
     return [{**as_dict(a), "utilizador": n} for a, n in db.execute(stmt.order_by(AuditoriaLog.id.desc()).limit(min(limit, 1000)))]
 
 
-@router.get("/health", tags=["Sistema"])
+@router.get("/health", response_model=R.Ok, tags=["Sistema"])
 def health(db: Session = Depends(get_db)):
     db.execute(select(1))
     return {"estado": "ok"}

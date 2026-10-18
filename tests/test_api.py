@@ -194,7 +194,7 @@ def test_pedagogico_pauta(client, admin):
 
 
 def test_importar_alunos_csv(client, admin):
-    turma = client.get("/api/turmas", headers=admin).json()[1]["designacao"]
+    turma = next(t for t in client.get("/api/turmas", headers=admin).json() if not t["cheia"])["designacao"]
     csv = ("nome_completo;data_nascimento;sexo;turma;encarregado_nif;parentesco\n"
            f"Importado Um;12/03/2015;F;{turma};5400000000;Mãe\n"
            "Importado Dois;2015-05-01;M;Turma Inexistente;;\n").encode("utf-8")

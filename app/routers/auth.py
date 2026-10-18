@@ -9,6 +9,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app import limite_login
+from app import respostas as R
 from app.common import as_dict, obter
 from app.config import get_settings
 from app.database import get_db
@@ -45,7 +46,7 @@ def _hash_curto(senha_hash: str) -> str:
     return hashlib.sha256(senha_hash.encode()).hexdigest()[:16]
 
 
-@router.post("/auth/login", summary="Iniciar sessão (username = e-mail; codigo = verificação em dois passos)")
+@router.post("/auth/login", response_model=R.Token, summary="Iniciar sessão (username = e-mail; codigo = verificação em dois passos)")
 def login(request: Request, username: str = Form(...), password: str = Form(...), codigo: str | None = Form(None),
           db: Session = Depends(get_db)):
     email = username.strip().lower()
@@ -113,7 +114,7 @@ def redefinir_senha(dados: RedefinirIn, db: Session = Depends(get_db)):
     db.commit()
 
 
-@router.post("/auth/2fa/iniciar", summary="Gera o segredo para a aplicação autenticadora (Google Authenticator…)")
+@router.post("/auth/2fa/iniciar", response_model=R.DoisPassos, summary="Gera o segredo para a aplicação autenticadora (Google Authenticator…)")
 def doisfa_iniciar(ctx: Contexto = Depends(contexto_actual), db: Session = Depends(get_db)):
     u = db.get(Utilizador, ctx.id)
     if u.doisfa_activo:
@@ -144,7 +145,7 @@ def doisfa_desactivar(dados: CodigoIn, ctx: Contexto = Depends(contexto_actual),
     db.commit()
 
 
-@router.get("/auth/me")
+@router.get("/auth/me", response_model=R.Eu)
 def eu(ctx: Contexto = Depends(contexto_actual), db: Session = Depends(get_db)):
     est = db.get(Estabelecimento, ctx.estabelecimento_id)
     return {**_utilizador_out(db, ctx.utilizador, ctx.estabelecimento_id),
@@ -161,12 +162,12 @@ def alterar_senha(dados: SenhaIn, ctx: Contexto = Depends(contexto_actual), db: 
     db.commit()
 
 
-@router.get("/perfis")
+@router.get("/perfis", response_model=list[R.Perfil])
 def perfis(ctx: Contexto = Depends(contexto_actual), db: Session = Depends(get_db)):
     return [as_dict(p) for p in db.scalars(select(Perfil).order_by(Perfil.id))]
 
 
-@router.get("/utilizadores")
+@router.get("/utilizadores", response_model=list[R.Utilizador])
 def listar_utilizadores(ctx: Contexto = Depends(exige("utilizadores")), db: Session = Depends(get_db)):
     us = db.scalars(select(Utilizador).join(UtilizadorPerfil, UtilizadorPerfil.utilizador_id == Utilizador.id)
                     .where(UtilizadorPerfil.estabelecimento_id == ctx.estabelecimento_id)
@@ -174,7 +175,7 @@ def listar_utilizadores(ctx: Contexto = Depends(exige("utilizadores")), db: Sess
     return [_utilizador_out(db, u, ctx.estabelecimento_id) for u in us]
 
 
-@router.post("/utilizadores", status_code=201)
+@router.post("/utilizadores", response_model=R.Utilizador, status_code=201)
 def criar_utilizador(dados: UtilizadorIn, ctx: Contexto = Depends(exige("utilizadores", "criar")),
                      db: Session = Depends(get_db)):
     email = dados.email.lower()
@@ -191,7 +192,7 @@ def criar_utilizador(dados: UtilizadorIn, ctx: Contexto = Depends(exige("utiliza
     return _utilizador_out(db, u, ctx.estabelecimento_id)
 
 
-@router.patch("/utilizadores/{uid}")
+@router.patch("/utilizadores/{uid}", response_model=R.Utilizador)
 def editar_utilizador(uid: int, dados: UtilizadorUpd, ctx: Contexto = Depends(exige("utilizadores", "editar")),
                       db: Session = Depends(get_db)):
     u = obter(db, Utilizador, uid, nome="Utilizador")

@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import respostas as R
 from app.common import ano_activo, aplicar, as_dict, obter, soma_meses
 from app.database import get_db
 from app.models import (
@@ -20,7 +21,7 @@ ver, criar, editar = exige("refeitorio"), exige("refeitorio", "criar"), exige("r
 CATEGORIAS_REFEITORIO = ("alimentacao", "refeitorio")
 
 
-@router.get("", summary="Quem paga alimentação, quem paga só a utilização e o estado de cada um")
+@router.get("", response_model=R.ResumoRefeitorio, summary="Quem paga alimentação, quem paga só a utilização e o estado de cada um")
 def resumo(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     ano = ano_activo(db, est)
@@ -52,7 +53,7 @@ def resumo(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
             "linhas": linhas}
 
 
-@router.post("/adesoes", status_code=201)
+@router.post("/adesoes", response_model=R.AdesaoServico, status_code=201)
 def aderir(dados: AdesaoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     ano = ano_activo(db, est)
@@ -72,7 +73,7 @@ def aderir(dados: AdesaoIn, ctx: Contexto = Depends(criar), db: Session = Depend
     return as_dict(ad)
 
 
-@router.get("/adesoes")
+@router.get("/adesoes", response_model=list[R.AdesaoComNomes])
 def adesoes(aluno_id: int | None = None, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     stmt = (select(AdesaoServico, Servico.nome, Matricula.aluno_id)
             .join(Servico, Servico.id == AdesaoServico.servico_id)
@@ -83,7 +84,7 @@ def adesoes(aluno_id: int | None = None, ctx: Contexto = Depends(ver), db: Sessi
     return [{**as_dict(a), "servico": s, "aluno_id": aid} for a, s, aid in db.execute(stmt)]
 
 
-@router.patch("/adesoes/{adid}")
+@router.patch("/adesoes/{adid}", response_model=R.AdesaoServico)
 def editar_adesao(adid: int, dados: AdesaoUpd, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     ad = obter(db, AdesaoServico, adid, nome="Adesão")
     obter(db, Matricula, ad.matricula_id, ctx.estabelecimento_id, "Adesão")
@@ -95,13 +96,13 @@ def editar_adesao(adid: int, dados: AdesaoUpd, ctx: Contexto = Depends(editar), 
     return as_dict(ad)
 
 
-@router.get("/tipos")
+@router.get("/tipos", response_model=list[R.RefeicaoTipo])
 def tipos(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(t) for t in db.scalars(select(RefeicaoTipo).where(RefeicaoTipo.estabelecimento_id == ctx.estabelecimento_id)
                                            .order_by(RefeicaoTipo.hora_inicio))]
 
 
-@router.post("/tipos", status_code=201)
+@router.post("/tipos", response_model=R.RefeicaoTipo, status_code=201)
 def criar_tipo(dados: RefeicaoTipoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     t = RefeicaoTipo(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump())
     db.add(t)
@@ -109,7 +110,7 @@ def criar_tipo(dados: RefeicaoTipoIn, ctx: Contexto = Depends(criar), db: Sessio
     return as_dict(t)
 
 
-@router.get("/ementas")
+@router.get("/ementas", response_model=list[R.EmentaComRefeicao])
 def ementas(desde: date | None = None, ate: date | None = None, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     stmt = (select(Ementa, RefeicaoTipo.designacao).join(RefeicaoTipo, RefeicaoTipo.id == Ementa.refeicao_tipo_id)
             .where(RefeicaoTipo.estabelecimento_id == ctx.estabelecimento_id))
@@ -120,7 +121,7 @@ def ementas(desde: date | None = None, ate: date | None = None, ctx: Contexto = 
     return [{**as_dict(e), "refeicao": r} for e, r in db.execute(stmt.order_by(Ementa.data))]
 
 
-@router.put("/ementas")
+@router.put("/ementas", response_model=R.Ementa)
 def definir_ementa(dados: EmentaIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     obter(db, RefeicaoTipo, dados.refeicao_tipo_id, ctx.estabelecimento_id, "Tipo de refeição")
     e = db.scalar(select(Ementa).where(Ementa.refeicao_tipo_id == dados.refeicao_tipo_id, Ementa.data == dados.data))
@@ -131,7 +132,7 @@ def definir_ementa(dados: EmentaIn, ctx: Contexto = Depends(criar), db: Session 
     return as_dict(e)
 
 
-@router.post("/registos", summary="Controlo diário: regista quem comeu")
+@router.post("/registos", response_model=R.RefeicoesRegistadas, summary="Controlo diário: regista quem comeu")
 def registar_refeicoes(dados: RefeicaoRegistoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     obter(db, RefeicaoTipo, dados.refeicao_tipo_id, est, "Tipo de refeição")
@@ -198,7 +199,7 @@ def _cobrar_avulso(db: Session, est: int, ano_id: int, aluno_id: int, dia: date,
     return c.id
 
 
-@router.get("/registos")
+@router.get("/registos", response_model=list[R.RegistoComNomes])
 def registos(data: date | None = None, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     dia = data or date.today()
     rows = db.execute(select(RefeicaoRegisto, Aluno.nome_completo, RefeicaoTipo.designacao)

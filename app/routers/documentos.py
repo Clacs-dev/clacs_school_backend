@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import armazenamento
+from app import respostas as R
 from app.common import as_dict, obter
 from app.database import get_db
 from app.models import Aluno, AnoLectivo, DocumentoAluno, Matricula, Pagamento, PeriodoLectivo, Turma
@@ -30,7 +31,7 @@ def _pdf(conteudo: bytes, nome: str) -> Response:
 
 
 # ---------------------------------------------------------------- envio de ficheiros
-@router.post("/alunos/{aid}/documentos/ficheiro", status_code=201, summary="Anexa um documento (BI, certificado…)")
+@router.post("/alunos/{aid}/documentos/ficheiro", response_model=R.DocumentoAluno, status_code=201, summary="Anexa um documento (BI, certificado…)")
 async def anexar_ficheiro(aid: int, tipo: str = Form(...), validade: date | None = Form(None),
                           ficheiro: UploadFile = File(...), ctx: Contexto = Depends(exige("cadastro", "editar")),
                           db: Session = Depends(get_db)):
@@ -44,7 +45,7 @@ async def anexar_ficheiro(aid: int, tipo: str = Form(...), validade: date | None
     return as_dict(d)
 
 
-@router.post("/alunos/{aid}/foto", summary="Foto do aluno (JPG, PNG ou WEBP)")
+@router.post("/alunos/{aid}/foto", response_model=R.Foto, summary="Foto do aluno (JPG, PNG ou WEBP)")
 async def foto(aid: int, ficheiro: UploadFile = File(...), ctx: Contexto = Depends(exige("cadastro", "editar")),
                db: Session = Depends(get_db)):
     a = obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
@@ -56,7 +57,7 @@ async def foto(aid: int, ficheiro: UploadFile = File(...), ctx: Contexto = Depen
     return {"foto_url": a.foto_url}
 
 
-@router.post("/pagamentos/{pid}/comprovativo", summary="Anexa o comprovativo de um pagamento")
+@router.post("/pagamentos/{pid}/comprovativo", response_model=R.Comprovativo, summary="Anexa o comprovativo de um pagamento")
 async def comprovativo(pid: int, ficheiro: UploadFile = File(...), ctx: Contexto = Depends(exige("propinas", "criar")),
                        db: Session = Depends(get_db)):
     pg = obter(db, Pagamento, pid, ctx.estabelecimento_id, "Pagamento")
@@ -70,7 +71,7 @@ async def comprovativo(pid: int, ficheiro: UploadFile = File(...), ctx: Contexto
 PERMISSAO_POR_CATEGORIA = {"documentos": "cadastro", "fotos": "cadastro", "comprovativos": "propinas", "relatorios": "painel"}
 
 
-@router.get("/ficheiros/{chave:path}", summary="Descarrega um ficheiro enviado ou gerado")
+@router.get("/ficheiros/{chave:path}", responses=R.QUALQUER_FICHEIRO, summary="Descarrega um ficheiro enviado ou gerado")
 def descarregar(chave: str, ctx: Contexto = Depends(contexto_actual)):
     categoria = chave.split("/")[1] if chave.count("/") == 2 else ""
     modulo = PERMISSAO_POR_CATEGORIA.get(categoria)
@@ -80,13 +81,13 @@ def descarregar(chave: str, ctx: Contexto = Depends(contexto_actual)):
 
 
 # ---------------------------------------------------------------- PDFs
-@router.get("/pagamentos/{pid}/recibo.pdf", summary="Recibo do pagamento (documento interno)")
+@router.get("/pagamentos/{pid}/recibo.pdf", responses=R.PDF, summary="Recibo do pagamento (documento interno)")
 def recibo_pdf(pid: int, ctx: Contexto = Depends(exige("propinas")), db: Session = Depends(get_db)):
     pg = obter(db, Pagamento, pid, ctx.estabelecimento_id, "Pagamento")
     return _pdf(docs.recibo(db, pg), f"recibo-{pid:06d}")
 
 
-@router.get("/alunos/{aid}/extracto.pdf", summary="Extracto de conta corrente do aluno")
+@router.get("/alunos/{aid}/extracto.pdf", responses=R.PDF, summary="Extracto de conta corrente do aluno")
 def extracto_pdf(aid: int, ctx: Contexto = Depends(exige("propinas")), db: Session = Depends(get_db)):
     a = obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
     return _pdf(docs.extracto(db, a), f"extracto-{a.numero_processo}")
@@ -98,7 +99,7 @@ def _periodo(db: Session, periodo_id: int, est: int) -> PeriodoLectivo:
     return p
 
 
-@router.get("/alunos/{aid}/boletim.pdf", summary="Boletim de avaliação do aluno num período")
+@router.get("/alunos/{aid}/boletim.pdf", responses=R.PDF, summary="Boletim de avaliação do aluno num período")
 def boletim_pdf(aid: int, periodo_id: int, ctx: Contexto = Depends(exige("pedagogico")), db: Session = Depends(get_db)):
     a = obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
     p = _periodo(db, periodo_id, ctx.estabelecimento_id)
@@ -109,14 +110,14 @@ def boletim_pdf(aid: int, periodo_id: int, ctx: Contexto = Depends(exige("pedago
     return _pdf(docs.boletim(db, a, p), f"boletim-{a.numero_processo}")
 
 
-@router.get("/turmas/{tid}/pauta.pdf", summary="Pauta da turma num período")
+@router.get("/turmas/{tid}/pauta.pdf", responses=R.PDF, summary="Pauta da turma num período")
 def pauta_pdf(tid: int, periodo_id: int, ctx: Contexto = Depends(exige("pedagogico")), db: Session = Depends(get_db)):
     t = obter(db, Turma, tid, ctx.estabelecimento_id, "Turma")
     verificar_turma(db, ctx, tid)
     return _pdf(docs.pauta(db, t, _periodo(db, periodo_id, ctx.estabelecimento_id)), f"pauta-{t.designacao}")
 
 
-@router.get("/matriculas/{mid}/declaracao.pdf", summary="Declaração de matrícula")
+@router.get("/matriculas/{mid}/declaracao.pdf", responses=R.PDF, summary="Declaração de matrícula")
 def declaracao_pdf(mid: int, ctx: Contexto = Depends(exige("cadastro")), db: Session = Depends(get_db)):
     m = obter(db, Matricula, mid, ctx.estabelecimento_id, "Matrícula")
     auditar(db, ctx, "matricula", mid, "export", {"documento": "declaracao"})

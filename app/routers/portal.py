@@ -12,6 +12,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app import armazenamento
+from app import respostas as R
 from app.common import as_dict
 from app.database import get_db
 from app.integracoes import ErroIntegracao
@@ -71,7 +72,7 @@ def _minhas_cobrancas(db: Session, ee: Encarregado, estado: str | None = None) -
     return sorted(linhas, key=lambda x: (x["vencimento"], x["aluno"]))
 
 
-@router.get("/eu", summary="Dados do encarregado e resumo de cada educando")
+@router.get("/eu", response_model=R.PortalEu, summary="Dados do encarregado e resumo de cada educando")
 def eu(ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     educandos = []
     for aid in _educandos(db, ee):
@@ -86,7 +87,7 @@ def eu(ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_
             "educandos": educandos, "preferencias": prefs}
 
 
-@router.get("/educandos/{aid}", summary="Situação do educando: financeiro e pedagógico")
+@router.get("/educandos/{aid}", response_model=R.EducandoPortal, summary="Situação do educando: financeiro e pedagógico")
 def educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     a = _educando(db, ee, aid)
     m = db.scalar(select(Matricula).join(AnoLectivo, AnoLectivo.id == Matricula.ano_id)
@@ -100,7 +101,7 @@ def educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Sessio
             "comportamento": comportamento_actual(db, aid)}
 
 
-@router.get("/educandos/{aid}/notas", summary="Notas lançadas do educando")
+@router.get("/educandos/{aid}/notas", response_model=list[R.NotaPortal], summary="Notas lançadas do educando")
 def notas(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     _educando(db, ee, aid)
     rows = db.execute(select(Nota, Avaliacao, Disciplina.nome, TipoAvaliacao.designacao, PeriodoLectivo.designacao)
@@ -114,7 +115,7 @@ def notas(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session =
             for n, av, d, t, per in rows]
 
 
-@router.get("/educandos/{aid}/boletim.pdf")
+@router.get("/educandos/{aid}/boletim.pdf", responses=R.PDF)
 def boletim(aid: int, periodo_id: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     a = _educando(db, ee, aid)
     p = db.get(PeriodoLectivo, periodo_id)
@@ -123,12 +124,12 @@ def boletim(aid: int, periodo_id: int, ee: Encarregado = Depends(encarregado_act
     return Response(docs.boletim(db, a, p), media_type="application/pdf")
 
 
-@router.get("/educandos/{aid}/extracto.pdf")
+@router.get("/educandos/{aid}/extracto.pdf", responses=R.PDF)
 def extracto(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     return Response(docs.extracto(db, _educando(db, ee, aid)), media_type="application/pdf")
 
 
-@router.get("/cobrancas", summary="Cobranças de todos os educandos")
+@router.get("/cobrancas", response_model=R.CobrancasPortal, summary="Cobranças de todos os educandos")
 def cobrancas(estado: str | None = None, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     linhas = _minhas_cobrancas(db, ee, estado)
     return {"linhas": linhas, "em_divida": sum(c["valor_em_aberto"] for c in linhas if c["estado"] != "paga")}
@@ -150,7 +151,7 @@ def _metodo(db: Session, est: int, tipo: str, nome: str) -> MetodoPagamento:
     return m
 
 
-@router.post("/pagamentos/referencia", status_code=201, summary="Gera uma referência Multicaixa para pagar cobranças")
+@router.post("/pagamentos/referencia", response_model=R.ReferenciaGerada, status_code=201, summary="Gera uma referência Multicaixa para pagar cobranças")
 def gerar_referencia(dados: ReferenciaIn, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     valor = _validar_cobrancas(db, ee, dados.cobranca_ids)
     try:
@@ -164,7 +165,7 @@ def gerar_referencia(dados: ReferenciaIn, ee: Encarregado = Depends(encarregado_
             "valor": float(ref.valor), "expira": ref.expira}
 
 
-@router.post("/pagamentos/comprovativo", status_code=201, summary="Envia o comprovativo de uma transferência ou depósito")
+@router.post("/pagamentos/comprovativo", response_model=R.ComprovativoEnviado, status_code=201, summary="Envia o comprovativo de uma transferência ou depósito")
 async def enviar_comprovativo(cobranca_ids: str = Form(..., description="ids separados por vírgula"),
                               referencia: str | None = Form(None), ficheiro: UploadFile = File(...),
                               ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
@@ -180,7 +181,7 @@ async def enviar_comprovativo(cobranca_ids: str = Form(..., description="ids sep
             "mensagem": "Comprovativo recebido. A secretaria confirma o pagamento depois de verificar."}
 
 
-@router.get("/pagamentos", summary="Pagamentos feitos e o seu estado")
+@router.get("/pagamentos", response_model=list[R.PagamentoPortal], summary="Pagamentos feitos e o seu estado")
 def pagamentos(ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     rows = db.execute(select(Pagamento, MetodoPagamento.nome).join(MetodoPagamento, MetodoPagamento.id == Pagamento.metodo_id)
                       .where(Pagamento.encarregado_id == ee.id).order_by(Pagamento.id.desc()))
@@ -188,7 +189,7 @@ def pagamentos(ee: Encarregado = Depends(encarregado_actual), db: Session = Depe
              "referencia": p.referencia} for p, m in rows]
 
 
-@router.get("/pagamentos/{pid}/recibo.pdf")
+@router.get("/pagamentos/{pid}/recibo.pdf", responses=R.PDF)
 def recibo(pid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     pg = db.get(Pagamento, pid)
     if not pg or pg.encarregado_id != ee.id:
@@ -196,7 +197,7 @@ def recibo(pid: int, ee: Encarregado = Depends(encarregado_actual), db: Session 
     return Response(docs.recibo(db, pg), media_type="application/pdf")
 
 
-@router.get("/mensagens", summary="Mensagens e comunicados recebidos")
+@router.get("/mensagens", response_model=list[R.MensagemPortal], summary="Mensagens e comunicados recebidos")
 def mensagens(ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     ms = db.scalars(select(Mensagem).where(Mensagem.encarregado_id == ee.id, Mensagem.estado != "falhada")
                     .order_by(Mensagem.id.desc()).limit(100))
@@ -213,7 +214,7 @@ def marcar_lida(mid: int, ee: Encarregado = Depends(encarregado_actual), db: Ses
     db.commit()
 
 
-@router.put("/preferencias", summary="Activa ou desactiva um canal de contacto")
+@router.put("/preferencias", response_model=R.PreferenciaPortal, summary="Activa ou desactiva um canal de contacto")
 def preferencias(dados: PreferenciaPortalIn, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     p = db.get(PreferenciaContacto, (ee.id, dados.canal)) or PreferenciaContacto(encarregado_id=ee.id, canal=dados.canal)
     p.activo = dados.activo
@@ -227,7 +228,7 @@ class DispositivoIn(Entrada):
     plataforma: Literal["android", "ios", "web"] = "android"
 
 
-@router.post("/dispositivos", status_code=201, summary="Regista o telemóvel/browser para notificações push")
+@router.post("/dispositivos", response_model=R.DispositivoRegistado, status_code=201, summary="Regista o telemóvel/browser para notificações push")
 def registar_dispositivo(dados: DispositivoIn, ctx: Contexto = Depends(contexto_actual),
                          ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     d = db.scalar(select(DispositivoPush).where(DispositivoPush.token == dados.token))
@@ -247,7 +248,7 @@ def remover_dispositivo(token: str, ctx: Contexto = Depends(contexto_actual),
 
 
 # ---------------------------------------------------------------- do lado da escola
-@extra.post("/encarregados/{eid}/conta", status_code=201, summary="Cria a conta do portal para um encarregado")
+@extra.post("/encarregados/{eid}/conta", response_model=R.ContaPortal, status_code=201, summary="Cria a conta do portal para um encarregado")
 def criar_conta(eid: int, dados: ContaIn, ctx: Contexto = Depends(exige("utilizadores", "criar")),
                 db: Session = Depends(get_db)):
     ee = db.get(Encarregado, eid)
@@ -269,7 +270,7 @@ def criar_conta(eid: int, dados: ContaIn, ctx: Contexto = Depends(exige("utiliza
     return {"utilizador_id": u.id, "email": email}
 
 
-@extra.post("/pagamentos/webhook", summary="Aviso do gateway: pagamento por referência concluído")
+@extra.post("/pagamentos/webhook", response_model=R.WebhookResultado, summary="Aviso do gateway: pagamento por referência concluído")
 async def webhook(request: Request, db: Session = Depends(get_db)):
     corpo = await request.body()
     try:

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import respostas as R
 from app.common import aplicar, as_dict, obter
 from app.database import get_db
 from app.models import (
@@ -33,7 +34,7 @@ def _config(db: Session, est: int) -> IntegracaoConfig:
     return c
 
 
-@router.get("", summary="Estado da sincronização")
+@router.get("", response_model=R.EstadoPrimavera, summary="Estado da sincronização")
 def estado(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     cfg = _config(db, est)
@@ -49,7 +50,7 @@ def estado(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
             "documentos_hoje": hoje, "divergencias_abertas": abertas, "simulado": not cfg.activo}
 
 
-@router.put("/config")
+@router.put("/config", response_model=R.IntegracaoConfig)
 def configurar(dados: IntegracaoIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     cfg = _config(db, ctx.estabelecimento_id)
     aplicar(cfg, dados.model_dump(exclude_unset=True))
@@ -58,7 +59,7 @@ def configurar(dados: IntegracaoIn, ctx: Contexto = Depends(editar), db: Session
     return as_dict(cfg)
 
 
-@router.post("/sincronizar", summary="Sincroniza clientes e documentos (simulado enquanto a integração estiver inactiva)")
+@router.post("/sincronizar", response_model=R.IntegracaoSyncLog, summary="Sincroniza clientes e documentos (simulado enquanto a integração estiver inactiva)")
 def sincronizar(ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     _config(db, ctx.estabelecimento_id)
     try:
@@ -70,7 +71,7 @@ def sincronizar(ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     return as_dict(reg)
 
 
-@router.get("/divergencias")
+@router.get("/divergencias", response_model=list[R.IntegracaoDivergencia])
 def divergencias(estado: str | None = "aberta", ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     stmt = select(IntegracaoDivergencia).where(IntegracaoDivergencia.estabelecimento_id == ctx.estabelecimento_id)
     if estado:
@@ -78,7 +79,7 @@ def divergencias(estado: str | None = "aberta", ctx: Contexto = Depends(ver), db
     return [as_dict(d) for d in db.scalars(stmt.order_by(IntegracaoDivergencia.detectada_em.desc()))]
 
 
-@router.post("/divergencias/{did}/{accao}", summary="Resolver ou ignorar uma divergência")
+@router.post("/divergencias/{did}/{accao}", response_model=R.IntegracaoDivergencia, summary="Resolver ou ignorar uma divergência")
 def tratar(did: int, accao: str, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     if accao not in ("resolver", "ignorar"):
         raise HTTPException(422, "Acção inválida: use resolver ou ignorar")
@@ -102,7 +103,7 @@ def tratar(did: int, accao: str, ctx: Contexto = Depends(editar), db: Session = 
     return as_dict(d)
 
 
-@router.get("/documentos")
+@router.get("/documentos", response_model=list[R.DocumentoFiscal])
 def documentos(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(d) for d in db.scalars(select(DocumentoFiscal).where(
         DocumentoFiscal.estabelecimento_id == ctx.estabelecimento_id).order_by(DocumentoFiscal.data_emissao.desc()).limit(500))]

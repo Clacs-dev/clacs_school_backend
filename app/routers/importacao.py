@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import respostas as R
 from app.common import ano_activo, as_dict, obter
 from app.database import get_db
 from app.models import (
@@ -56,12 +57,12 @@ def _ler_csv(conteudo: bytes) -> list[dict]:
     return [{(k or "").strip().lower(): (v or "").strip() for k, v in linha.items()} for linha in leitor]
 
 
-@router.get("/modelos", summary="Colunas esperadas em cada ficheiro")
+@router.get("/modelos", response_model=dict[str, str], summary="Colunas esperadas em cada ficheiro")
 def modelos(ctx: Contexto = Depends(exige("importacao"))):
     return COLUNAS
 
 
-@router.post("/{entidade}", status_code=201)
+@router.post("/{entidade}", response_model=R.LoteImportado, status_code=201)
 async def importar(entidade: Literal["aluno", "encarregado", "cobranca", "pagamento"], ficheiro: UploadFile = File(...),
                    origem: str = Form("software anterior"), ctx: Contexto = Depends(exige("importacao", "criar")),
                    db: Session = Depends(get_db)):
@@ -140,17 +141,21 @@ def _importar_aluno(db: Session, est: int, l: dict, ano, turmas: dict, uid: int)
         t = turmas.get(l["turma"].strip().lower())
         if not t:
             raise ValueError(f"turma '{l['turma']}' não existe no ano activo")
+        ocupacao = db.scalar(select(func.count()).select_from(Matricula)
+                             .where(Matricula.turma_id == t.id, Matricula.estado == "activa"))
+        if ocupacao >= t.capacidade:
+            raise ValueError(f"a turma {t.designacao} está cheia ({ocupacao}/{t.capacidade})")
         db.add(Matricula(estabelecimento_id=est, aluno_id=a.id, ano_id=ano.id, turma_id=t.id, tipo="nova",
                          registado_por=uid))
 
 
-@router.get("/lotes")
+@router.get("/lotes", response_model=list[R.ImportacaoLote])
 def lotes(ctx: Contexto = Depends(exige("importacao")), db: Session = Depends(get_db)):
     return [as_dict(l) for l in db.scalars(select(ImportacaoLote).where(ImportacaoLote.estabelecimento_id == ctx.estabelecimento_id)
                                            .order_by(ImportacaoLote.id.desc()))]
 
 
-@router.get("/lotes/{lid}/erros")
+@router.get("/lotes/{lid}/erros", response_model=list[R.ImportacaoErro])
 def erros(lid: int, ctx: Contexto = Depends(exige("importacao")), db: Session = Depends(get_db)):
     obter(db, ImportacaoLote, lid, ctx.estabelecimento_id, "Lote")
     return [as_dict(e) for e in db.scalars(select(ImportacaoErro).where(ImportacaoErro.lote_id == lid)

@@ -28,11 +28,53 @@ async def ciclo_de_vida(_: FastAPI):
     agendador.parar()
 
 
+DESCRICAO = """
+Gestão escolar do Colégio Cota Lionel: cadastro, propinas, refeitório, pedagógico, comunicação, alertas,
+portal do encarregado e integração Primavera.
+
+## Autenticação
+1. `POST /api/auth/login` com **form-urlencoded** `username` (e-mail) e `password`
+   (e `codigo` se a conta tiver verificação em dois passos; a resposta 401 traz o cabeçalho `X-2FA: required`).
+2. A resposta traz `access_token`. Envie-o em todos os pedidos: `Authorization: Bearer <access_token>`.
+3. O token dura 12 horas. Uma resposta **401** significa sessão expirada: volte ao login.
+4. `GET /api/auth/me` diz quem está ligado, os perfis e as permissões (`modulo:accao`) para mostrar ou esconder menus.
+
+## Convenções
+- Corpos JSON (`Content-Type: application/json`), excepto o login e os envios de ficheiros (`multipart/form-data`).
+- Datas `AAAA-MM-DD`; datas com hora em ISO 8601. Valores em kwanzas como números (`45000.0`).
+- Cada resposta tem o modelo documentado em **Schemas**. Os tipos TypeScript podem ser gerados de
+  `/api/openapi.json` (por exemplo com `npx openapi-typescript <url>/api/openapi.json -o api.d.ts`).
+- Os PDFs e os ficheiros Excel vêm como binário: use o `Content-Disposition` para o nome do ficheiro.
+- Contas de encarregado só usam as rotas `/api/portal/*`.
+
+## Erros
+Sempre `{"detail": "mensagem em português"}` (ou uma lista de erros de validação, código 422).
+**401** sessão inválida · **403** sem permissão · **404** não existe neste estabelecimento · **409** conflito
+(duplicado, turma cheia…) · **422** dados inválidos · **429** demasiadas tentativas de login ·
+**500** erro interno, com `Referência: <id>` que aparece nos registos do servidor.
+"""
+
+TAGS = [
+    {"name": "Autenticação e utilizadores", "description": "Login, sessão, senha, dois passos e contas da escola."},
+    {"name": "Académico", "description": "Anos lectivos, trimestres, classes, turmas, disciplinas, professores, fecho do ano."},
+    {"name": "Cadastro e matrículas", "description": "Alunos, encarregados, matrículas e visão 360° do aluno."},
+    {"name": "Propinas e cobranças", "description": "Serviços, preços, cobranças, pagamentos, multas e descontos."},
+    {"name": "Refeitório e serviços", "description": "Adesões, ementas e registo diário de refeições."},
+    {"name": "Comunicação e regras", "description": "Mensagens, regras automáticas, modelos e comunicados."},
+    {"name": "Pedagógico", "description": "Avaliações, notas, pautas, assiduidade e ocorrências."},
+    {"name": "Painel, alertas e assistente", "description": "Indicadores, alertas, assistente, relatórios e auditoria."},
+    {"name": "Integração Primavera", "description": "Estado da sincronização e divergências com o Primavera."},
+    {"name": "Importação de dados", "description": "CSV do software anterior: alunos, encarregados, cobranças, pagamentos."},
+    {"name": "Documentos e ficheiros", "description": "PDFs (recibo, extracto, boletim, pauta, declaração) e envio de ficheiros."},
+    {"name": "Portal do encarregado", "description": "Tudo o que a conta de um encarregado pode ver e fazer."},
+    {"name": "Sistema", "description": "Verificação de saúde da API e da base de dados."},
+]
+
 app = FastAPI(
     title="CLACS Escola API",
-    version="1.1.0",
-    description="Gestão escolar do Colégio Cota Lionel: cadastro, propinas, refeitório, pedagógico, "
-                "comunicação, alertas, portal do encarregado e integração Primavera.",
+    version="1.2.0",
+    description=DESCRICAO,
+    openapi_tags=TAGS,
     docs_url="/api/docs", redoc_url="/api/redoc", openapi_url="/api/openapi.json",
     lifespan=ciclo_de_vida,
 )

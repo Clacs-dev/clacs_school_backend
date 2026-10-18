@@ -3,6 +3,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import respostas as R
 from app.common import ano_activo, aplicar, as_dict, obter
 from app.database import get_db
 from app.models import (
@@ -17,12 +18,12 @@ router = APIRouter(prefix="/api", tags=["Comunicação e regras"])
 ver, criar, editar = exige("comunicacao"), exige("comunicacao", "criar"), exige("comunicacao", "editar")
 
 
-@router.get("/modelos-mensagem")
+@router.get("/modelos-mensagem", response_model=list[R.ModeloMensagem])
 def modelos(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(m) for m in db.scalars(select(ModeloMensagem).where(ModeloMensagem.estabelecimento_id == ctx.estabelecimento_id))]
 
 
-@router.post("/modelos-mensagem", status_code=201)
+@router.post("/modelos-mensagem", response_model=R.ModeloMensagem, status_code=201)
 def criar_modelo(dados: ModeloIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     m = ModeloMensagem(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump())
     try:
@@ -34,13 +35,13 @@ def criar_modelo(dados: ModeloIn, ctx: Contexto = Depends(criar), db: Session = 
     return as_dict(m)
 
 
-@router.get("/regras")
+@router.get("/regras", response_model=list[R.RegraAutomacao])
 def regras(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(r) for r in db.scalars(select(RegraAutomacao).where(RegraAutomacao.estabelecimento_id == ctx.estabelecimento_id)
                                            .order_by(RegraAutomacao.id))]
 
 
-@router.post("/regras", status_code=201)
+@router.post("/regras", response_model=R.RegraAutomacao, status_code=201)
 def criar_regra(dados: RegraIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     if dados.modelo_id:
         obter(db, ModeloMensagem, dados.modelo_id, ctx.estabelecimento_id, "Modelo")
@@ -50,7 +51,7 @@ def criar_regra(dados: RegraIn, ctx: Contexto = Depends(criar), db: Session = De
     return as_dict(r)
 
 
-@router.patch("/regras/{rid}")
+@router.patch("/regras/{rid}", response_model=R.RegraAutomacao)
 def editar_regra(rid: int, dados: RegraUpd, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     r = obter(db, RegraAutomacao, rid, ctx.estabelecimento_id, "Regra")
     aplicar(r, dados.model_dump(exclude_unset=True))
@@ -58,17 +59,17 @@ def editar_regra(rid: int, dados: RegraUpd, ctx: Contexto = Depends(editar), db:
     return as_dict(r)
 
 
-@router.post("/regras/executar", summary="Avalia as regras activas e põe as mensagens na fila")
+@router.post("/regras/executar", response_model=dict[str, int], summary="Avalia as regras activas e põe as mensagens na fila")
 def executar(ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     return com.executar_regras(db, ctx.estabelecimento_id)
 
 
-@router.post("/mensagens/despachar", summary="Envia as mensagens agendadas pelo fornecedor configurado")
+@router.post("/mensagens/despachar", response_model=R.Despacho, summary="Envia as mensagens agendadas pelo fornecedor configurado")
 def despachar(ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     return com.despachar(db, ctx.estabelecimento_id)
 
 
-@router.get("/mensagens")
+@router.get("/mensagens", response_model=list[R.MensagemComEncarregado])
 def mensagens(estado: str | None = None, aluno_id: int | None = None, encarregado_id: int | None = None,
               limit: int = 200, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     stmt = (select(Mensagem, Encarregado.nome_completo).join(Encarregado, Encarregado.id == Mensagem.encarregado_id)
@@ -83,7 +84,7 @@ def mensagens(estado: str | None = None, aluno_id: int | None = None, encarregad
     return [{**as_dict(m), "encarregado": e} for m, e in rows]
 
 
-@router.post("/alunos/{aid}/mensagem", status_code=201, summary="Mensagem ao(s) encarregado(s) do aluno")
+@router.post("/alunos/{aid}/mensagem", response_model=R.Mensagens, status_code=201, summary="Mensagem ao(s) encarregado(s) do aluno")
 def mensagem_aluno(aid: int, dados: MensagemAlunoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     a = obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
     ees = db.scalars(select(AlunoEncarregado.encarregado_id).where(
@@ -100,13 +101,13 @@ def mensagem_aluno(aid: int, dados: MensagemAlunoIn, ctx: Contexto = Depends(cri
     return {"mensagens": n}
 
 
-@router.get("/comunicados")
+@router.get("/comunicados", response_model=list[R.Comunicado])
 def comunicados(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(c) for c in db.scalars(select(Comunicado).where(Comunicado.estabelecimento_id == ctx.estabelecimento_id)
                                            .order_by(Comunicado.id.desc()))]
 
 
-@router.post("/comunicados", status_code=201, summary="Comunicado a toda a escola, a classes ou a turmas")
+@router.post("/comunicados", response_model=R.ComunicadoEnviado, status_code=201, summary="Comunicado a toda a escola, a classes ou a turmas")
 def criar_comunicado(dados: ComunicadoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     ano = ano_activo(db, est)

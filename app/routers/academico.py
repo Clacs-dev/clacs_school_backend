@@ -5,6 +5,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import respostas as R
 from app.common import ano_activo, aplicar, as_dict, obter
 from app.database import get_db
 from app.models import (
@@ -43,12 +44,12 @@ def trimestres(ano: AnoLectivo) -> list[PeriodoLectivo]:
 
 
 # ---------------------------------------------------------------- estabelecimento e parâmetros
-@router.get("/estabelecimento")
+@router.get("/estabelecimento", response_model=R.Estabelecimento)
 def estabelecimento(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return as_dict(db.get(Estabelecimento, ctx.estabelecimento_id))
 
 
-@router.patch("/estabelecimento")
+@router.patch("/estabelecimento", response_model=R.Estabelecimento)
 def editar_estabelecimento(dados: EstabelecimentoUpd, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     e = db.get(Estabelecimento, ctx.estabelecimento_id)
     aplicar(e, dados.model_dump(exclude_unset=True))
@@ -56,12 +57,12 @@ def editar_estabelecimento(dados: EstabelecimentoUpd, ctx: Contexto = Depends(ed
     return as_dict(e)
 
 
-@router.get("/parametros")
+@router.get("/parametros", response_model=list[R.Parametro])
 def parametros(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(p) for p in db.scalars(select(Parametro).where(Parametro.estabelecimento_id == ctx.estabelecimento_id))]
 
 
-@router.put("/parametros/{chave}")
+@router.put("/parametros/{chave}", response_model=R.Parametro)
 def definir_parametro(chave: str, dados: ParametroIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     p = db.get(Parametro, (ctx.estabelecimento_id, chave)) or Parametro(estabelecimento_id=ctx.estabelecimento_id, chave=chave)
     p.valor, p.descricao = dados.valor, dados.descricao or p.descricao
@@ -71,13 +72,13 @@ def definir_parametro(chave: str, dados: ParametroIn, ctx: Contexto = Depends(ed
 
 
 # ---------------------------------------------------------------- anos e períodos
-@router.get("/anos-lectivos")
+@router.get("/anos-lectivos", response_model=list[R.AnoLectivo])
 def anos(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(a) for a in db.scalars(select(AnoLectivo).where(AnoLectivo.estabelecimento_id == ctx.estabelecimento_id)
                                            .order_by(AnoLectivo.data_inicio.desc()))]
 
 
-@router.post("/anos-lectivos", status_code=201)
+@router.post("/anos-lectivos", response_model=R.AnoLectivo, status_code=201)
 def criar_ano(dados: AnoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     if dados.data_fim <= dados.data_inicio:
         raise HTTPException(422, "A data de fim tem de ser posterior à de início")
@@ -90,7 +91,7 @@ def criar_ano(dados: AnoIn, ctx: Contexto = Depends(criar), db: Session = Depend
     return res
 
 
-@router.post("/anos-lectivos/{ano_id}/activar")
+@router.post("/anos-lectivos/{ano_id}/activar", response_model=R.AnoLectivo)
 def activar_ano(ano_id: int, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     ano = obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo")
     db.execute(update(AnoLectivo).where(AnoLectivo.estabelecimento_id == ctx.estabelecimento_id,
@@ -103,39 +104,39 @@ def activar_ano(ano_id: int, ctx: Contexto = Depends(editar), db: Session = Depe
     return as_dict(ano)
 
 
-@router.get("/anos-lectivos/{ano_id}/periodos")
+@router.get("/anos-lectivos/{ano_id}/periodos", response_model=list[R.PeriodoLectivo])
 def periodos(ano_id: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo")
     return [as_dict(p) for p in db.scalars(select(PeriodoLectivo).where(PeriodoLectivo.ano_id == ano_id)
                                            .order_by(PeriodoLectivo.ordem))]
 
 
-@router.post("/anos-lectivos/{ano_id}/periodos", status_code=201)
+@router.post("/anos-lectivos/{ano_id}/periodos", response_model=R.PeriodoLectivo, status_code=201)
 def criar_periodo(ano_id: int, dados: PeriodoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo")
     return gravar(db, PeriodoLectivo(ano_id=ano_id, **dados.model_dump()), "Já existe um período com essa ordem")
 
 
 # ---------------------------------------------------------------- níveis, classes, salas, disciplinas
-@router.get("/niveis")
+@router.get("/niveis", response_model=list[R.NivelEnsino])
 def niveis(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(n) for n in db.scalars(select(NivelEnsino).where(NivelEnsino.estabelecimento_id == ctx.estabelecimento_id)
                                            .order_by(NivelEnsino.ordem))]
 
 
-@router.post("/niveis", status_code=201)
+@router.post("/niveis", response_model=R.NivelEnsino, status_code=201)
 def criar_nivel(dados: NivelIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     return gravar(db, NivelEnsino(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()))
 
 
-@router.get("/classes")
+@router.get("/classes", response_model=list[R.ClasseComNivel])
 def classes(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     rows = db.execute(select(Classe, NivelEnsino.nome).join(NivelEnsino, NivelEnsino.id == Classe.nivel_id)
                       .where(NivelEnsino.estabelecimento_id == ctx.estabelecimento_id).order_by(Classe.ordem))
     return [{**as_dict(c), "nivel": n} for c, n in rows]
 
 
-@router.post("/classes", status_code=201)
+@router.post("/classes", response_model=R.Classe, status_code=201)
 def criar_classe(dados: ClasseIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     obter(db, NivelEnsino, dados.nivel_id, ctx.estabelecimento_id, "Nível de ensino")
     return gravar(db, Classe(**dados.model_dump()))
@@ -147,7 +148,7 @@ def _classe(db: Session, classe_id: int, est: int) -> Classe:
     return c
 
 
-@router.get("/classes/{classe_id}/disciplinas")
+@router.get("/classes/{classe_id}/disciplinas", response_model=list[R.DisciplinaDoPlano])
 def plano_curricular(classe_id: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     _classe(db, classe_id, ctx.estabelecimento_id)
     rows = db.execute(select(Disciplina, ClasseDisciplina.carga_horaria)
@@ -156,7 +157,7 @@ def plano_curricular(classe_id: int, ctx: Contexto = Depends(ver), db: Session =
     return [{**as_dict(d), "carga_horaria": ch} for d, ch in rows]
 
 
-@router.post("/classes/{classe_id}/disciplinas", status_code=201)
+@router.post("/classes/{classe_id}/disciplinas", response_model=R.ClasseDisciplina, status_code=201)
 def associar_disciplina(classe_id: int, dados: ClasseDisciplinaIn, ctx: Contexto = Depends(criar),
                         db: Session = Depends(get_db)):
     _classe(db, classe_id, ctx.estabelecimento_id)
@@ -164,30 +165,30 @@ def associar_disciplina(classe_id: int, dados: ClasseDisciplinaIn, ctx: Contexto
     return gravar(db, ClasseDisciplina(classe_id=classe_id, **dados.model_dump()), "Disciplina já associada")
 
 
-@router.get("/salas")
+@router.get("/salas", response_model=list[R.Sala])
 def salas(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(s) for s in db.scalars(select(Sala).where(Sala.estabelecimento_id == ctx.estabelecimento_id)
                                            .order_by(Sala.designacao))]
 
 
-@router.post("/salas", status_code=201)
+@router.post("/salas", response_model=R.Sala, status_code=201)
 def criar_sala(dados: SalaIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     return gravar(db, Sala(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()), "Esta sala já existe")
 
 
-@router.get("/disciplinas")
+@router.get("/disciplinas", response_model=list[R.Disciplina])
 def disciplinas(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return [as_dict(d) for d in db.scalars(select(Disciplina).where(Disciplina.estabelecimento_id == ctx.estabelecimento_id)
                                            .order_by(Disciplina.nome))]
 
 
-@router.post("/disciplinas", status_code=201)
+@router.post("/disciplinas", response_model=R.Disciplina, status_code=201)
 def criar_disciplina(dados: DisciplinaIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     return gravar(db, Disciplina(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()), "Esta disciplina já existe")
 
 
 # ---------------------------------------------------------------- funcionários
-@router.get("/funcionarios")
+@router.get("/funcionarios", response_model=list[R.Funcionario])
 def funcionarios(cargo: str | None = None, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     stmt = select(Funcionario).where(Funcionario.estabelecimento_id == ctx.estabelecimento_id)
     if cargo:
@@ -195,12 +196,12 @@ def funcionarios(cargo: str | None = None, ctx: Contexto = Depends(ver), db: Ses
     return [as_dict(f) for f in db.scalars(stmt.order_by(Funcionario.nome_completo))]
 
 
-@router.post("/funcionarios", status_code=201)
+@router.post("/funcionarios", response_model=R.Funcionario, status_code=201)
 def criar_funcionario(dados: FuncionarioIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     return gravar(db, Funcionario(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()))
 
 
-@router.patch("/funcionarios/{fid}")
+@router.patch("/funcionarios/{fid}", response_model=R.Funcionario)
 def editar_funcionario(fid: int, dados: FuncionarioUpd, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     f = obter(db, Funcionario, fid, ctx.estabelecimento_id, "Funcionário")
     aplicar(f, dados.model_dump(exclude_unset=True))
@@ -227,7 +228,7 @@ def turmas_com_ocupacao(db: Session, est: int, ano_id: int | None) -> list[dict]
     return res
 
 
-@router.get("/turmas")
+@router.get("/turmas", response_model=list[R.TurmaComOcupacao])
 def turmas(ano_id: int | None = None, ctx: Contexto = Depends(exige("cadastro")), db: Session = Depends(get_db)):
     if ano_id is None:
         ano = ano_activo(db, ctx.estabelecimento_id, obrigatorio=False)
@@ -237,7 +238,7 @@ def turmas(ano_id: int | None = None, ctx: Contexto = Depends(exige("cadastro"))
     return lista if permitidas is None else [t for t in lista if t["id"] in permitidas]
 
 
-@router.post("/turmas", status_code=201)
+@router.post("/turmas", response_model=R.Turma, status_code=201)
 def criar_turma(dados: TurmaIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     ano_id = dados.ano_id or ano_activo(db, est).id
@@ -254,14 +255,14 @@ def criar_turma(dados: TurmaIn, ctx: Contexto = Depends(criar), db: Session = De
     return res
 
 
-@router.patch("/turmas/{tid}")
+@router.patch("/turmas/{tid}", response_model=R.Turma)
 def editar_turma(tid: int, dados: TurmaUpd, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     t = obter(db, Turma, tid, ctx.estabelecimento_id, "Turma")
     aplicar(t, dados.model_dump(exclude_unset=True))
     return gravar(db, t, "Esta turma já existe neste ano lectivo")
 
 
-@router.get("/turmas/{tid}/atribuicoes")
+@router.get("/turmas/{tid}/atribuicoes", response_model=list[R.AtribuicaoComNomes])
 def atribuicoes(tid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     obter(db, Turma, tid, ctx.estabelecimento_id, "Turma")
     rows = db.execute(select(AtribuicaoDocente, Disciplina.nome, Funcionario.nome_completo)
@@ -271,7 +272,7 @@ def atribuicoes(tid: int, ctx: Contexto = Depends(ver), db: Session = Depends(ge
     return [{**as_dict(a), "disciplina": d, "professor": f} for a, d, f in rows]
 
 
-@router.put("/turmas/{tid}/atribuicoes", status_code=200)
+@router.put("/turmas/{tid}/atribuicoes", response_model=R.AtribuicaoDocente, status_code=200)
 def atribuir(tid: int, dados: AtribuicaoIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     obter(db, Turma, tid, est, "Turma")
@@ -299,7 +300,7 @@ class TransitarIn(Entrada):
     copiar_servicos: bool = True     # alimentação, refeitório…
 
 
-@router.post("/anos-lectivos/{ano_id}/fechar", summary="Fecha o ano: média final e situação de cada aluno")
+@router.post("/anos-lectivos/{ano_id}/fechar", response_model=R.ResultadoFecho, summary="Fecha o ano: média final e situação de cada aluno")
 def fechar_ano(ano_id: int, simular: bool = True, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     """Com simular=true (por omissão) mostra o resultado sem gravar. Parâmetros: nota_minima (10), faltas_maximas."""
     ano = obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo")
@@ -312,7 +313,7 @@ def fechar_ano(ano_id: int, simular: bool = True, ctx: Contexto = Depends(editar
     return res
 
 
-@router.get("/anos-lectivos/{ano_id}/resultados", summary="Resultados finais gravados do ano")
+@router.get("/anos-lectivos/{ano_id}/resultados", response_model=list[R.ResultadoComNomes], summary="Resultados finais gravados do ano")
 def resultados(ano_id: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo")
     rows = db.execute(select(ResultadoFinal, Aluno.nome_completo, Turma.designacao)
@@ -322,7 +323,7 @@ def resultados(ano_id: int, ctx: Contexto = Depends(ver), db: Session = Depends(
     return [{**as_dict(r), "aluno": a, "turma": t} for r, a, t in rows]
 
 
-@router.post("/anos-lectivos/{ano_id}/transitar", summary="Matricula no novo ano os alunos do ano anterior")
+@router.post("/anos-lectivos/{ano_id}/transitar", response_model=R.ResultadoTransicao, summary="Matricula no novo ano os alunos do ano anterior")
 def transitar(ano_id: int, dados: TransitarIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     para = obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo")
     de = obter(db, AnoLectivo, dados.de_ano_id, ctx.estabelecimento_id, "Ano lectivo")
