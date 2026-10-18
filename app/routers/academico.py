@@ -294,8 +294,7 @@ class ParTurmas(Entrada):
     para: int
 
 
-@com_exemplo({"de_ano_id": 1, "turmas": [{"de": 1, "para": 7}, {"de": 2, "para": 8}],
-              "repetentes": [{"de": 1, "para": 5}], "copiar_servicos": True})
+@com_exemplo({"de_ano_id": 2, "turmas": [{"de": 1, "para": 6}], "repetentes": [], "copiar_servicos": True})
 class TransitarIn(Entrada):
     de_ano_id: int
     turmas: list[ParTurmas]          # aprovados: turma do ano anterior → turma do novo ano

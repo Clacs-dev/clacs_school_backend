@@ -53,7 +53,7 @@ def painel(ctx: Contexto = Depends(exige("painel")), db: Session = Depends(get_d
 
 
 # ---------------------------------------------------------------- indicadores configuráveis
-@com_exemplo({"codigo": "taxa_cobranca", "nome": "Taxa de cobrança do mês", "perfil_minimo": "direccao"})
+@com_exemplo({"codigo": "alunos_matriculados", "nome": "Alunos matriculados", "perfil_minimo": "direccao"})
 class IndicadorIn(Entrada):
     codigo: str
     nome: str | None = None

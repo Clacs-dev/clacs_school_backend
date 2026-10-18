@@ -34,18 +34,31 @@ def test_todas_as_rotas_tem_resposta_documentada():
 
 
 def test_exemplos_de_pedido():
-    """Cada corpo de pedido tem um exemplo no /api/docs e o exemplo passa na validação do próprio esquema."""
-    esquemas = app.openapi()["components"]["schemas"]
-    sem = [nome for nome, e in esquemas.items() if nome.endswith(("In", "Upd")) and "examples" not in e]
+    """Cada corpo de pedido (JSON ou formulário) tem exemplo no /api/docs e o exemplo é válido."""
+    esquema = app.openapi()
+    componentes = esquema["components"]["schemas"]
+    sem = []
+    for caminho, operacoes in esquema["paths"].items():
+        for metodo, op in operacoes.items():
+            for tipo, conteudo in op.get("requestBody", {}).get("content", {}).items():
+                if tipo == "application/json":
+                    alvo = componentes.get(conteudo["schema"].get("$ref", "").split("/")[-1], {})
+                    if "examples" not in alvo and "example" not in conteudo:
+                        sem.append(f"{metodo.upper()} {caminho}")
+                else:  # formulário: cada campo de texto com exemplo, cada ficheiro com descrição
+                    campos = componentes[conteudo["schema"]["$ref"].split("/")[-1]]["properties"]
+                    sem += [f"{metodo.upper()} {caminho} [{nome}]" for nome, c in campos.items()
+                            if "examples" not in c and "description" not in c]
     assert sem == []
-    for esquema, exemplo in S.EXEMPLOS.items():
-        esquema.model_validate(exemplo)
+    for modelo, exemplo in S.EXEMPLOS.items():
+        modelo.model_validate(exemplo)
 
 
 def test_exemplos_de_resposta():
-    """Os exemplos de resposta (scripts/gerar_exemplos.py) continuam a cumprir os modelos documentados."""
-    rotas = {f"GET {r.path}": r for r in app.routes if isinstance(r, APIRoute) and "GET" in r.methods}
-    assert len(EXEMPLOS_RESPOSTA) >= 60
+    """Todas as respostas JSON têm um exemplo real (scripts/gerar_exemplos.py) que cumpre o modelo documentado."""
+    rotas = {f"{m} {r.path}": r for r in app.routes if isinstance(r, APIRoute) and r.response_model is not None
+             for m in r.methods}
+    assert sorted(set(rotas) - set(EXEMPLOS_RESPOSTA)) == [], "rotas sem exemplo; corra python -m scripts.gerar_exemplos"
     for chave, exemplo in EXEMPLOS_RESPOSTA.items():
         assert chave in rotas, f"{chave}: a rota já não existe; corra python -m scripts.gerar_exemplos"
         try:

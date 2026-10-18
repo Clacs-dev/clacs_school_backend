@@ -120,9 +120,10 @@ def openapi_com_exemplos():
         esquema = FastAPI.openapi(app)
         for chave, exemplo in EXEMPLOS_RESPOSTA.items():
             metodo, caminho = chave.split(" ", 1)
-            operacao = esquema["paths"].get(caminho, {}).get(metodo.lower())
-            if operacao:
-                operacao["responses"]["200"]["content"]["application/json"]["example"] = exemplo
+            operacao = esquema["paths"].get(caminho, {}).get(metodo.lower(), {"responses": {}})
+            sucesso = next((operacao["responses"][c] for c in ("200", "201") if c in operacao["responses"]), None)
+            if sucesso:
+                sucesso["content"]["application/json"]["example"] = exemplo
     return app.openapi_schema
 
 

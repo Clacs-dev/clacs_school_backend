@@ -63,8 +63,8 @@ def modelos(ctx: Contexto = Depends(exige("importacao"))):
 
 
 @router.post("/{entidade}", response_model=R.LoteImportado, status_code=201)
-async def importar(entidade: Literal["aluno", "encarregado", "cobranca", "pagamento"], ficheiro: UploadFile = File(...),
-                   origem: str = Form("software anterior"), ctx: Contexto = Depends(exige("importacao", "criar")),
+async def importar(entidade: Literal["aluno", "encarregado", "cobranca", "pagamento"], ficheiro: UploadFile = File(..., description="CSV com ';' e as colunas de GET /api/importacao/modelos"),
+                   origem: str = Form("software anterior", examples=["Software anterior (2025)"]), ctx: Contexto = Depends(exige("importacao", "criar")),
                    db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     linhas = _ler_csv(await ficheiro.read())

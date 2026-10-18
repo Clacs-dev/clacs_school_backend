@@ -34,7 +34,7 @@ extra = APIRouter(prefix="/api", tags=["Portal do encarregado"])
 log = logging.getLogger("clacs.portal")
 
 
-@com_exemplo({"cobranca_ids": [12, 13]})
+@com_exemplo({"cobranca_ids": [36]})
 class ReferenciaIn(Entrada):
     cobranca_ids: list[int] = Field(min_length=1)
 
@@ -169,8 +169,9 @@ def gerar_referencia(dados: ReferenciaIn, ee: Encarregado = Depends(encarregado_
 
 
 @router.post("/pagamentos/comprovativo", response_model=R.ComprovativoEnviado, status_code=201, summary="Envia o comprovativo de uma transferência ou depósito")
-async def enviar_comprovativo(cobranca_ids: str = Form(..., description="ids separados por vírgula"),
-                              referencia: str | None = Form(None), ficheiro: UploadFile = File(...),
+async def enviar_comprovativo(cobranca_ids: str = Form(..., description="ids separados por vírgula", examples=["36"]),
+                              referencia: str | None = Form(None, examples=["TRF-0045821"]),
+                              ficheiro: UploadFile = File(..., description="PDF ou imagem do talão"),
                               ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     ids = [int(x) for x in cobranca_ids.replace(" ", "").split(",") if x.isdigit()]
     valor = _validar_cobrancas(db, ee, ids)
@@ -274,7 +275,20 @@ def criar_conta(eid: int, dados: ContaIn, ctx: Contexto = Depends(exige("utiliza
     return {"utilizador_id": u.id, "email": email}
 
 
-@extra.post("/pagamentos/webhook", response_model=R.WebhookResultado, summary="Aviso do gateway: pagamento por referência concluído")
+WEBHOOK_EXEMPLO = {"referencia": "123 456 789", "valor": 18000, "data": "2026-10-08", "id_transaccao": "GW-778812"}
+
+
+@extra.post("/pagamentos/webhook", response_model=R.WebhookResultado, summary="Aviso do gateway: pagamento por referência concluído",
+            openapi_extra={
+                "parameters": [{"name": "X-Assinatura", "in": "header", "required": True,
+                                "description": "HMAC-SHA256 (hex) do corpo com PAGAMENTOS_WEBHOOK_SEGREDO",
+                                "schema": {"type": "string"}}],
+                "requestBody": {"required": True, "content": {"application/json": {
+                    "schema": {"type": "object", "required": ["referencia", "valor"],
+                               "properties": {"referencia": {"type": "string"}, "valor": {"type": "number"},
+                                              "data": {"type": "string", "format": "date"},
+                                              "id_transaccao": {"type": "string"}}},
+                    "example": WEBHOOK_EXEMPLO}}}})
 async def webhook(request: Request, db: Session = Depends(get_db)):
     corpo = await request.body()
     try:

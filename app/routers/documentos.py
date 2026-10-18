@@ -32,8 +32,9 @@ def _pdf(conteudo: bytes, nome: str) -> Response:
 
 # ---------------------------------------------------------------- envio de ficheiros
 @router.post("/alunos/{aid}/documentos/ficheiro", response_model=R.DocumentoAluno, status_code=201, summary="Anexa um documento (BI, certificado…)")
-async def anexar_ficheiro(aid: int, tipo: str = Form(...), validade: date | None = Form(None),
-                          ficheiro: UploadFile = File(...), ctx: Contexto = Depends(exige("cadastro", "editar")),
+async def anexar_ficheiro(aid: int, tipo: str = Form(..., examples=["certidao_nascimento"]),
+                          validade: date | None = Form(None, examples=["2030-12-31"]),
+                          ficheiro: UploadFile = File(..., description="PDF ou imagem"), ctx: Contexto = Depends(exige("cadastro", "editar")),
                           db: Session = Depends(get_db)):
     obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
     chave = armazenamento.guardar(ctx.estabelecimento_id, "documentos", await ficheiro.read(),
@@ -46,7 +47,7 @@ async def anexar_ficheiro(aid: int, tipo: str = Form(...), validade: date | None
 
 
 @router.post("/alunos/{aid}/foto", response_model=R.Foto, summary="Foto do aluno (JPG, PNG ou WEBP)")
-async def foto(aid: int, ficheiro: UploadFile = File(...), ctx: Contexto = Depends(exige("cadastro", "editar")),
+async def foto(aid: int, ficheiro: UploadFile = File(..., description="Imagem (JPEG ou PNG)"), ctx: Contexto = Depends(exige("cadastro", "editar")),
                db: Session = Depends(get_db)):
     a = obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
     if not (ficheiro.content_type or "").startswith("image/"):
@@ -58,7 +59,7 @@ async def foto(aid: int, ficheiro: UploadFile = File(...), ctx: Contexto = Depen
 
 
 @router.post("/pagamentos/{pid}/comprovativo", response_model=R.Comprovativo, summary="Anexa o comprovativo de um pagamento")
-async def comprovativo(pid: int, ficheiro: UploadFile = File(...), ctx: Contexto = Depends(exige("propinas", "criar")),
+async def comprovativo(pid: int, ficheiro: UploadFile = File(..., description="PDF ou imagem do talão"), ctx: Contexto = Depends(exige("propinas", "criar")),
                        db: Session = Depends(get_db)):
     pg = obter(db, Pagamento, pid, ctx.estabelecimento_id, "Pagamento")
     chave = armazenamento.guardar(ctx.estabelecimento_id, "comprovativos", await ficheiro.read(),

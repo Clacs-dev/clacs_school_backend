@@ -47,7 +47,9 @@ def _hash_curto(senha_hash: str) -> str:
 
 
 @router.post("/auth/login", response_model=R.Token, summary="Iniciar sessão (username = e-mail; codigo = verificação em dois passos)")
-def login(request: Request, username: str = Form(...), password: str = Form(...), codigo: str | None = Form(None),
+def login(request: Request, username: str = Form(..., description="E-mail", examples=["secretaria@clacs.ao"]),
+          password: str = Form(..., examples=["senha-forte-123"]),
+          codigo: str | None = Form(None, description="Só com dois passos activos", examples=["482913"]),
           db: Session = Depends(get_db)):
     email = username.strip().lower()
     chaves = (f"email:{email}", f"ip:{request.client.host if request.client else '-'}")
