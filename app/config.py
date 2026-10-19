@@ -42,8 +42,12 @@ class Settings(BaseSettings):
     smtp_from: str = "CLACS Escola <no-reply@clacs.ao>"
     smtp_tls: bool = True
 
-    # WhatsApp: "zapi" (Z-API) ou "meta" (Cloud API oficial). Sem credenciais do escolhido, só regista.
-    whatsapp_provedor: str = "zapi"
+    # WhatsApp: "evolution" (HunterCenter e outras plataformas Evolution API), "zapi" (Z-API) ou "meta"
+    # (Cloud API oficial). Sem credenciais do escolhido, só regista.
+    whatsapp_provedor: str = "evolution"
+    evolution_url: str = ""          # URL base, ex.: https://whatsapp-api.electrosoftwares.com
+    evolution_instancia: str = ""    # nome da instância, ex.: hunter-2232…
+    evolution_apikey: str = ""       # chave de API (cabeçalho apikey)
     zapi_instance_id: str = ""
     zapi_token: str = ""
     zapi_client_token: str = ""     # "Security token" da conta Z-API (cabeçalho Client-Token)

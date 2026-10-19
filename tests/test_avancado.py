@@ -144,8 +144,33 @@ def test_whatsapp_por_zapi(monkeypatch):
     assert enviado["headers"] == {"Client-Token": "SEG"}
 
 
+def test_whatsapp_por_evolution(monkeypatch):
+    s = get_settings()
+    monkeypatch.setattr(s, "whatsapp_provedor", "evolution")
+    monkeypatch.setattr(s, "evolution_url", "https://whatsapp-api.exemplo.com/")
+    monkeypatch.setattr(s, "evolution_instancia", "hunter-abc")
+    monkeypatch.setattr(s, "evolution_apikey", "CHAVE")
+    enviado = {}
+
+    def post(url, json=None, headers=None, timeout=None):
+        enviado.update(url=url, json=json, headers=headers)
+        return httpx.Response(201, json={"key": {"remoteJid": "244923000111@s.whatsapp.net", "id": "3EB0ABC"},
+                                         "status": "PENDING"})
+
+    monkeypatch.setattr(mensagens.httpx, "post", post)
+    assert mensagens.enviar_whatsapp("+244 923 000 111", "Olá") == "3EB0ABC"
+    assert enviado["url"] == "https://whatsapp-api.exemplo.com/message/sendText/hunter-abc"
+    assert enviado["json"] == {"number": "244923000111", "text": "Olá"}
+    assert enviado["headers"] == {"apikey": "CHAVE"}
+
+    monkeypatch.setattr(mensagens.httpx, "post", lambda *a, **k: httpx.Response(404, text="instância não existe"))
+    with pytest.raises(mensagens.ErroIntegracao):
+        mensagens.enviar_whatsapp("923000111", "Olá")
+
+
 def test_whatsapp_zapi_erro(monkeypatch):
     s = get_settings()
+    monkeypatch.setattr(s, "whatsapp_provedor", "zapi")
     monkeypatch.setattr(s, "zapi_instance_id", "INST")
     monkeypatch.setattr(s, "zapi_token", "TOK")
     monkeypatch.setattr(mensagens.httpx, "post", lambda *a, **k: httpx.Response(401, text="instância desligada"))

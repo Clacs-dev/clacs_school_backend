@@ -1,6 +1,9 @@
-"""WhatsApp (Z-API ou Cloud API da Meta) e SMS (Twilio).
+"""WhatsApp (Evolution API, Z-API ou Cloud API da Meta) e SMS (Twilio).
 
 Notas para activar:
+- WhatsApp por Evolution API, como a HunterCenter (WHATSAPP_PROVEDOR=evolution, o padrão): EVOLUTION_URL,
+  EVOLUTION_INSTANCIA e EVOLUTION_APIKEY, do ecrã "Integrar" da plataforma. Também liga um telemóvel pelo
+  WhatsApp Web, com o mesmo risco de bloqueio da Z-API em envios em massa.
 - WhatsApp por Z-API (WHATSAPP_PROVEDOR=zapi): ZAPI_INSTANCE_ID, ZAPI_TOKEN e ZAPI_CLIENT_TOKEN, do painel da Z-API.
   A Z-API não é a API oficial do WhatsApp (liga um telemóvel pelo WhatsApp Web): envios em massa podem levar a
   Meta a bloquear o número. Use um número próprio da escola e evite enviar centenas de mensagens seguidas.
@@ -32,9 +35,31 @@ def normalizar_telefone(numero: str) -> str:
 
 
 def enviar_whatsapp(numero: str, texto: str) -> str:
-    if get_settings().whatsapp_provedor == "zapi":
+    provedor = get_settings().whatsapp_provedor
+    if provedor == "evolution":
+        return _whatsapp_evolution(numero, texto)
+    if provedor == "zapi":
         return _whatsapp_zapi(numero, texto)
     return _whatsapp_meta(numero, texto)
+
+
+def _whatsapp_evolution(numero: str, texto: str) -> str:
+    """Evolution API (ex.: HunterCenter): POST {url}/message/sendText/{instância}, cabeçalho apikey."""
+    s = get_settings()
+    destino = normalizar_telefone(numero)
+    if not (s.evolution_url and s.evolution_instancia and s.evolution_apikey):
+        log.info("[whatsapp evolution simulado] para %s: %s", destino, texto)
+        return f"sim-wa-{uuid.uuid4().hex[:12]}"
+    url = f"{s.evolution_url.rstrip('/')}/message/sendText/{s.evolution_instancia}"
+    try:
+        r = httpx.post(url, json={"number": destino, "text": texto[:4096]}, headers={"apikey": s.evolution_apikey},
+                       timeout=20)
+    except httpx.HTTPError as e:
+        raise ErroIntegracao(f"WhatsApp indisponível: {e}") from e
+    if r.status_code >= 400:
+        raise ErroIntegracao(f"WhatsApp recusou ({r.status_code}): {r.text[:300]}")
+    dados = r.json() if r.content else {}
+    return str((dados.get("key") or {}).get("id") or dados.get("id") or "")
 
 
 def _whatsapp_zapi(numero: str, texto: str) -> str:
