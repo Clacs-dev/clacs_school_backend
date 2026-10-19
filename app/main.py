@@ -81,11 +81,6 @@ app = FastAPI(
     lifespan=ciclo_de_vida,
 )
 
-origens = [o.strip() for o in get_settings().cors_origins.split(",") if o.strip()]
-app.add_middleware(CORSMiddleware, allow_origins=origens, allow_credentials="*" not in origens,
-                   allow_methods=["*"], allow_headers=["*"], expose_headers=["Content-Disposition", "X-2FA"])
-
-
 @app.middleware("http")
 async def registo_e_cabecalhos(request: Request, call_next):
     """Identificador por pedido, tempo de resposta no registo, cabeçalhos de segurança e erros sem fugas."""
@@ -104,6 +99,13 @@ async def registo_e_cabecalhos(request: Request, call_next):
     resposta.headers["X-Frame-Options"] = "DENY"
     resposta.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return resposta
+
+
+# Registado depois do middleware acima para ficar por fora dele: assim também as respostas de erro 500 levam os
+# cabeçalhos CORS (sem eles, o browser mostra "blocked by CORS policy" em vez do erro verdadeiro).
+origens = [o.strip().rstrip("/") for o in get_settings().cors_origins.split(",") if o.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=origens, allow_credentials="*" not in origens,
+                   allow_methods=["*"], allow_headers=["*"], expose_headers=["Content-Disposition", "X-2FA"])
 
 
 for r in (auth, academico, cadastro, financeiro, refeitorio, comunicacao, pedagogico, painel, primavera,

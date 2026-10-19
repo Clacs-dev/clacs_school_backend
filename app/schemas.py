@@ -473,7 +473,8 @@ class RegistoDiarioIn(Entrada):
 
 # ---------------------------------------------------------------- outros
 class EstadoIn(Entrada):
-    estado: str
+    """Estado de um alerta: visto (aberto mas lido), tratado ou descartado; novo volta a abri-lo."""
+    estado: Literal["novo", "visto", "tratado", "descartado"]
 
 
 class PerguntaIn(Entrada):

@@ -235,3 +235,21 @@ def test_portal(client, admin):
     ok(client.post(f"/api/portal/mensagens/{mid}/lida", headers=ee))
     ok(client.post("/api/portal/dispositivos", headers=ee, json={"token": "token-contrato-0001", "plataforma": "web"}))
     ok(client.delete("/api/portal/dispositivos", headers=ee, params={"token": "token-contrato-0001"}))
+
+
+def test_erros_levam_cabecalhos_cors(client, admin):
+    """Um erro (422 ou 500) chega ao browser com os cabeçalhos CORS e não como 'blocked by CORS policy'."""
+    origem = {"Origin": "https://clacs-escola.vercel.app"}
+    r = client.patch("/api/alertas/1", headers={**admin, **origem}, json={"estado": "resolvido"})
+    assert r.status_code == 422 and r.headers.get("access-control-allow-origin")
+
+    def falha():
+        raise RuntimeError("erro de teste")
+
+    app.add_api_route("/api/_teste_erro_cors", falha, include_in_schema=False)
+    try:
+        r = client.get("/api/_teste_erro_cors", headers=origem)
+        assert r.status_code == 500 and "Referência" in r.json()["detail"]
+        assert r.headers.get("access-control-allow-origin")
+    finally:
+        app.router.routes[:] = [rt for rt in app.router.routes if getattr(rt, "path", "") != "/api/_teste_erro_cors"]
