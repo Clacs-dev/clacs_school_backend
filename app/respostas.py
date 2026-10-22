@@ -180,6 +180,11 @@ class DisciplinaDoPlano(Disciplina):
     carga_horaria: int | None
 
 
+class DisciplinaDoAluno(DisciplinaDoPlano):
+    professor_id: int | None
+    professor: str | None = Field(description="Professor da disciplina na turma do aluno")
+
+
 class TurmaComOcupacao(Turma):
     classe: str
     sala: str | None
@@ -260,6 +265,7 @@ class AlunoDetalhe(Aluno):
     encarregados: list[EncarregadoDoAluno]
     matriculas: list[MatriculaComNomes]
     documentos: list[DocumentoAluno]
+    disciplinas: list["DisciplinaDoAluno"] = Field(description="Plano curricular da classe da turma actual")
 
 
 class Educando(Saida):
@@ -396,6 +402,23 @@ class Devedor(Saida):
     cobrancas_em_atraso: int
     total_em_divida: float
     maior_atraso: int = Field(description="Dias")
+
+
+class TurmaVagas(Saida):
+    id: int
+    designacao: str
+    periodo_dia: str | None
+    alunos: int
+    capacidade: int
+    vagas: int
+    cheia: bool
+
+
+class SugestaoTurma(Saida):
+    classe_id: int
+    turma_pedida: TurmaVagas | None = Field(description="Só quando se pediu uma turma")
+    sugerida: TurmaVagas | None = Field(description="A turma onde matricular; null = nenhuma com vaga")
+    mensagem: str
 
 
 class ResultadoGeracao(Saida):
@@ -808,3 +831,4 @@ QUALQUER_FICHEIRO = ficheiro("application/octet-stream", "O ficheiro (PDF, image
 Financeiro360.model_rebuild()
 Aluno360.model_rebuild()
 ResultadoGeracao.model_rebuild()
+AlunoDetalhe.model_rebuild()

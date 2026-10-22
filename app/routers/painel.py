@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import agendador
+from app import crud
 from app import respostas as R
 from app.common import ano_activo, as_dict, obter, primeiro_dia, soma_meses
 from app.database import get_db
@@ -279,3 +280,8 @@ def health(db: Session = Depends(get_db)):
     db.execute(select(1))
     return {"estado": "ok"}
 
+
+
+# ---------------------------------------------------------------- CRUD completo (ver, apagar)
+crud.registar(router, "/relatorios/agendados", RelatorioAgendado, nome="Relatório agendado", modulo="painel",
+              resposta=R.RelatorioAgendado, ops=("ver", "apagar"))

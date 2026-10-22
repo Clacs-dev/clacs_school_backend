@@ -3,6 +3,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import crud
 from app import respostas as R
 from app.common import ano_activo, aplicar, as_dict, obter
 from app.database import get_db
@@ -135,3 +136,10 @@ def criar_comunicado(dados: ComunicadoIn, ctx: Contexto = Depends(criar), db: Se
                             canal=canal, assunto=dados.titulo, corpo=dados.corpo))
     db.commit()
     return {**as_dict(c), "destinatarios": len(destinos)}
+
+
+# ---------------------------------------------------------------- CRUD completo (ver, editar, apagar)
+crud.registar(router, "/modelos-mensagem", ModeloMensagem, nome="Modelo de mensagem", modulo="comunicacao",
+              resposta=R.ModeloMensagem, entrada=ModeloIn)
+crud.registar(router, "/regras", RegraAutomacao, nome="Regra", modulo="comunicacao", resposta=R.RegraAutomacao,
+              ops=("ver", "apagar"))

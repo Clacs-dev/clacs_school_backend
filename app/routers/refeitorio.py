@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import crud
 from app import respostas as R
 from app.common import ano_activo, aplicar, as_dict, obter, soma_meses
 from app.database import get_db
@@ -207,3 +208,9 @@ def registos(data: date | None = None, ctx: Contexto = Depends(ver), db: Session
                       .join(RefeicaoTipo, RefeicaoTipo.id == RefeicaoRegisto.refeicao_tipo_id)
                       .where(RefeicaoTipo.estabelecimento_id == ctx.estabelecimento_id, RefeicaoRegisto.data == dia))
     return [{**as_dict(r), "aluno": a, "refeicao": t} for r, a, t in rows]
+
+
+# ---------------------------------------------------------------- CRUD completo (ver, editar, apagar)
+crud.registar(router, "/tipos", RefeicaoTipo, nome="Tipo de refeição", modulo="refeitorio", resposta=R.RefeicaoTipo,
+              entrada=RefeicaoTipoIn)
+crud.registar(router, "/ementas", Ementa, nome="Ementa", modulo="refeitorio", resposta=R.Ementa, entrada=EmentaIn)

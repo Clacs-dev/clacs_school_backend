@@ -133,13 +133,21 @@ class Classe(Base):
     ordem: Mapped[int] = mapped_column(SmallInteger)
 
 
+TIPOS_SALA = ("sala_aula", "laboratorio", "informatica", "biblioteca", "ginasio", "auditorio", "refeitorio", "outro")
+
+
 class Sala(Base):
     __tablename__ = "sala"
-    __table_args__ = (UniqueConstraint("estabelecimento_id", "designacao"),)
+    __table_args__ = (UniqueConstraint("estabelecimento_id", "designacao"), ck_in("tipo", *TIPOS_SALA))
     id: Mapped[int] = pk()
     estabelecimento_id: Mapped[int] = estab_fk()
     designacao: Mapped[str] = mapped_column(Text)
     capacidade: Mapped[int | None] = mapped_column(SmallInteger)
+    tipo: Mapped[str] = mapped_column(Text, server_default="sala_aula")
+    piso: Mapped[str | None] = mapped_column(Text)          # "R/C", "1.º andar"
+    localizacao: Mapped[str | None] = mapped_column(Text)   # posição: bloco, ala, junto a…
+    observacoes: Mapped[str | None] = mapped_column(Text)
+    activo: Mapped[bool] = mapped_column(Boolean, server_default=true())
 
 
 class Disciplina(Base):
@@ -168,6 +176,7 @@ class Funcionario(Base):
     nif: Mapped[str | None] = mapped_column(Text)
     telefone: Mapped[str | None] = mapped_column(Text)
     email: Mapped[str | None] = mapped_column(Text)
+    ano_contratacao: Mapped[int | None] = mapped_column(SmallInteger)
     activo: Mapped[bool] = mapped_column(Boolean, server_default=true())
     criado_em: Mapped[datetime] = criado_em()
 

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import crud
 from app import respostas as R
 from app.common import aplicar, as_dict, obter
 from app.database import get_db
@@ -267,3 +268,15 @@ def ver_registo_diario(turma_id: int, data: date | None = None, ctx: Contexto = 
     if data:
         stmt = stmt.where(RegistoDiario.data == data)
     return [as_dict(r) for r in db.scalars(stmt.order_by(RegistoDiario.data.desc()).limit(500))]
+
+
+# ---------------------------------------------------------------- CRUD completo (ver, editar, apagar)
+crud.registar(router, "/tipos-avaliacao", TipoAvaliacao, nome="Tipo de avaliação", modulo="pedagogico",
+              resposta=R.TipoAvaliacao, entrada=TipoAvaliacaoIn)
+crud.registar(router, "/avaliacoes", Avaliacao, nome="Avaliação", modulo="pedagogico", resposta=R.Avaliacao,
+              entrada=AvaliacaoIn, excluir=("turma_id", "disciplina_id", "periodo_id"),
+              verificar=crud.so_turmas_permitidas)
+crud.registar(router, "/tipos-ocorrencia", TipoOcorrencia, nome="Tipo de ocorrência", modulo="pedagogico",
+              resposta=R.TipoOcorrencia, entrada=TipoOcorrenciaIn)
+crud.registar(router, "/ocorrencias", Ocorrencia, nome="Ocorrência", modulo="pedagogico", resposta=R.Ocorrencia,
+              ops=("ver", "apagar"))

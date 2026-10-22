@@ -3,7 +3,7 @@ from datetime import date, time
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class Entrada(BaseModel):
@@ -100,9 +100,17 @@ class ClasseIn(Entrada):
     ordem: int
 
 
+TipoSala = Literal["sala_aula", "laboratorio", "informatica", "biblioteca", "ginasio", "auditorio", "refeitorio", "outro"]
+
+
 class SalaIn(Entrada):
     designacao: str
-    capacidade: int | None = None
+    capacidade: int | None = Field(None, ge=1)
+    tipo: TipoSala = "sala_aula"
+    piso: str | None = Field(None, description="Ex.: R/C, 1.º andar")
+    localizacao: str | None = Field(None, description="Posição: bloco, ala, ponto de referência")
+    observacoes: str | None = None
+    activo: bool = True
 
 
 class DisciplinaIn(Entrada):
@@ -124,6 +132,7 @@ class FuncionarioIn(Entrada):
     nif: str | None = None
     telefone: str | None = None
     email: str | None = None
+    ano_contratacao: int | None = Field(None, ge=1950, le=2100)
     activo: bool = True
 
 
@@ -133,6 +142,7 @@ class FuncionarioUpd(Entrada):
     nif: str | None = None
     telefone: str | None = None
     email: str | None = None
+    ano_contratacao: int | None = Field(None, ge=1950, le=2100)
     activo: bool | None = None
 
 
@@ -143,7 +153,7 @@ class TurmaIn(Entrada):
     sala_id: int | None = None
     periodo_dia: Literal["manha", "tarde", "noite"] = "manha"
     director_turma_id: int | None = None
-    capacidade: int = Field(30, ge=1)
+    capacidade: int | None = Field(None, ge=1, description="Por omissão, o parâmetro capacidade_turma (7)")
 
 
 class TurmaUpd(Entrada):
@@ -183,6 +193,7 @@ class AlunoIn(AlunoBase):
     encarregado_id: int | None = None
     parentesco: Parentesco = "mae"
     turma_id: int | None = None
+    classe_id: int | None = Field(None, description="Em vez de turma_id: o sistema escolhe a 1.ª turma com vaga")
 
 
 class AlunoUpd(AlunoBase):
@@ -223,10 +234,18 @@ class DocumentoIn(Entrada):
 
 
 class MatriculaIn(Entrada):
+    """Indique turma_id, ou só classe_id para o sistema escolher a primeira turma da classe com vaga (A, B, C…)."""
     aluno_id: int
-    turma_id: int
+    turma_id: int | None = None
+    classe_id: int | None = None
     tipo: Literal["nova", "renovacao", "transferencia"] = "renovacao"
     observacoes: str | None = None
+
+    @model_validator(mode="after")
+    def turma_ou_classe(self):
+        if self.turma_id is None and self.classe_id is None:
+            raise ValueError("indique turma_id ou classe_id")
+        return self
 
 
 class MudancaTurmaIn(Entrada):
@@ -545,10 +564,12 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     PeriodoIn: {"designacao": "1.º Trimestre", "ordem": 1, "data_inicio": "2026-09-01", "data_fim": "2026-12-15"},
     NivelIn: {"nome": "Ensino Primário", "ordem": 2},
     ClasseIn: {"nivel_id": 2, "designacao": "3.ª Classe", "ordem": 3},
-    SalaIn: {"designacao": "Sala 12", "capacidade": 32},
+    SalaIn: {"designacao": "Laboratório de Ciências", "capacidade": 20, "tipo": "laboratorio", "piso": "1.º andar",
+             "localizacao": "Bloco B, ao lado da biblioteca", "observacoes": "Com lavatórios e bancadas"},
     DisciplinaIn: {"nome": "Educação Musical", "sigla": "EM"},
     ClasseDisciplinaIn: {"disciplina_id": 8, "carga_horaria": 2},
-    FuncionarioIn: {"nome_completo": "João Manuel Sebastião", "cargo": "professor", "telefone": "+244912345678",
+    FuncionarioIn: {"nome_completo": "João Manuel Sebastião", "cargo": "professor", "ano_contratacao": 2021,
+                    "telefone": "+244912345678",
                     "email": "joao.sebastiao@clacs.ao"},
     FuncionarioUpd: {"cargo": "coordenador", "telefone": "+244912000222"},
     TurmaIn: {"designacao": "3.ª A", "classe_id": 3, "sala_id": 1, "periodo_dia": "manha",
@@ -566,7 +587,7 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     LigacaoIn: {"encarregado_id": 2, "parentesco": "pai", "principal": False, "responsavel_financeiro": True,
                 "autorizado_recolha": True},
     DocumentoIn: {"tipo": "certidao_nascimento", "ficheiro_url": "/api/ficheiros/alunos/1/certidao.pdf"},
-    MatriculaIn: {"aluno_id": 1, "turma_id": 1, "tipo": "renovacao", "observacoes": "Transita da 2.ª A"},
+    MatriculaIn: {"aluno_id": 1, "classe_id": 1, "tipo": "renovacao", "observacoes": "Transita da 4.ª Classe"},
     MudancaTurmaIn: {"turma_id": 2, "motivo": "Pedido do encarregado (horário da tarde)"},
     ServicoIn: {"codigo": "TRANSP", "nome": "Transporte escolar", "categoria": "transporte",
                 "periodicidade": "mensal", "artigo_primavera": "SRV-TRANSP"},

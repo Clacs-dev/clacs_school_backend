@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import crud
 from app import respostas as R
 from app.common import ano_activo, aplicar, as_dict, obter
 from app.database import get_db
@@ -304,3 +305,16 @@ def confirmar_pagamento(pid: int, ctx: Contexto = Depends(editar), db: Session =
 @router.post("/pagamentos/{pid}/rejeitar", response_model=R.Pagamento, summary="Rejeita um pagamento pendente; as cobranças voltam a ficar em dívida")
 def rejeitar_pagamento(pid: int, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     return _decidir(pid, "rejeitado", ctx, db)
+
+
+# ---------------------------------------------------------------- CRUD completo (ver, editar, apagar)
+crud.registar(router, "/servicos", Servico, nome="Serviço", modulo="propinas", resposta=R.Servico, ops=("ver", "apagar"))
+crud.registar(router, "/precos", TabelaPreco, nome="Preço", modulo="propinas", resposta=R.TabelaPreco, entrada=PrecoIn,
+              excluir=("servico_id", "classe_id", "ano_id"))
+crud.registar(router, "/planos-pagamento", PlanoPagamento, nome="Plano de pagamento", modulo="propinas",
+              resposta=R.PlanoPagamento, entrada=PlanoIn)
+crud.registar(router, "/multas", MultaRegra, nome="Regra de multa", modulo="propinas", resposta=R.MultaRegra,
+              entrada=MultaIn)
+crud.registar(router, "/descontos", Desconto, nome="Desconto", modulo="propinas", resposta=R.Desconto, entrada=DescontoIn)
+crud.registar(router, "/metodos-pagamento", MetodoPagamento, nome="Método de pagamento", modulo="propinas",
+              resposta=R.MetodoPagamento, entrada=MetodoIn)

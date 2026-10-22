@@ -5,11 +5,13 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import crud
 from app import respostas as R
 from app.common import ano_activo, aplicar, as_dict, obter
 from app.database import get_db
 from app.models import (
-    AdesaoServico, Aluno, AlunoEncarregado, AnoLectivo, Desconto, DocumentoAluno, Encarregado, Matricula,
+    AdesaoServico, Aluno, AlunoEncarregado, AnoLectivo, AtribuicaoDocente, Classe, ClasseDisciplina, Desconto, Disciplina,
+    Funcionario, DocumentoAluno, Encarregado, Matricula,
     MatriculaDesconto, MatriculaHistorico, Ocorrencia, PreferenciaContacto, Servico, Turma,
 )
 from app.schemas import (
@@ -19,6 +21,7 @@ from app.schemas import (
 from app.security import Contexto, auditar, exige
 from app.services.alertas import comportamento_actual
 from app.services.financeiro import cobrancas_detalhe
+from app.services import turmas as ocupacao_turmas
 from app.services.pedagogico import media_geral, total_faltas
 
 router = APIRouter(prefix="/api", tags=["Cadastro e matrículas"])
@@ -33,14 +36,15 @@ def _numero_processo(db: Session, est: int) -> str:
     return f"{ano}{n:04d}"
 
 
-def _turma_do_ano(db: Session, turma_id: int, est: int, ano_id: int) -> Turma:
+def _turma_do_ano(db: Session, turma_id: int | None, est: int, ano_id: int, classe_id: int | None = None) -> Turma:
+    """A turma pedida (409 se cheia, com a próxima turma com vaga) ou, só com a classe, a 1.ª turma com vaga."""
+    if turma_id is None:
+        obter(db, Classe, classe_id, nome="Classe")
+        return ocupacao_turmas.escolher(db, est, ano_id, classe_id)
     t = obter(db, Turma, turma_id, est, "Turma")
     if t.ano_id != ano_id:
         raise HTTPException(422, "A turma não pertence ao ano lectivo activo")
-    ocupacao = db.scalar(select(func.count()).select_from(Matricula)
-                         .where(Matricula.turma_id == turma_id, Matricula.estado == "activa"))
-    if ocupacao >= t.capacidade:
-        raise HTTPException(409, f"A turma {t.designacao} está cheia ({ocupacao}/{t.capacidade})")
+    ocupacao_turmas.garantir_vaga(db, t)
     return t
 
 
@@ -50,6 +54,22 @@ def _matricula_activa(db: Session, aluno_id: int, est: int) -> Matricula | None:
         return None
     return db.scalar(select(Matricula).where(Matricula.aluno_id == aluno_id, Matricula.ano_id == ano.id,
                                              Matricula.estado == "activa"))
+
+
+def disciplinas_do_aluno(db: Session, aluno_id: int, est: int) -> list[dict]:
+    """As disciplinas do plano curricular da classe da turma actual do aluno, com o professor da turma."""
+    m = _matricula_activa(db, aluno_id, est)
+    if m is None:
+        return []
+    t = db.get(Turma, m.turma_id)
+    rows = db.execute(
+        select(Disciplina, ClasseDisciplina.carga_horaria, Funcionario.id, Funcionario.nome_completo)
+        .join(ClasseDisciplina, ClasseDisciplina.disciplina_id == Disciplina.id)
+        .outerjoin(AtribuicaoDocente, (AtribuicaoDocente.disciplina_id == Disciplina.id)
+                   & (AtribuicaoDocente.turma_id == t.id))
+        .outerjoin(Funcionario, Funcionario.id == AtribuicaoDocente.funcionario_id)
+        .where(ClasseDisciplina.classe_id == t.classe_id).order_by(Disciplina.nome))
+    return [{**as_dict(d), "carga_horaria": ch, "professor_id": pid, "professor": prof} for d, ch, pid, prof in rows]
 
 
 # ---------------------------------------------------------------- alunos
@@ -83,15 +103,15 @@ def listar_alunos(q: str | None = None, turma_id: int | None = None, estado: str
 @router.post("/alunos", response_model=R.Aluno, status_code=201)
 def criar_aluno(dados: AlunoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
-    campos = dados.model_dump(exclude={"encarregado_id", "parentesco", "turma_id"}, exclude_none=True)
+    campos = dados.model_dump(exclude={"encarregado_id", "parentesco", "turma_id", "classe_id"}, exclude_none=True)
     campos.setdefault("numero_processo", _numero_processo(db, est))
     if db.scalar(select(Aluno.id).where(Aluno.estabelecimento_id == est,
                                         Aluno.numero_processo == campos["numero_processo"])):
         raise HTTPException(409, "Já existe um aluno com este número de processo")
     turma = None
-    if dados.turma_id:
+    if dados.turma_id or dados.classe_id:
         ano = ano_activo(db, est)
-        turma = _turma_do_ano(db, dados.turma_id, est, ano.id)
+        turma = _turma_do_ano(db, dados.turma_id, est, ano.id, dados.classe_id)
     if dados.encarregado_id:
         obter(db, Encarregado, dados.encarregado_id, est, "Encarregado")
 
@@ -122,7 +142,15 @@ def ver_aluno(aid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_
             "encarregados": [{**as_dict(e), **{k: v for k, v in as_dict(l).items() if k not in ("aluno_id",)}}
                              for e, l in ees],
             "matriculas": [{**as_dict(m), "turma": t, "ano_lectivo": an} for m, t, an in mats],
-            "documentos": [as_dict(d) for d in docs]}
+            "documentos": [as_dict(d) for d in docs],
+            "disciplinas": disciplinas_do_aluno(db, aid, ctx.estabelecimento_id)}
+
+
+@router.get("/alunos/{aid}/disciplinas", response_model=list[R.DisciplinaDoAluno],
+            summary="Disciplinas do aluno: o plano curricular da classe da turma, com o professor")
+def disciplinas_aluno(aid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
+    obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
+    return disciplinas_do_aluno(db, aid, ctx.estabelecimento_id)
 
 
 @router.patch("/alunos/{aid}", response_model=R.Aluno)
@@ -297,9 +325,11 @@ def matricular(dados: MatriculaIn, ctx: Contexto = Depends(criar), db: Session =
     ano = ano_activo(db, est)
     obter(db, Aluno, dados.aluno_id, est, "Aluno")
     existente = db.scalar(select(Matricula).where(Matricula.aluno_id == dados.aluno_id, Matricula.ano_id == ano.id))
-    if existente and existente.turma_id == dados.turma_id and existente.estado == "activa":
+    if existente and existente.estado == "activa" and (
+            existente.turma_id == dados.turma_id
+            or (dados.turma_id is None and db.get(Turma, existente.turma_id).classe_id == dados.classe_id)):
         raise HTTPException(409, "O aluno já está matriculado nesta turma")
-    turma = _turma_do_ano(db, dados.turma_id, est, ano.id)
+    turma = _turma_do_ano(db, dados.turma_id, est, ano.id, dados.classe_id)
     if existente:
         db.add(MatriculaHistorico(matricula_id=existente.id, turma_anterior_id=existente.turma_id,
                                   turma_nova_id=turma.id, motivo=dados.observacoes or dados.tipo))
@@ -362,3 +392,9 @@ def aplicar_desconto(mid: int, dados: MatriculaDescontoIn, ctx: Contexto = Depen
     db.commit()
     return as_dict(md)
 
+
+
+# ---------------------------------------------------------------- CRUD completo (apagar)
+crud.registar(router, "/alunos", Aluno, nome="Aluno", modulo="cadastro", resposta=R.Aluno, ops=("apagar",))
+crud.registar(router, "/encarregados", Encarregado, nome="Encarregado", modulo="cadastro", resposta=R.Encarregado,
+              ops=("apagar",))

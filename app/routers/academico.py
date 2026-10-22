@@ -5,6 +5,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import crud
 from app import respostas as R
 from app.common import ano_activo, aplicar, as_dict, obter
 from app.database import get_db
@@ -18,6 +19,7 @@ from app.schemas import (
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas
 from app.services import fecho_ano
+from app.services import turmas as ocupacao_turmas
 
 router = APIRouter(prefix="/api", tags=["Académico"])
 ver, criar, editar = exige("academico"), exige("academico", "criar"), exige("academico", "editar")
@@ -238,6 +240,31 @@ def turmas(ano_id: int | None = None, ctx: Contexto = Depends(exige("cadastro"))
     return lista if permitidas is None else [t for t in lista if t["id"] in permitidas]
 
 
+@router.get("/turmas/sugestao", response_model=R.SugestaoTurma,
+            summary="Matrícula: a turma pedida está cheia? Qual é a próxima turma da classe com vaga?")
+def sugestao_turma(classe_id: int | None = None, turma_id: int | None = None, ctx: Contexto = Depends(exige("cadastro")),
+                   db: Session = Depends(get_db)):
+    """Com turma_id: a ocupação dessa turma e, se estiver cheia, a seguinte com vaga (B depois de A, …).
+    Só com classe_id: a primeira turma da classe com vaga no ano activo."""
+    est = ctx.estabelecimento_id
+    ano = ano_activo(db, est)
+    pedida = obter(db, Turma, turma_id, est, "Turma") if turma_id else None
+    if pedida is None and classe_id is None:
+        raise HTTPException(422, "Indique classe_id ou turma_id")
+    classe_id = pedida.classe_id if pedida else _classe(db, classe_id, est).id
+    info = pedida and ocupacao_turmas.vagas(db, pedida)
+    sugerida = None if info and not info["cheia"] else ocupacao_turmas.com_vaga(db, est, ano.id, classe_id, pedida)
+    if info and not info["cheia"]:
+        msg = f"A turma {pedida.designacao} tem {info['vagas']} vaga(s)."
+    elif sugerida:
+        msg = (f"A turma {pedida.designacao} está cheia; próxima turma com vaga: {sugerida.designacao}."
+               if pedida else f"Turma com vaga: {sugerida.designacao}.")
+    else:
+        msg = "Não há turma desta classe com vaga: crie uma nova turma."
+    return {"classe_id": classe_id, "turma_pedida": info, "sugerida": sugerida and ocupacao_turmas.vagas(db, sugerida),
+            "mensagem": msg}
+
+
 @router.post("/turmas", response_model=R.Turma, status_code=201)
 def criar_turma(dados: TurmaIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
@@ -248,7 +275,8 @@ def criar_turma(dados: TurmaIn, ctx: Contexto = Depends(criar), db: Session = De
         obter(db, Sala, dados.sala_id, est, "Sala")
     if dados.director_turma_id:
         obter(db, Funcionario, dados.director_turma_id, est, "Funcionário")
-    t = Turma(estabelecimento_id=est, **{**dados.model_dump(), "ano_id": ano_id})
+    capacidade = dados.capacidade or ocupacao_turmas.capacidade_padrao(db, est)
+    t = Turma(estabelecimento_id=est, **{**dados.model_dump(), "ano_id": ano_id, "capacidade": capacidade})
     res = gravar(db, t, "Esta turma já existe neste ano lectivo")
     auditar(db, ctx, "turma", t.id, "insert", res)
     db.commit()
@@ -337,3 +365,19 @@ def transitar(ano_id: int, dados: TransitarIn, ctx: Contexto = Depends(criar), d
                                                    "criadas": res["criadas"]})
     db.commit()
     return res
+
+
+# ---------------------------------------------------------------- CRUD completo (ver, editar, apagar)
+crud.registar(router, "/anos-lectivos", AnoLectivo, nome="Ano lectivo", modulo="academico", resposta=R.AnoLectivo,
+              entrada=AnoIn, excluir=("criar_trimestres",))
+crud.registar(router, "/periodos", PeriodoLectivo, nome="Período", modulo="academico", resposta=R.PeriodoLectivo,
+              entrada=PeriodoIn)
+crud.registar(router, "/niveis", NivelEnsino, nome="Nível de ensino", modulo="academico", resposta=R.NivelEnsino,
+              entrada=NivelIn)
+crud.registar(router, "/classes", Classe, nome="Classe", modulo="academico", resposta=R.Classe, entrada=ClasseIn)
+crud.registar(router, "/salas", Sala, nome="Sala", modulo="academico", resposta=R.Sala, entrada=SalaIn)
+crud.registar(router, "/disciplinas", Disciplina, nome="Disciplina", modulo="academico", resposta=R.Disciplina,
+              entrada=DisciplinaIn)
+crud.registar(router, "/funcionarios", Funcionario, nome="Funcionário", modulo="academico", resposta=R.Funcionario,
+              ops=("ver", "apagar"))
+crud.registar(router, "/turmas", Turma, nome="Turma", modulo="academico", resposta=R.Turma, ops=("ver", "apagar"))

@@ -43,7 +43,8 @@ from scripts.seed import base, demo  # noqa: E402
 MAX_ITENS = 2  # listas de registos encurtadas para o exemplo ficar legível
 FILTROS = {"/api/avaliacoes": {"turma_id": 1}, "/api/pautas": {"turma_id": 1, "periodo_id": 1},
            "/api/registo-diario": {"turma_id": 1, "data": "2026-10-20"},
-           "/api/refeitorio/registos": {"data": "2026-10-20"}}  # parâmetros obrigatórios ou datas dos exemplos
+           "/api/refeitorio/registos": {"data": "2026-10-20"},
+           "/api/turmas/sugestao": {"turma_id": 1}}  # parâmetros obrigatórios ou datas dos exemplos
 
 # Registos que os dados de demonstração não trazem, criados com os pedidos de exemplo para que as listas
 # correspondentes também tenham uma resposta de exemplo.
