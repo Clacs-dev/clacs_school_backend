@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import AdesaoServico, Aluno, AnoLectivo, Matricula, Parametro, ResultadoFinal, Turma
-from app.services.pedagogico import media_geral, total_faltas
+from app.services.pedagogico import escala, media_geral, total_faltas
 
 
 def _param(db: Session, est: int, chave: str, omissao):
@@ -17,7 +17,7 @@ def _param(db: Session, est: int, chave: str, omissao):
 
 def fechar_ano(db: Session, est: int, ano: AnoLectivo, simular: bool = False) -> dict:
     """Calcula a média final e a situação de cada matrícula activa. Com simular=True não grava nada."""
-    nota_minima = float(_param(db, est, "nota_minima", 10))
+    nota_minima = escala(db, est)["nota_minima"]
     faltas_max = _param(db, est, "faltas_maximas", None)
     linhas, contagem = [], {"aprovado": 0, "reprovado": 0, "excluido_faltas": 0, "sem_avaliacao": 0}
     mats = db.execute(select(Matricula, Aluno.nome_completo, Turma.designacao)

@@ -7,7 +7,7 @@
   {
    "aluno": "Paula Tavares",
    "aluno_id": 16,
-   "criado_em": "2026-10-22T16:27:21",
+   "criado_em": "2026-10-22T16:49:11",
    "dados": {
     "meses_em_atraso": 2
    },
@@ -22,7 +22,7 @@
   {
    "aluno": "Laura Pinto",
    "aluno_id": 12,
-   "criado_em": "2026-10-22T16:27:21",
+   "criado_em": "2026-10-22T16:49:11",
    "dados": {
     "meses_em_atraso": 2
    },
@@ -37,57 +37,95 @@
  ],
  "GET /api/alunos": [
   {
-   "actualizado_em": "2026-10-22T16:27:19",
+   "actualizado_em": "2026-10-22T16:49:08",
    "alergias": null,
    "ano_lectivo": "2026/2027",
+   "avaliacoes": [
+    {
+     "media": null,
+     "periodo": "1.º Trimestre",
+     "periodo_id": 1
+    },
+    {
+     "media": null,
+     "periodo": "2.º Trimestre",
+     "periodo_id": 2
+    }
+   ],
    "bi_numero": null,
-   "criado_em": "2026-10-22T16:27:19",
+   "condicoes_saude": null,
+   "contacto_emergencia": null,
+   "criado_em": "2026-10-22T16:49:08",
    "data_nascimento": "2016-01-01",
    "encarregado": "Maria Cota",
    "escola_anterior": null,
    "estabelecimento_id": 1,
    "estado": "activo",
    "foto_url": null,
+   "grupo_sanguineo": null,
    "id": 1,
+   "medicacao": null,
    "morada": null,
    "nacionalidade": "Angolana",
+   "necessidade_especial": false,
    "necessidades_especiais": null,
    "nome_completo": "Ana Cota",
    "numero_processo": "20260001",
    "sexo": "F",
    "telefone": "+244 923000000",
+   "telefone_emergencia": null,
    "turma": "6.ª B",
    "turma_id": 2
   },
   {
-   "actualizado_em": "2026-10-22T16:27:19",
+   "actualizado_em": "2026-10-22T16:49:08",
    "alergias": null,
    "ano_lectivo": "2026/2027",
+   "avaliacoes": [
+    {
+     "media": 8.8,
+     "periodo": "1.º Trimestre",
+     "periodo_id": 1
+    },
+    {
+     "media": null,
+     "periodo": "2.º Trimestre",
+     "periodo_id": 2
+    }
+   ],
    "bi_numero": null,
-   "criado_em": "2026-10-22T16:27:19",
+   "condicoes_saude": null,
+   "contacto_emergencia": null,
+   "criado_em": "2026-10-22T16:49:08",
    "data_nascimento": "2015-02-02",
    "encarregado": "José Lima",
    "escola_anterior": null,
    "estabelecimento_id": 1,
    "estado": "activo",
    "foto_url": null,
+   "grupo_sanguineo": null,
    "id": 2,
+   "medicacao": null,
    "morada": null,
    "nacionalidade": "Angolana",
+   "necessidade_especial": false,
    "necessidades_especiais": null,
    "nome_completo": "Bento Lima",
    "numero_processo": "20260002",
    "sexo": "M",
    "telefone": "+244 923007311",
+   "telefone_emergencia": null,
    "turma": "6.ª B",
    "turma_id": 2
   }
  ],
  "GET /api/alunos/{aid}": {
-  "actualizado_em": "2026-10-22T16:27:19",
+  "actualizado_em": "2026-10-22T16:49:08",
   "alergias": null,
   "bi_numero": null,
-  "criado_em": "2026-10-22T16:27:19",
+  "condicoes_saude": null,
+  "contacto_emergencia": null,
+  "criado_em": "2026-10-22T16:49:08",
   "data_nascimento": "2016-01-01",
   "disciplinas": [
    {
@@ -113,10 +151,10 @@
   "encarregados": [
    {
     "activo": true,
-    "actualizado_em": "2026-10-22T16:27:19",
+    "actualizado_em": "2026-10-22T16:49:08",
     "autorizado_recolha": true,
     "bi_numero": null,
-    "criado_em": "2026-10-22T16:27:19",
+    "criado_em": "2026-10-22T16:49:08",
     "email": "ee1@exemplo.ao",
     "encarregado_id": 1,
     "estabelecimento_id": 1,
@@ -136,6 +174,7 @@
   "estabelecimento_id": 1,
   "estado": "activo",
   "foto_url": null,
+  "grupo_sanguineo": null,
   "id": 1,
   "matriculas": [
    {
@@ -153,31 +192,39 @@
     "turma_id": 2
    }
   ],
+  "medicacao": null,
   "morada": null,
   "nacionalidade": "Angolana",
+  "necessidade_especial": false,
   "necessidades_especiais": null,
   "nome_completo": "Ana Cota",
   "numero_processo": "20260001",
-  "sexo": "F"
+  "sexo": "F",
+  "telefone_emergencia": null
  },
  "GET /api/alunos/{aid}/360": {
   "aluno": {
-   "actualizado_em": "2026-10-22T16:27:19",
+   "actualizado_em": "2026-10-22T16:49:08",
    "alergias": null,
    "bi_numero": null,
-   "criado_em": "2026-10-22T16:27:19",
+   "condicoes_saude": null,
+   "contacto_emergencia": null,
+   "criado_em": "2026-10-22T16:49:08",
    "data_nascimento": "2016-01-01",
    "escola_anterior": null,
    "estabelecimento_id": 1,
    "estado": "activo",
    "foto_url": null,
+   "grupo_sanguineo": null,
    "id": 1,
+   "medicacao": null,
    "morada": null,
    "nacionalidade": "Angolana",
    "necessidades_especiais": null,
    "nome_completo": "Ana Cota",
    "numero_processo": "20260001",
-   "sexo": "F"
+   "sexo": "F",
+   "telefone_emergencia": null
   },
   "encarregados": [
    {
@@ -374,7 +421,7 @@
  "GET /api/auditoria": [
   {
    "accao": "insert",
-   "criado_em": "2026-10-22T16:27:21",
+   "criado_em": "2026-10-22T16:49:11",
    "dados_antes": null,
    "dados_depois": {
     "desconto_id": 1,
@@ -390,7 +437,7 @@
   },
   {
    "accao": "login",
-   "criado_em": "2026-10-22T16:27:21",
+   "criado_em": "2026-10-22T16:49:10",
    "dados_antes": null,
    "dados_depois": null,
    "estabelecimento_id": 1,
@@ -404,7 +451,7 @@
  ],
  "GET /api/auth/me": {
   "activo": true,
-  "criado_em": "2026-10-22T16:27:19",
+  "criado_em": "2026-10-22T16:49:08",
   "doisfa_activo": false,
   "email": "admin@clacs.ao",
   "encarregado_id": null,
@@ -471,7 +518,7 @@
    "utilizadores:ver"
   ],
   "telefone": null,
-  "ultimo_login": "2026-10-22T16:27:21.047595"
+  "ultimo_login": "2026-10-22T16:49:10.590387"
  },
  "GET /api/avaliacoes": [
   {
@@ -502,13 +549,13 @@
    "aluno": "Fábio Gomes",
    "aluno_id": 6,
    "observacao": null,
-   "valor": 19.0
+   "valor": 9.5
   },
   {
    "aluno": "Kiala Sebastião",
    "aluno_id": 11,
    "observacao": null,
-   "valor": 17.5
+   "valor": 8.8
   }
  ],
  "GET /api/avaliacoes/{id_}": {
@@ -696,7 +743,7 @@
    "alvo": "turma",
    "autor_id": 1,
    "corpo": "Não haverá aulas no dia 11 de Novembro.",
-   "criado_em": "2026-10-22T16:27:21",
+   "criado_em": "2026-10-22T16:49:10",
    "estabelecimento_id": 1,
    "id": 1,
    "titulo": "Feriado de 11 de Novembro"
@@ -745,9 +792,10 @@
  "GET /api/encarregados": [
   {
    "activo": true,
-   "actualizado_em": "2026-10-22T16:27:19",
+   "actualizado_em": "2026-10-22T16:49:08",
    "bi_numero": null,
-   "criado_em": "2026-10-22T16:27:19",
+   "cobrancas_em_atraso": 0,
+   "criado_em": "2026-10-22T16:49:08",
    "educandos": [
     {
      "id": 14,
@@ -760,16 +808,20 @@
    "morada": null,
    "nif": "5400176527",
    "nome_completo": "António Costa",
+   "num_educandos": 1,
    "parentesco": "pai",
    "profissao": null,
    "telefone": "+244 923095043",
+   "total_em_divida": 0.0,
+   "total_pago": 106000.0,
    "whatsapp": "+244 923095043"
   },
   {
    "activo": true,
-   "actualizado_em": "2026-10-22T16:27:19",
+   "actualizado_em": "2026-10-22T16:49:08",
    "bi_numero": null,
-   "criado_em": "2026-10-22T16:27:19",
+   "cobrancas_em_atraso": 2,
+   "criado_em": "2026-10-22T16:49:08",
    "educandos": [
     {
      "id": 4,
@@ -782,17 +834,20 @@
    "morada": null,
    "nif": "5400040737",
    "nome_completo": "António Pires",
+   "num_educandos": 1,
    "parentesco": "pai",
    "profissao": null,
    "telefone": "+244 923021933",
+   "total_em_divida": 90000.0,
+   "total_pago": 36000.0,
    "whatsapp": "+244 923021933"
   }
  ],
  "GET /api/encarregados/{eid}": {
   "activo": true,
-  "actualizado_em": "2026-10-22T16:27:19",
+  "actualizado_em": "2026-10-22T16:49:08",
   "bi_numero": null,
-  "criado_em": "2026-10-22T16:27:19",
+  "criado_em": "2026-10-22T16:49:08",
   "educandos": [
    {
     "id": 1,
@@ -820,8 +875,8 @@
  },
  "GET /api/estabelecimento": {
   "activo": true,
-  "actualizado_em": "2026-10-22T16:27:18",
-  "criado_em": "2026-10-22T16:27:18",
+  "actualizado_em": "2026-10-22T16:49:08",
+  "criado_em": "2026-10-22T16:49:08",
   "email": "geral@clacs.ao",
   "id": 1,
   "logotipo_url": null,
@@ -835,7 +890,7 @@
    "activo": true,
    "ano_contratacao": null,
    "cargo": "director",
-   "criado_em": "2026-10-22T16:27:19",
+   "criado_em": "2026-10-22T16:49:08",
    "email": null,
    "estabelecimento_id": 1,
    "id": 6,
@@ -847,7 +902,7 @@
    "activo": true,
    "ano_contratacao": null,
    "cargo": "professor",
-   "criado_em": "2026-10-22T16:27:19",
+   "criado_em": "2026-10-22T16:49:08",
    "email": null,
    "estabelecimento_id": 1,
    "id": 3,
@@ -860,7 +915,7 @@
   "activo": true,
   "ano_contratacao": null,
   "cargo": "professor",
-  "criado_em": "2026-10-22T16:27:19",
+  "criado_em": "2026-10-22T16:49:08",
   "email": null,
   "estabelecimento_id": 1,
   "id": 1,
@@ -873,7 +928,7 @@
  },
  "GET /api/importacao/lotes": [
   {
-   "criado_em": "2026-10-22T16:27:29",
+   "criado_em": "2026-10-22T16:49:19",
    "criado_por": 1,
    "entidade": "aluno",
    "estabelecimento_id": 1,
@@ -998,7 +1053,7 @@
  ],
  "GET /api/matriculas/{mid}/historico": [
   {
-   "data_alteracao": "2026-10-22T16:27:21",
+   "data_alteracao": "2026-10-22T16:49:11",
    "id": 1,
    "matricula_id": 1,
    "motivo": "Pedido do encarregado (horário da tarde)",
@@ -1008,7 +1063,7 @@
  ],
  "GET /api/mensagens": [
   {
-   "agendada_para": "2026-10-22T16:27:21",
+   "agendada_para": "2026-10-22T16:49:11",
    "aluno_id": 1,
    "assunto": "Reunião de pais",
    "canal": "email",
@@ -1026,7 +1081,7 @@
    "regra_id": null
   },
   {
-   "agendada_para": "2026-10-22T16:27:21",
+   "agendada_para": "2026-10-22T16:49:11",
    "aluno_id": 1,
    "assunto": "Reunião de pais",
    "canal": "whatsapp",
@@ -1142,7 +1197,7 @@
    "accao_tomada": "Conversa com a coordenação",
    "aluno": "Ana Cota",
    "aluno_id": 1,
-   "criada_em": "2026-10-22T16:27:21",
+   "criada_em": "2026-10-22T16:49:11",
    "data": "2026-10-20",
    "descricao": "Conflito com um colega no intervalo.",
    "estado": "aberta",
@@ -1157,7 +1212,7 @@
  "GET /api/ocorrencias/{id_}": {
   "accao_tomada": "Conversa com a coordenação",
   "aluno_id": 1,
-  "criada_em": "2026-10-22T16:27:21",
+  "criada_em": "2026-10-22T16:49:11",
   "data": "2026-10-20",
   "descricao": "Conflito com um colega no intervalo.",
   "estado": "aberta",
@@ -1175,7 +1230,7 @@
     }
    ],
    "comprovativo_url": null,
-   "criado_em": "2026-10-22T16:27:20",
+   "criado_em": "2026-10-22T16:49:09",
    "data_pagamento": "2026-10-09",
    "documento_fiscal_id": null,
    "encarregado": "Francisco Varela",
@@ -1197,7 +1252,7 @@
     }
    ],
    "comprovativo_url": null,
-   "criado_em": "2026-10-22T16:27:20",
+   "criado_em": "2026-10-22T16:49:09",
    "data_pagamento": "2026-10-09",
    "documento_fiscal_id": null,
    "encarregado": "Rosa Reis",
@@ -1316,26 +1371,112 @@
     "aluno": "Fábio Gomes",
     "aluno_id": 6,
     "matricula_id": 6,
-    "media_geral": 19.0,
+    "media_geral": 9.5,
     "medias": {
-     "Inglês": 19.0,
-     "Língua Portuguesa": 19.0,
-     "Matemática": 19.0
+     "Inglês": 9.5,
+     "Língua Portuguesa": 9.5,
+     "Matemática": 9.5
     }
    },
    {
     "aluno": "Kiala Sebastião",
     "aluno_id": 11,
     "matricula_id": 11,
-    "media_geral": 17.5,
+    "media_geral": 8.8,
     "medias": {
-     "Inglês": 17.5,
-     "Língua Portuguesa": 17.5,
-     "Matemática": 17.5
+     "Inglês": 8.8,
+     "Língua Portuguesa": 8.8,
+     "Matemática": 8.8
     }
    }
-  ]
+  ],
+  "nota_maxima": 10.0,
+  "nota_minima": 5.0
  },
+ "GET /api/pedagogico/alunos": [
+  {
+   "actualizado_em": "2026-10-22T16:49:08",
+   "alergias": null,
+   "ano_lectivo": "2026/2027",
+   "avaliacoes": [
+    {
+     "media": null,
+     "periodo": "1.º Trimestre",
+     "periodo_id": 1
+    },
+    {
+     "media": null,
+     "periodo": "2.º Trimestre",
+     "periodo_id": 2
+    }
+   ],
+   "bi_numero": null,
+   "condicoes_saude": null,
+   "contacto_emergencia": null,
+   "criado_em": "2026-10-22T16:49:08",
+   "data_nascimento": "2016-01-01",
+   "encarregado": "Maria Cota",
+   "escola_anterior": null,
+   "estabelecimento_id": 1,
+   "estado": "activo",
+   "foto_url": null,
+   "grupo_sanguineo": null,
+   "id": 1,
+   "medicacao": null,
+   "morada": null,
+   "nacionalidade": "Angolana",
+   "necessidade_especial": false,
+   "necessidades_especiais": null,
+   "nome_completo": "Ana Cota",
+   "numero_processo": "20260001",
+   "sexo": "F",
+   "telefone": "+244 923000000",
+   "telefone_emergencia": null,
+   "turma": "6.ª B",
+   "turma_id": 2
+  },
+  {
+   "actualizado_em": "2026-10-22T16:49:08",
+   "alergias": null,
+   "ano_lectivo": "2026/2027",
+   "avaliacoes": [
+    {
+     "media": 8.8,
+     "periodo": "1.º Trimestre",
+     "periodo_id": 1
+    },
+    {
+     "media": null,
+     "periodo": "2.º Trimestre",
+     "periodo_id": 2
+    }
+   ],
+   "bi_numero": null,
+   "condicoes_saude": null,
+   "contacto_emergencia": null,
+   "criado_em": "2026-10-22T16:49:08",
+   "data_nascimento": "2015-02-02",
+   "encarregado": "José Lima",
+   "escola_anterior": null,
+   "estabelecimento_id": 1,
+   "estado": "activo",
+   "foto_url": null,
+   "grupo_sanguineo": null,
+   "id": 2,
+   "medicacao": null,
+   "morada": null,
+   "nacionalidade": "Angolana",
+   "necessidade_especial": false,
+   "necessidades_especiais": null,
+   "nome_completo": "Bento Lima",
+   "numero_processo": "20260002",
+   "sexo": "M",
+   "telefone": "+244 923007311",
+   "telefone_emergencia": null,
+   "turma": "6.ª B",
+   "turma_id": 2
+  }
+ ],
  "GET /api/perfis": [
   {
    "codigo": "admin",
@@ -1497,7 +1638,7 @@
    "observacao": null,
    "periodo": "1.º Trimestre",
    "tipo": "Prova do professor",
-   "valor": 10.0
+   "valor": 5.0
   },
   {
    "data": "2026-10-13",
@@ -1505,9 +1646,50 @@
    "observacao": null,
    "periodo": "1.º Trimestre",
    "tipo": "Prova do professor",
-   "valor": 10.0
+   "valor": 5.0
   }
  ],
+ "GET /api/portal/educandos/{aid}/pauta": {
+  "aluno": "Ana Cota",
+  "aluno_id": 1,
+  "linhas": [
+   {
+    "disciplina": "Ciências da Natureza",
+    "disciplina_id": 4,
+    "media_final": null,
+    "medias": [
+     null,
+     null,
+     null
+    ],
+    "situacao": null
+   },
+   {
+    "disciplina": "Educação Física",
+    "disciplina_id": 7,
+    "media_final": null,
+    "medias": [
+     null,
+     null,
+     null
+    ],
+    "situacao": null
+   }
+  ],
+  "medias_gerais": [
+   null,
+   null,
+   null
+  ],
+  "nota_maxima": 10.0,
+  "nota_minima": 5.0,
+  "periodos": [
+   "1.º Trimestre",
+   "2.º Trimestre",
+   "3.º Trimestre"
+  ],
+  "turma": "6.ª B"
+ },
  "GET /api/portal/eu": {
   "educandos": [
    {
@@ -1539,7 +1721,7 @@
    "assunto": "Reunião de pais",
    "canal": "email",
    "corpo": "A reunião de pais é na sexta-feira às 17h.",
-   "data": "2026-10-22T16:27:21",
+   "data": "2026-10-22T16:49:11",
    "estado": "agendada",
    "id": 18
   },
@@ -1547,7 +1729,7 @@
    "assunto": "Reunião de pais",
    "canal": "whatsapp",
    "corpo": "A reunião de pais é na sexta-feira às 17h.",
-   "data": "2026-10-22T16:27:21",
+   "data": "2026-10-22T16:49:11",
    "estado": "agendada",
    "id": 17
   }
@@ -1622,8 +1804,8 @@
    "estabelecimento_id": 1,
    "estado": "ok",
    "id": 1,
-   "iniciado_em": "2026-10-22T16:15:20.683818",
-   "terminado_em": "2026-10-22T16:16:20.683818",
+   "iniciado_em": "2026-10-22T16:37:10.210454",
+   "terminado_em": "2026-10-22T16:38:10.210454",
    "total_erros": 0,
    "total_registos": 86
   }
@@ -1632,7 +1814,7 @@
   {
    "campo": "estado",
    "descricao": "Pago no Primavera, pendente na escola",
-   "detectada_em": "2026-10-22T16:27:20",
+   "detectada_em": "2026-10-22T16:49:10",
    "entidade": "cobranca",
    "estabelecimento_id": 1,
    "estado": "aberta",
@@ -1647,7 +1829,7 @@
   {
    "campo": "nif",
    "descricao": "NIF diferente entre os sistemas",
-   "detectada_em": "2026-10-22T16:27:20",
+   "detectada_em": "2026-10-22T16:49:10",
    "entidade": "cliente",
    "estabelecimento_id": 1,
    "estado": "aberta",
@@ -1830,7 +2012,7 @@
     "whatsapp"
    ],
    "condicao": null,
-   "criada_em": "2026-10-22T16:27:20",
+   "criada_em": "2026-10-22T16:49:10",
    "criada_por": null,
    "destino": "encarregado",
    "dias_offset": 3,
@@ -1847,7 +2029,7 @@
     "sms"
    ],
    "condicao": null,
-   "criada_em": "2026-10-22T16:27:20",
+   "criada_em": "2026-10-22T16:49:10",
    "criada_por": null,
    "destino": "encarregado",
    "dias_offset": 3,
@@ -1864,7 +2046,7 @@
    "whatsapp"
   ],
   "condicao": null,
-  "criada_em": "2026-10-22T16:27:20",
+  "criada_em": "2026-10-22T16:49:10",
   "criada_por": null,
   "destino": "encarregado",
   "dias_offset": 3,
@@ -1909,8 +2091,8 @@
  "GET /api/relatorios/agendados/{rid}/execucoes": [
   {
    "estado": "ok",
-   "executado_em": "2026-10-22T16:27:21",
-   "ficheiro_url": "/api/ficheiros/1/relatorios/41f5a673389e469ca59599bd11e998fb.xlsx",
+   "executado_em": "2026-10-22T16:49:11",
+   "ficheiro_url": "/api/ficheiros/1/relatorios/8ea44f47e9064020908de4c56af291b9.xlsx",
    "id": 1,
    "relatorio_id": 1
   }
@@ -2106,7 +2288,7 @@
  "GET /api/utilizadores": [
   {
    "activo": true,
-   "criado_em": "2026-10-22T16:27:19",
+   "criado_em": "2026-10-22T16:49:08",
    "doisfa_activo": false,
    "email": "admin@clacs.ao",
    "encarregado_id": null,
@@ -2117,11 +2299,11 @@
     "admin"
    ],
    "telefone": null,
-   "ultimo_login": "2026-10-22T16:27:21.047595"
+   "ultimo_login": "2026-10-22T16:49:10.590387"
   },
   {
    "activo": true,
-   "criado_em": "2026-10-22T16:27:20",
+   "criado_em": "2026-10-22T16:49:10",
    "doisfa_activo": false,
    "email": "encarregado@clacs.ao",
    "encarregado_id": 1,
@@ -2132,12 +2314,12 @@
     "encarregado"
    ],
    "telefone": null,
-   "ultimo_login": "2026-10-22T16:27:21.380833"
+   "ultimo_login": "2026-10-22T16:49:10.938412"
   }
  ],
  "PATCH /api/alertas/{aid}": {
   "aluno_id": 16,
-  "criado_em": "2026-10-22T16:27:21",
+  "criado_em": "2026-10-22T16:49:11",
   "dados": {
    "meses_em_atraso": 2
   },
@@ -2150,22 +2332,27 @@
   "tratado_por": 1
  },
  "PATCH /api/alunos/{aid}": {
-  "actualizado_em": "2026-10-22T16:27:24",
+  "actualizado_em": "2026-10-22T16:49:14",
   "alergias": null,
   "bi_numero": null,
-  "criado_em": "2026-10-22T16:27:19",
+  "condicoes_saude": null,
+  "contacto_emergencia": null,
+  "criado_em": "2026-10-22T16:49:08",
   "data_nascimento": "2016-01-01",
   "escola_anterior": null,
   "estabelecimento_id": 1,
   "estado": "activo",
   "foto_url": null,
+  "grupo_sanguineo": null,
   "id": 1,
+  "medicacao": null,
   "morada": "Kilamba, Bloco Q, Luanda",
   "nacionalidade": "Angolana",
   "necessidades_especiais": null,
   "nome_completo": "Ana Cota",
   "numero_processo": "20260001",
-  "sexo": "F"
+  "sexo": "F",
+  "telefone_emergencia": null
  },
  "PATCH /api/anos-lectivos/{id_}": {
   "data_fim": "2028-07-15",
@@ -2207,9 +2394,9 @@
  },
  "PATCH /api/encarregados/{eid}": {
   "activo": true,
-  "actualizado_em": "2026-10-22T16:27:24",
+  "actualizado_em": "2026-10-22T16:49:14",
   "bi_numero": null,
-  "criado_em": "2026-10-22T16:27:19",
+  "criado_em": "2026-10-22T16:49:08",
   "email": "isabel.d@hotmail.com",
   "estabelecimento_id": 1,
   "id": 1,
@@ -2222,8 +2409,8 @@
  },
  "PATCH /api/estabelecimento": {
   "activo": true,
-  "actualizado_em": "2026-10-22T16:27:23",
-  "criado_em": "2026-10-22T16:27:18",
+  "actualizado_em": "2026-10-22T16:49:13",
+  "criado_em": "2026-10-22T16:49:08",
   "email": "geral@clacs.ao",
   "id": 1,
   "logotipo_url": null,
@@ -2236,7 +2423,7 @@
   "activo": true,
   "ano_contratacao": null,
   "cargo": "coordenador",
-  "criado_em": "2026-10-22T16:27:19",
+  "criado_em": "2026-10-22T16:49:08",
   "email": null,
   "estabelecimento_id": 1,
   "id": 1,
@@ -2283,7 +2470,7 @@
  "PATCH /api/ocorrencias/{oid}": {
   "accao_tomada": "Reunião com o encarregado realizada",
   "aluno_id": 1,
-  "criada_em": "2026-10-22T16:27:21",
+  "criada_em": "2026-10-22T16:49:11",
   "data": "2026-10-20",
   "descricao": "Conflito com um colega no intervalo.",
   "estado": "fechada",
@@ -2343,7 +2530,7 @@
    "whatsapp"
   ],
   "condicao": null,
-  "criada_em": "2026-10-22T16:27:20",
+  "criada_em": "2026-10-22T16:49:10",
   "criada_por": null,
   "destino": "encarregado",
   "dias_offset": 5,
@@ -2414,7 +2601,7 @@
  },
  "PATCH /api/utilizadores/{uid}": {
   "activo": true,
-  "criado_em": "2026-10-22T16:27:19",
+  "criado_em": "2026-10-22T16:49:08",
   "doisfa_activo": false,
   "email": "admin@clacs.ao",
   "encarregado_id": null,
@@ -2426,32 +2613,37 @@
    "financeiro"
   ],
   "telefone": "+244923000111",
-  "ultimo_login": "2026-10-22T16:27:21.047595"
+  "ultimo_login": "2026-10-22T16:49:10.590387"
  },
  "POST /api/alertas/gerar": {
   "novos": 0
  },
  "POST /api/alunos": {
-  "actualizado_em": "2026-10-22T16:27:24",
+  "actualizado_em": "2026-10-22T16:49:14",
   "alergias": "Amendoim",
   "bi_numero": "006123456LA041",
-  "criado_em": "2026-10-22T16:27:24",
+  "condicoes_saude": "Asma ligeira",
+  "contacto_emergencia": "Isabel Domingos (mãe)",
+  "criado_em": "2026-10-22T16:49:14",
   "data_nascimento": "2018-03-14",
   "escola_anterior": null,
   "estabelecimento_id": 1,
   "estado": "activo",
   "foto_url": null,
+  "grupo_sanguineo": "O+",
   "id": 21,
+  "medicacao": "Bomba de salbutamol em caso de crise",
   "morada": "Talatona, Luanda",
   "nacionalidade": "Angolana",
   "necessidades_especiais": null,
   "nome_completo": "Ana Paula Domingos",
   "numero_processo": "20260021",
-  "sexo": "F"
+  "sexo": "F",
+  "telefone_emergencia": "+244923111222"
  },
  "POST /api/alunos/{aid}/documentos": {
   "aluno_id": 1,
-  "criado_em": "2026-10-22T16:27:24",
+  "criado_em": "2026-10-22T16:49:14",
   "ficheiro_url": "/api/ficheiros/alunos/1/certidao.pdf",
   "id": 1,
   "tipo": "certidao_nascimento",
@@ -2459,8 +2651,8 @@
  },
  "POST /api/alunos/{aid}/documentos/ficheiro": {
   "aluno_id": 1,
-  "criado_em": "2026-10-22T16:27:29",
-  "ficheiro_url": "/api/ficheiros/1/documentos/b404f8a6ec714a3399e65c9f8ad79a23.pdf",
+  "criado_em": "2026-10-22T16:49:19",
+  "ficheiro_url": "/api/ficheiros/1/documentos/a682232d280445cd857b7cb08b7916c9.pdf",
   "id": 1,
   "tipo": "certidao_nascimento",
   "validade": null
@@ -2474,7 +2666,7 @@
   "responsavel_financeiro": true
  },
  "POST /api/alunos/{aid}/foto": {
-  "foto_url": "/api/ficheiros/1/fotos/653ecaa593b24ac886fbf4af498bc9c9.png"
+  "foto_url": "/api/ficheiros/1/fotos/4d68b31ff7c04e01a3e5646f656d40e9.png"
  },
  "POST /api/alunos/{aid}/mensagem": {
   "mensagens": 2
@@ -2499,7 +2691,7 @@
   "ano": "2025/2026",
   "faltas_maximas": null,
   "linhas": [],
-  "nota_minima": 10.0,
+  "nota_minima": 5.0,
   "simulado": true,
   "totais": {
    "aprovado": 0,
@@ -2537,8 +2729,8 @@
   "resposta": "7 aluno(s) em dívida, num total de 494 000 Kz."
  },
  "POST /api/auth/2fa/iniciar": {
-  "segredo": "TQQRMFKSJ2XEFH4NSOPHF2PE2NQTNU4G",
-  "uri": "otpauth://totp/CLACS%20Escola:admin%40clacs.ao?secret=TQQRMFKSJ2XEFH4NSOPHF2PE2NQTNU4G&issuer=CLACS%20Escola"
+  "segredo": "UOBPPGH5X3VTUZDGJDCWNFHS2XEBLVHC",
+  "uri": "otpauth://totp/CLACS%20Escola:admin%40clacs.ao?secret=UOBPPGH5X3VTUZDGJDCWNFHS2XEBLVHC&issuer=CLACS%20Escola"
  },
  "POST /api/auth/login": {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.exemplo.assinatura",
@@ -2565,10 +2757,10 @@
   "disciplina_id": 8
  },
  "POST /api/cobrancas": {
-  "actualizado_em": "2026-10-22T16:27:26",
+  "actualizado_em": "2026-10-22T16:49:16",
   "aluno_id": 1,
   "competencia": "2026-10-01",
-  "criado_em": "2026-10-22T16:27:26",
+  "criado_em": "2026-10-22T16:49:16",
   "descricao": "Fardamento (2 camisolas)",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -2611,10 +2803,10 @@
   "mensagens": 4
  },
  "POST /api/cobrancas/{cid}/anular": {
-  "actualizado_em": "2026-10-22T16:27:26",
+  "actualizado_em": "2026-10-22T16:49:16",
   "aluno_id": 1,
   "competencia": "2026-10-01",
-  "criado_em": "2026-10-22T16:27:19",
+  "criado_em": "2026-10-22T16:49:09",
   "descricao": "Alimentação 10/2026",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -2633,7 +2825,7 @@
   "alvo": "turma",
   "autor_id": 1,
   "corpo": "Não haverá aulas no dia 11 de Novembro.",
-  "criado_em": "2026-10-22T16:27:27",
+  "criado_em": "2026-10-22T16:49:18",
   "destinatarios": 8,
   "estabelecimento_id": 1,
   "id": 2,
@@ -2656,9 +2848,9 @@
  },
  "POST /api/encarregados": {
   "activo": true,
-  "actualizado_em": "2026-10-22T16:27:24",
+  "actualizado_em": "2026-10-22T16:49:14",
   "bi_numero": null,
-  "criado_em": "2026-10-22T16:27:24",
+  "criado_em": "2026-10-22T16:49:14",
   "email": "isabel.domingos@gmail.com",
   "estabelecimento_id": 1,
   "id": 21,
@@ -2677,7 +2869,7 @@
   "activo": true,
   "ano_contratacao": 2021,
   "cargo": "professor",
-  "criado_em": "2026-10-22T16:27:23",
+  "criado_em": "2026-10-22T16:49:13",
   "email": "joao.sebastiao@clacs.ao",
   "estabelecimento_id": 1,
   "id": 7,
@@ -2686,7 +2878,7 @@
   "telefone": "+244912345678"
  },
  "POST /api/importacao/{entidade}": {
-  "criado_em": "2026-10-22T16:27:28",
+  "criado_em": "2026-10-22T16:49:19",
   "criado_por": 1,
   "entidade": "aluno",
   "erros": 1,
@@ -2795,7 +2987,7 @@
  "POST /api/ocorrencias": {
   "accao_tomada": "Conversa com a coordenação",
   "aluno_id": 1,
-  "criada_em": "2026-10-22T16:27:28",
+  "criada_em": "2026-10-22T16:49:18",
   "data": "2026-10-20",
   "descricao": "Conflito com um colega no intervalo.",
   "estado": "aberta",
@@ -2812,7 +3004,7 @@
    }
   ],
   "comprovativo_url": null,
-  "criado_em": "2026-10-22T16:27:26",
+  "criado_em": "2026-10-22T16:49:17",
   "data_pagamento": "2026-10-08",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -2829,11 +3021,11 @@
   "pagamento_id": 56
  },
  "POST /api/pagamentos/{pid}/comprovativo": {
-  "comprovativo_url": "/api/ficheiros/1/comprovativos/435ca6ef088a40f19c082a82ccfa19bc.pdf"
+  "comprovativo_url": "/api/ficheiros/1/comprovativos/001848fe769f4ed8af8de2b8cb81ecba.pdf"
  },
  "POST /api/pagamentos/{pid}/confirmar": {
   "comprovativo_url": null,
-  "criado_em": "2026-10-22T16:27:19",
+  "criado_em": "2026-10-22T16:49:08",
   "data_pagamento": "2026-09-05",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -2847,7 +3039,7 @@
  },
  "POST /api/pagamentos/{pid}/rejeitar": {
   "comprovativo_url": null,
-  "criado_em": "2026-10-22T16:27:19",
+  "criado_em": "2026-10-22T16:49:08",
   "data_pagamento": "2026-09-05",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -2883,20 +3075,20 @@
   "entidade": "00000",
   "expira": "2026-11-06",
   "pagamento_id": 56,
-  "referencia": "394978190",
+  "referencia": "204975686",
   "valor": 18000.0
  },
  "POST /api/primavera/divergencias/{did}/{accao}": {
   "campo": "estado",
   "descricao": "Pago no Primavera, pendente na escola",
-  "detectada_em": "2026-10-22T16:27:20",
+  "detectada_em": "2026-10-22T16:49:10",
   "entidade": "cobranca",
   "estabelecimento_id": 1,
   "estado": "resolvida",
   "id": 1,
   "id_externo": "FT 2026/412",
   "id_local": 6,
-  "resolvida_em": "2026-10-22T16:27:28.878057Z",
+  "resolvida_em": "2026-10-22T16:49:19.368128Z",
   "resolvida_por": 1,
   "valor_externo": "paga",
   "valor_local": "pendente"
@@ -2911,8 +3103,8 @@
   "estabelecimento_id": 1,
   "estado": "ok",
   "id": 2,
-  "iniciado_em": "2026-10-22T16:27:28",
-  "terminado_em": "2026-10-22T16:27:28.829071Z",
+  "iniciado_em": "2026-10-22T16:49:19",
+  "terminado_em": "2026-10-22T16:49:19.316804Z",
   "total_erros": 0,
   "total_registos": 0
  },
@@ -2951,7 +3143,7 @@
    "whatsapp"
   ],
   "condicao": null,
-  "criada_em": "2026-10-22T16:27:27",
+  "criada_em": "2026-10-22T16:49:17",
   "criada_por": 1,
   "destino": "encarregado",
   "dias_offset": 3,
@@ -2984,8 +3176,8 @@
  },
  "POST /api/relatorios/agendados/{rid}/executar": {
   "estado": "ok",
-  "executado_em": "2026-10-22T16:27:28",
-  "ficheiro_url": "/api/ficheiros/1/relatorios/5c1d0c5d5b6f4b78a43c6fffebc40200.xlsx",
+  "executado_em": "2026-10-22T16:49:19",
+  "ficheiro_url": "/api/ficheiros/1/relatorios/619230c84446437fb4c1c020e4130eaf.xlsx",
   "id": 2,
   "relatorio_id": 1
  },
@@ -3035,7 +3227,7 @@
  },
  "POST /api/utilizadores": {
   "activo": true,
-  "criado_em": "2026-10-22T16:27:23",
+  "criado_em": "2026-10-22T16:49:13",
   "doisfa_activo": false,
   "email": "marta.kiala@clacs.ao",
   "encarregado_id": null,

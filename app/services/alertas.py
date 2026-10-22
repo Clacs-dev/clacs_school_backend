@@ -11,6 +11,7 @@ from app.models import (
     RegistoDiario, TipoOcorrencia, Turma,
 )
 from app.services.financeiro import cobrancas_detalhe
+from app.services.pedagogico import escala
 
 
 def _turmas(db: Session, est: int) -> dict[int, str]:
@@ -47,12 +48,13 @@ def calcular_alertas(db: Session, est: int, hoje: date | None = None) -> list[di
                             "mensagem": f"{nomes.get(aid)} ({turma.get(aid)}) tem {len(ms)} meses com pagamentos em atraso.",
                             "dados": {"meses_em_atraso": len(ms)}})
 
-    # Queda de desempenho: média da última avaliação 2+ valores abaixo da anterior.
+    # Queda de desempenho: média da última avaliação 10% da escala (1 valor em 10, 2 em 20) abaixo da anterior.
+    limiar = escala(db, est)["nota_maxima"] / 10
     for aid in turma:
         medias = medias_por_avaliacao(db, aid)
         if len(medias) >= 2:
             queda = medias[-2][1] - medias[-1][1]
-            if queda >= 2:
+            if queda >= limiar:
                 alertas.append({"tipo": "queda_desempenho", "gravidade": "media", "aluno_id": aid,
                                 "aluno": nomes.get(aid), "turma": turma.get(aid),
                                 "mensagem": f"{nomes.get(aid)} desceu {queda:.0f} valores na média.",

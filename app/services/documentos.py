@@ -13,7 +13,7 @@ from app.models import (
 )
 from app.services.alertas import comportamento_actual
 from app.services.financeiro import cobrancas_detalhe
-from app.services.pedagogico import FALTAS, media_ponderada
+from app.services.pedagogico import FALTAS, escala, media_ponderada
 
 AVISO_FISCAL = "Documento interno. A factura legal é emitida pelo Primavera."
 
@@ -74,13 +74,15 @@ def boletim(db: Session, aluno: Aluno, periodo: PeriodoLectivo) -> bytes:
     discs = db.execute(select(Disciplina.id, Disciplina.nome).join(Avaliacao, Avaliacao.disciplina_id == Disciplina.id)
                        .where(Avaliacao.turma_id == (turma.id if turma else -1), Avaliacao.periodo_id == periodo.id)
                        .distinct().order_by(Disciplina.nome)).all()
+    minima = escala(db, aluno.estabelecimento_id)["nota_minima"]
     t = [["Disciplina", "Média do período", "Situação"]]
     medias = []
     for did, nome in discs:
         v = media_ponderada(db, aluno.id, turma.id, did, periodo.id)
         if v is not None:
             medias.append(v)
-        t.append([pdf.esc(nome), "—" if v is None else f"{v:.1f}", "" if v is None else ("Positiva" if v >= 10 else "Negativa")])
+        t.append([pdf.esc(nome), "—" if v is None else f"{v:.1f}",
+                  "" if v is None else ("Positiva" if v >= minima else "Negativa")])
     geral = round(sum(medias) / len(medias), 1) if medias else None
     t.append(["Média geral", "—" if geral is None else f"{geral:.1f}", ""])
     faltas = db.scalar(select(func.count()).select_from(Assiduidade).where(

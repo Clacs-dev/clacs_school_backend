@@ -228,6 +228,12 @@ class Aluno(Base):
     morada: Mapped[str | None] = mapped_column(Text)
     alergias: Mapped[str | None] = mapped_column(Text)
     necessidades_especiais: Mapped[str | None] = mapped_column(Text)
+    # saúde escolar
+    grupo_sanguineo: Mapped[str | None] = mapped_column(Text)
+    condicoes_saude: Mapped[str | None] = mapped_column(Text)      # doenças crónicas, ex.: asma
+    medicacao: Mapped[str | None] = mapped_column(Text)
+    contacto_emergencia: Mapped[str | None] = mapped_column(Text)
+    telefone_emergencia: Mapped[str | None] = mapped_column(Text)
     escola_anterior: Mapped[str | None] = mapped_column(Text)
     foto_url: Mapped[str | None] = mapped_column(Text)
     estado: Mapped[str] = mapped_column(Text, server_default="activo")

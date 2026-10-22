@@ -240,12 +240,20 @@ class ResultadoTransicao(Saida):
 
 
 # ---------------------------------------------------------------- cadastro
+class MediaTrimestre(Saida):
+    periodo_id: int
+    periodo: str
+    media: float | None = Field(description="Média ponderada das notas do período (null = sem notas)")
+
+
 class AlunoLista(Aluno):
     turma_id: int | None
     turma: str | None
     encarregado: str | None = Field(description="Encarregado principal")
     telefone: str | None
     ano_lectivo: str | None
+    necessidade_especial: bool = Field(description="true = mostrar o aluno destacado (tem necessidades especiais)")
+    avaliacoes: list[MediaTrimestre] = Field(description="Média de cada trimestre do ano activo")
 
 
 class EncarregadoDoAluno(Encarregado):
@@ -262,6 +270,7 @@ class MatriculaComNomes(Matricula):
 
 
 class AlunoDetalhe(Aluno):
+    necessidade_especial: bool
     encarregados: list[EncarregadoDoAluno]
     matriculas: list[MatriculaComNomes]
     documentos: list[DocumentoAluno]
@@ -275,7 +284,11 @@ class Educando(Saida):
 
 class EncarregadoLista(Encarregado):
     parentesco: str | None
-    educandos: list[Educando]
+    educandos: list[Educando] = Field(description="Ao expandir a linha do encarregado")
+    num_educandos: int
+    total_pago: float = Field(description="Kz já pagos (cobranças de que é o responsável financeiro)")
+    total_em_divida: float = Field(description="Kz em aberto")
+    cobrancas_em_atraso: int
 
 
 class EducandoDetalhe(Educando):
@@ -589,9 +602,30 @@ class LinhaPauta(Saida):
     media_geral: float | None
 
 
+class LinhaPautaEducando(Saida):
+    disciplina_id: int
+    disciplina: str
+    medias: list[float | None] = Field(description="Uma por trimestre, pela ordem de periodos")
+    media_final: float | None
+    situacao: Literal["positiva", "negativa"] | None
+
+
+class PautaEducando(Saida):
+    aluno_id: int
+    aluno: str
+    turma: str | None
+    periodos: list[str]
+    linhas: list[LinhaPautaEducando]
+    medias_gerais: list[float | None] = Field(description="Média geral de cada trimestre")
+    nota_maxima: float
+    nota_minima: float
+
+
 class Pauta(Saida):
     disciplinas: list[str]
     linhas: list[LinhaPauta]
+    nota_maxima: float = Field(description="Escala das notas (10 ou 20)")
+    nota_minima: float = Field(description="Média a partir da qual é positiva")
 
 
 class AssiduidadeComAluno(Assiduidade):

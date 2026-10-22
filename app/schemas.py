@@ -182,7 +182,12 @@ class AlunoBase(Entrada):
     bi_numero: str | None = None
     morada: str | None = None
     alergias: str | None = None
-    necessidades_especiais: str | None = None
+    necessidades_especiais: str | None = Field(None, description="Preenchido = o aluno aparece sinalizado nas listas")
+    grupo_sanguineo: Literal["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] | None = None
+    condicoes_saude: str | None = Field(None, description="Doenças crónicas ou cuidados, ex.: asma")
+    medicacao: str | None = None
+    contacto_emergencia: str | None = None
+    telefone_emergencia: str | None = None
     escola_anterior: str | None = None
     foto_url: str | None = None
 
@@ -469,7 +474,7 @@ class AvaliacaoIn(Entrada):
 
 class NotaItem(Entrada):
     aluno_id: int
-    valor: Decimal | None = Field(None, ge=0, le=20)
+    valor: Decimal | None = Field(None, ge=0, description="De 0 à nota máxima da escola (parâmetro nota_maxima, 10)")
     observacao: str | None = None
 
 
@@ -578,7 +583,9 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     AtribuicaoIn: {"disciplina_id": 1, "funcionario_id": 1},
     AlunoIn: {"nome_completo": "Ana Paula Domingos", "data_nascimento": "2018-03-14", "sexo": "F",
               "nacionalidade": "Angolana", "bi_numero": "006123456LA041", "morada": "Talatona, Luanda",
-              "alergias": "Amendoim", "encarregado_id": 1, "parentesco": "mae", "turma_id": 1},
+              "alergias": "Amendoim", "grupo_sanguineo": "O+", "condicoes_saude": "Asma ligeira",
+              "medicacao": "Bomba de salbutamol em caso de crise", "contacto_emergencia": "Isabel Domingos (mãe)",
+              "telefone_emergencia": "+244923111222", "encarregado_id": 1, "parentesco": "mae", "turma_id": 1},
     AlunoUpd: {"morada": "Kilamba, Bloco Q, Luanda", "estado": "activo"},
     EncarregadoIn: {"nome_completo": "Isabel Domingos", "nif": "004567891LA033", "telefone": "+244923111222",
                     "whatsapp": "+244923111222", "email": "isabel.domingos@gmail.com", "profissao": "Enfermeira",
@@ -628,8 +635,8 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     TipoAvaliacaoIn: {"designacao": "Prova trimestral", "peso": 2},
     AvaliacaoIn: {"turma_id": 1, "disciplina_id": 1, "periodo_id": 1, "tipo_id": 1, "data": "2026-11-12",
                   "descricao": "Prova do 1.º trimestre"},
-    NotaItem: {"aluno_id": 6, "valor": 14.5},
-    NotasIn: {"notas": [{"aluno_id": 6, "valor": 14.5}, {"aluno_id": 11, "valor": 9},
+    NotaItem: {"aluno_id": 6, "valor": 7.5},
+    NotasIn: {"notas": [{"aluno_id": 6, "valor": 7.5}, {"aluno_id": 11, "valor": 4.5},
                         {"aluno_id": 16, "valor": None, "observacao": "Faltou à prova"}]},
     PresencaItem: {"aluno_id": 6, "estado": "presente"},
     AssiduidadeIn: {"turma_id": 1, "data": "2026-10-20",

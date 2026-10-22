@@ -230,9 +230,9 @@ def demo(db: Session, est: Estabelecimento, hoje: date | None = None) -> bool:
             for i, a in enumerate(alunos):
                 if matriculas[i].turma_id != t.id:
                     continue
-                med = 10 + (i * 7) % 9 + (i % 3) / 2
-                delta = 1 if i == 4 else 0  # Eva Santos desce 2 valores
-                db.add(Nota(avaliacao_id=av1.id, aluno_id=a.id, valor=Decimal(str(min(20, med + delta)))))
+                med = 5 + ((i * 7) % 9 + (i % 3) / 2) / 2  # escala de 0 a 10
+                delta = 0.5 if i == 4 else 0  # Eva Santos desce 1 valor
+                db.add(Nota(avaliacao_id=av1.id, aluno_id=a.id, valor=Decimal(str(min(10, med + delta)))))
                 db.add(Nota(avaliacao_id=av2.id, aluno_id=a.id, valor=Decimal(str(max(0, med - delta)))))
     for i, a in enumerate(alunos):
         t = matriculas[i].turma_id
@@ -271,7 +271,8 @@ def demo(db: Session, est: Estabelecimento, hoje: date | None = None) -> bool:
             db.add(u)
             db.flush()
             db.add(UtilizadorPerfil(utilizador_id=u.id, perfil_id=perfis[perfil], estabelecimento_id=E))
-    db.add(Parametro(estabelecimento_id=E, chave="nota_minima", valor=10, descricao="Média mínima para aprovar"))
+    db.add(Parametro(estabelecimento_id=E, chave="nota_maxima", valor=10, descricao="Nota máxima da escala (10 ou 20)"))
+    db.add(Parametro(estabelecimento_id=E, chave="nota_minima", valor=5, descricao="Média mínima para aprovar"))
 
     # Primavera (simulado)
     db.add(IntegracaoConfig(estabelecimento_id=E, sistema="primavera", activo=False))

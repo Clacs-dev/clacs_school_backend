@@ -163,7 +163,7 @@ def test_pedagogico(client, admin):
                                                                "data": periodo["data_inicio"]}))
     notas = ok(client.get(f"/api/avaliacoes/{av['id']}/notas", headers=admin))
     ok(client.put(f"/api/avaliacoes/{av['id']}/notas", headers=admin,
-                  json={"notas": [{"aluno_id": n["aluno_id"], "valor": 14} for n in notas]}))
+                  json={"notas": [{"aluno_id": n["aluno_id"], "valor": 8} for n in notas]}))
     hoje = date.today().isoformat()
     ok(client.post("/api/assiduidade", headers=admin, json={"turma_id": turma["id"], "data": hoje,
                                                            "registos": [{"aluno_id": notas[0]["aluno_id"], "estado": "presente"}]}))

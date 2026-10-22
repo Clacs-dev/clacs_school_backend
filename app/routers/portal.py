@@ -18,7 +18,7 @@ from app.database import get_db
 from app.integracoes import ErroIntegracao
 from app.integracoes.pagamentos import gateway, validar_webhook
 from app.models import (
-    Aluno, AlunoEncarregado, AnoLectivo, Avaliacao, Cobranca, Disciplina, DispositivoPush, Encarregado, Matricula, Mensagem,
+    Aluno, AlunoEncarregado, AnoLectivo, Avaliacao, ClasseDisciplina, Cobranca, Disciplina, DispositivoPush, Encarregado, Matricula, Mensagem,
     MetodoPagamento, Nota, Pagamento, Perfil, PeriodoLectivo, PreferenciaContacto, TipoAvaliacao, Turma, Utilizador,
     UtilizadorPerfil,
 )
@@ -27,7 +27,7 @@ from app.security import Contexto, auditar, contexto_actual, exige, hash_senha
 from app.services import documentos as docs
 from app.services.alertas import comportamento_actual
 from app.services.financeiro import avisar_comprovativo, cobrancas_detalhe, mudar_estado_pagamento, registar_pagamento
-from app.services.pedagogico import media_geral, total_faltas
+from app.services.pedagogico import escala, media_geral, media_ponderada, total_faltas
 
 router = APIRouter(prefix="/api/portal", tags=["Portal do encarregado"])
 extra = APIRouter(prefix="/api", tags=["Portal do encarregado"])
@@ -102,6 +102,37 @@ def educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Sessio
             "cobrancas": cob, "em_divida": sum(c["valor_em_aberto"] for c in cob if c["estado"] != "paga"),
             "media": media_geral(db, m) if m else None, "faltas": total_faltas(db, aid, m.turma_id if m else None),
             "comportamento": comportamento_actual(db, aid)}
+
+
+@router.get("/educandos/{aid}/pauta", response_model=R.PautaEducando,
+            summary="Pauta do educando: média de cada disciplina em cada trimestre e a média final")
+def pauta_educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    a = _educando(db, ee, aid)
+    escala_notas = escala(db, ee.estabelecimento_id)
+    m = db.scalar(select(Matricula).join(AnoLectivo, AnoLectivo.id == Matricula.ano_id)
+                  .where(Matricula.aluno_id == aid, Matricula.estado == "activa", AnoLectivo.estado == "activo"))
+    if m is None:
+        return {"aluno_id": a.id, "aluno": a.nome_completo, "turma": None, "periodos": [], "linhas": [],
+                "medias_gerais": [], **escala_notas}
+    turma = db.get(Turma, m.turma_id)
+    periodos = db.scalars(select(PeriodoLectivo).where(PeriodoLectivo.ano_id == m.ano_id)
+                          .order_by(PeriodoLectivo.ordem)).all()
+    discs = db.execute(select(Disciplina.id, Disciplina.nome).join(ClasseDisciplina, ClasseDisciplina.disciplina_id == Disciplina.id)
+                       .where(ClasseDisciplina.classe_id == turma.classe_id).order_by(Disciplina.nome)).all()
+    linhas = []
+    for did, nome in discs:
+        medias = [media_ponderada(db, aid, turma.id, did, p.id) for p in periodos]
+        validas = [v for v in medias if v is not None]
+        final = round(sum(validas) / len(validas), 1) if validas else None
+        linhas.append({"disciplina_id": did, "disciplina": nome, "medias": medias, "media_final": final,
+                       "situacao": None if final is None else
+                       ("positiva" if final >= escala_notas["nota_minima"] else "negativa")})
+    gerais = []
+    for i in range(len(periodos)):
+        validas = [ln["medias"][i] for ln in linhas if ln["medias"][i] is not None]
+        gerais.append(round(sum(validas) / len(validas), 1) if validas else None)
+    return {"aluno_id": a.id, "aluno": a.nome_completo, "turma": turma.designacao,
+            "periodos": [p.designacao for p in periodos], "linhas": linhas, "medias_gerais": gerais, **escala_notas}
 
 
 @router.get("/educandos/{aid}/notas", response_model=list[R.NotaPortal], summary="Notas lançadas do educando")

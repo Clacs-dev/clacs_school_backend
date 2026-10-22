@@ -3,9 +3,18 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Assiduidade, Avaliacao, Matricula, Nota, ResultadoPeriodo, TipoAvaliacao
+from app.models import Assiduidade, Avaliacao, Matricula, Nota, Parametro, ResultadoPeriodo, TipoAvaliacao
 
 FALTAS = ("falta_justificada", "falta_injustificada")
+NOTA_MAXIMA = 10  # escala por omissão (Talatona Kids: 0 a 10); o parâmetro nota_maxima muda-a, ex. 20
+
+
+def escala(db: Session, est: int) -> dict:
+    """Escala das notas: nota_maxima (10) e nota_minima para positiva/aprovação (metade da máxima)."""
+    maxima = db.get(Parametro, (est, "nota_maxima"))
+    maxima = float(maxima.valor) if maxima is not None else float(NOTA_MAXIMA)
+    minima = db.get(Parametro, (est, "nota_minima"))
+    return {"nota_maxima": maxima, "nota_minima": float(minima.valor) if minima is not None else maxima / 2}
 
 
 def media_ponderada(db: Session, aluno_id: int, turma_id: int, disciplina_id: int | None = None,

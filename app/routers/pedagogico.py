@@ -18,7 +18,7 @@ from app.schemas import (
     TipoOcorrenciaIn,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas, verificar_turma
-from app.services.pedagogico import media_ponderada
+from app.services.pedagogico import escala, media_ponderada
 
 router = APIRouter(prefix="/api", tags=["Pedagógico"])
 ver, criar, editar = exige("pedagogico"), exige("pedagogico", "criar"), exige("pedagogico", "editar")
@@ -107,9 +107,12 @@ def notas(avid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)
 def lancar_notas(avid: int, dados: NotasIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     a = _avaliacao(db, avid, ctx)
     da_turma = {aid for _, aid, _ in _alunos_turma(db, a.turma_id)}
+    maxima = escala(db, ctx.estabelecimento_id)["nota_maxima"]
     for item in dados.notas:
         if item.aluno_id not in da_turma:
             raise HTTPException(422, f"O aluno {item.aluno_id} não pertence à turma")
+        if item.valor is not None and item.valor > Decimal(str(maxima)):
+            raise HTTPException(422, f"A nota máxima é {maxima:g}: o aluno {item.aluno_id} tem {item.valor}")
         n = db.scalar(select(Nota).where(Nota.avaliacao_id == avid, Nota.aluno_id == item.aluno_id))
         n = n or Nota(avaliacao_id=avid, aluno_id=item.aluno_id)
         n.valor, n.observacao, n.lancada_por = item.valor, item.observacao, ctx.id
@@ -132,7 +135,7 @@ def pauta(turma_id: int, periodo_id: int, ctx: Contexto = Depends(ver), db: Sess
         linhas.append({"matricula_id": mid, "aluno_id": aid, "aluno": nome,
                        "medias": {n: medias[d] for d, n in discs},
                        "media_geral": round(sum(validas) / len(validas), 1) if validas else None})
-    return {"disciplinas": [n for _, n in discs], "linhas": linhas}
+    return {"disciplinas": [n for _, n in discs], "linhas": linhas, **escala(db, ctx.estabelecimento_id)}
 
 
 @router.post("/pautas/fechar", response_model=R.Resultados, summary="Grava as médias do período em resultado_periodo")

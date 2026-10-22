@@ -114,3 +114,71 @@ def test_disciplinas_do_aluno_pelo_plano_curricular(client, admin):
     assert {d["id"] for d in disciplinas} == plano and plano
     assert any(d["professor"] for d in disciplinas)  # com o professor atribuído na turma
     assert {d["id"] for d in _ok(client.get(f"/api/alunos/{aluno['id']}", headers=admin))["disciplinas"]} == plano
+
+
+# ---------------------------------------------------------------- escala de notas (0 a 10) e bloco C
+def test_notas_de_0_a_10_configuravel(client, admin):
+    turma = client.get("/api/turmas", headers=admin).json()[0]["id"]
+    av = client.get("/api/avaliacoes", headers=admin, params={"turma_id": turma}).json()[0]
+    aluno = client.get(f"/api/avaliacoes/{av['id']}/notas", headers=admin).json()[0]["aluno_id"]
+    antes = next(n["valor"] for n in client.get(f"/api/avaliacoes/{av['id']}/notas", headers=admin).json()
+                 if n["aluno_id"] == aluno)
+    r = client.put(f"/api/avaliacoes/{av['id']}/notas", headers=admin, json={"notas": [{"aluno_id": aluno, "valor": 11}]})
+    assert r.status_code == 422 and "A nota máxima é 10" in r.json()["detail"]
+    pauta = _ok(client.get("/api/pautas", headers=admin, params={"turma_id": turma, "periodo_id": av["periodo_id"]}))
+    assert (pauta["nota_maxima"], pauta["nota_minima"]) == (10, 5)
+    _ok(client.put("/api/parametros/nota_maxima", headers=admin, json={"valor": 20}))
+    try:
+        _ok(client.put(f"/api/avaliacoes/{av['id']}/notas", headers=admin, json={"notas": [{"aluno_id": aluno, "valor": 15}]}))
+    finally:
+        _ok(client.put("/api/parametros/nota_maxima", headers=admin, json={"valor": 10}))
+        _ok(client.put(f"/api/avaliacoes/{av['id']}/notas", headers=admin, json={"notas": [{"aluno_id": aluno, "valor": antes}]}))
+
+
+def test_lista_de_alunos_com_trimestres_saude_e_sinal(client, admin):
+    alunos = client.get("/api/alunos", headers=admin).json()
+    aluno = next(a for a in alunos if a["turma_id"] and a["avaliacoes"][0]["media"] is not None)
+    assert [p["periodo"] for p in aluno["avaliacoes"]] == ["1.º Trimestre", "2.º Trimestre", "3.º Trimestre"]
+    assert aluno["necessidade_especial"] is False
+    saude = {"necessidades_especiais": "Dislexia", "grupo_sanguineo": "O+", "condicoes_saude": "Asma",
+             "medicacao": "Salbutamol", "contacto_emergencia": "Tia Rosa", "telefone_emergencia": "+244923000999"}
+    _ok(client.patch(f"/api/alunos/{aluno['id']}", headers=admin, json=saude))
+    try:
+        linha = next(a for a in client.get("/api/alunos", headers=admin).json() if a["id"] == aluno["id"])
+        ficha = _ok(client.get(f"/api/alunos/{aluno['id']}", headers=admin))
+        assert linha["necessidade_especial"] and ficha["necessidade_especial"]
+        assert {k: ficha[k] for k in saude} == saude
+        assert client.patch(f"/api/alunos/{aluno['id']}", headers=admin, json={"grupo_sanguineo": "Z"}).status_code == 422
+    finally:
+        _ok(client.patch(f"/api/alunos/{aluno['id']}", headers=admin, json={"necessidades_especiais": None}))
+
+
+def test_lista_de_alunos_no_pedagogico(client, admin):
+    prof = login(client, "professor@clacs.ao", "senha-de-teste-123")
+    minhas = {t["id"] for t in client.get("/api/turmas", headers=prof).json()}
+    lista = _ok(client.get("/api/pedagogico/alunos", headers=prof))
+    assert lista and {a["turma_id"] for a in lista} <= minhas
+    outra = next(t["id"] for t in client.get("/api/turmas", headers=admin).json() if t["id"] not in minhas)
+    assert client.get("/api/pedagogico/alunos", headers=prof, params={"turma_id": outra}).status_code == 403
+    assert len(_ok(client.get("/api/pedagogico/alunos", headers=admin))) >= len(lista)
+
+
+def test_lista_de_encarregados_com_filhos_e_contas(client, admin):
+    ees = _ok(client.get("/api/encarregados", headers=admin))
+    for e in ees:
+        assert e["num_educandos"] == len(e["educandos"])
+    com_divida = next(e for e in ees if e["total_em_divida"] > 0)
+    linhas = client.get("/api/cobrancas", headers=admin, params={"encarregado_id": com_divida["id"]}).json()["linhas"]
+    if linhas:  # o filtro por encarregado existe: os totais batem com as cobranças
+        assert round(sum(x["valor_em_aberto"] for x in linhas), 2) == com_divida["total_em_divida"]
+
+
+def test_portal_pauta_do_educando(client):
+    ee = login(client, "encarregado@clacs.ao", "senha-de-teste-123")
+    aid = client.get("/api/portal/eu", headers=ee).json()["educandos"][0]["id"]
+    pauta = _ok(client.get(f"/api/portal/educandos/{aid}/pauta", headers=ee))
+    assert pauta["periodos"] == ["1.º Trimestre", "2.º Trimestre", "3.º Trimestre"] and pauta["nota_maxima"] == 10
+    assert pauta["linhas"] and all(len(ln["medias"]) == 3 for ln in pauta["linhas"])
+    com_nota = [ln for ln in pauta["linhas"] if ln["media_final"] is not None]
+    assert com_nota and all(ln["situacao"] in ("positiva", "negativa") for ln in com_nota)
+    assert client.get("/api/portal/educandos/999999/pauta", headers=ee).status_code == 404

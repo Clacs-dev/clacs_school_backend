@@ -12,17 +12,17 @@ from app.database import get_db
 from app.models import (
     AdesaoServico, Aluno, AlunoEncarregado, AnoLectivo, AtribuicaoDocente, Classe, ClasseDisciplina, Desconto, Disciplina,
     Funcionario, DocumentoAluno, Encarregado, Matricula,
-    MatriculaDesconto, MatriculaHistorico, Ocorrencia, PreferenciaContacto, Servico, Turma,
+    MatriculaDesconto, MatriculaHistorico, Ocorrencia, PeriodoLectivo, PreferenciaContacto, Servico, Turma,
 )
 from app.schemas import (
     AlunoIn, AlunoUpd, DocumentoIn, EncarregadoIn, EncarregadoUpd, LigacaoIn, MatriculaDescontoIn, MatriculaIn,
     MudancaTurmaIn, PreferenciaIn,
 )
-from app.security import Contexto, auditar, exige
+from app.security import Contexto, auditar, exige, turmas_permitidas
 from app.services.alertas import comportamento_actual
 from app.services.financeiro import cobrancas_detalhe
 from app.services import turmas as ocupacao_turmas
-from app.services.pedagogico import media_geral, total_faltas
+from app.services.pedagogico import media_geral, media_ponderada, total_faltas
 
 router = APIRouter(prefix="/api", tags=["Cadastro e matrículas"])
 ver, criar, editar = exige("cadastro"), exige("cadastro", "criar"), exige("cadastro", "editar")
@@ -76,7 +76,13 @@ def disciplinas_do_aluno(db: Session, aluno_id: int, est: int) -> list[dict]:
 @router.get("/alunos", response_model=list[R.AlunoLista])
 def listar_alunos(q: str | None = None, turma_id: int | None = None, estado: str | None = None,
                   limit: int = 500, offset: int = 0, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
-    est = ctx.estabelecimento_id
+    """Nº de processo, nome, turma, encarregado, estado, média de cada trimestre e o sinal de necessidade especial."""
+    return lista_alunos(db, ctx.estabelecimento_id, q, turma_id, estado, limit, offset)
+
+
+def lista_alunos(db: Session, est: int, q: str | None = None, turma_id: int | None = None, estado: str | None = None,
+                 limit: int = 500, offset: int = 0, turmas: set[int] | None = None) -> list[dict]:
+    """turmas = só alunos destas turmas (professores, no pedagógico)."""
     ano = ano_activo(db, est, obrigatorio=False)
     mat = (select(Matricula.aluno_id, Matricula.turma_id, Turma.designacao.label("turma"))
            .join(Turma, Turma.id == Matricula.turma_id)
@@ -92,12 +98,29 @@ def listar_alunos(q: str | None = None, turma_id: int | None = None, estado: str
         stmt = stmt.where(Aluno.nome_completo.ilike(f"%{q.strip()}%") | (Aluno.numero_processo == q.strip()))
     if turma_id:
         stmt = stmt.where(mat.c.turma_id == turma_id)
+    if turmas is not None:
+        stmt = stmt.where(mat.c.turma_id.in_(turmas))
     if estado:
         stmt = stmt.where(Aluno.estado == estado)
     stmt = stmt.order_by(Aluno.nome_completo).limit(min(limit, 2000)).offset(offset)
+    periodos = db.scalars(select(PeriodoLectivo).where(PeriodoLectivo.ano_id == ano.id)
+                          .order_by(PeriodoLectivo.ordem)).all() if ano else []
     return [{**as_dict(a), "turma_id": tid, "turma": t, "encarregado": e, "telefone": tel,
-             "ano_lectivo": ano.designacao if (ano and tid) else None}
+             "ano_lectivo": ano.designacao if (ano and tid) else None,
+             "necessidade_especial": bool((a.necessidades_especiais or "").strip()),
+             "avaliacoes": [{"periodo_id": p.id, "periodo": p.designacao,
+                             "media": media_ponderada(db, a.id, tid, None, p.id) if tid else None} for p in periodos]}
             for a, tid, t, e, tel in db.execute(stmt)]
+
+
+@router.get("/pedagogico/alunos", response_model=list[R.AlunoLista], tags=["Pedagógico"],
+            summary="Lista de alunos no pedagógico (professores: só as suas turmas)")
+def alunos_pedagogico(turma_id: int | None = None, q: str | None = None,
+                      ctx: Contexto = Depends(exige("pedagogico")), db: Session = Depends(get_db)):
+    permitidas = turmas_permitidas(db, ctx)
+    if turma_id and permitidas is not None and turma_id not in permitidas:
+        raise HTTPException(403, "Sem acesso a esta turma")
+    return lista_alunos(db, ctx.estabelecimento_id, q, turma_id, "activo", turmas=permitidas)
 
 
 @router.post("/alunos", response_model=R.Aluno, status_code=201)
@@ -138,7 +161,7 @@ def ver_aluno(aid: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_
                       .join(Turma, Turma.id == Matricula.turma_id).join(AnoLectivo, AnoLectivo.id == Matricula.ano_id)
                       .where(Matricula.aluno_id == aid).order_by(AnoLectivo.data_inicio.desc()))
     docs = db.scalars(select(DocumentoAluno).where(DocumentoAluno.aluno_id == aid))
-    return {**as_dict(a),
+    return {**as_dict(a), "necessidade_especial": bool((a.necessidades_especiais or "").strip()),
             "encarregados": [{**as_dict(e), **{k: v for k, v in as_dict(l).items() if k not in ("aluno_id",)}}
                              for e, l in ees],
             "matriculas": [{**as_dict(m), "turma": t, "ano_lectivo": an} for m, t, an in mats],
@@ -246,11 +269,19 @@ def listar_encarregados(q: str | None = None, ctx: Contexto = Depends(ver), db: 
     ligs = db.execute(select(AlunoEncarregado.encarregado_id, AlunoEncarregado.parentesco, Aluno.id, Aluno.nome_completo)
                       .join(Aluno, Aluno.id == AlunoEncarregado.aluno_id)
                       .where(AlunoEncarregado.encarregado_id.in_([e.id for e in ees]))).all()
+    contas: dict[int, dict] = {}
+    for x in cobrancas_detalhe(db, ctx.estabelecimento_id):
+        c = contas.setdefault(x["encarregado_id"], {"total_pago": 0.0, "total_em_divida": 0.0, "cobrancas_em_atraso": 0})
+        c["total_pago"] += x["valor_pago"]
+        c["total_em_divida"] += x["valor_em_aberto"]
+        c["cobrancas_em_atraso"] += 1 if x["dias_atraso"] > 0 and x["valor_em_aberto"] > 0 else 0
     out = []
     for e in ees:
         meus = [l for l in ligs if l[0] == e.id]
+        conta = contas.get(e.id, {"total_pago": 0.0, "total_em_divida": 0.0, "cobrancas_em_atraso": 0})
         out.append({**as_dict(e), "parentesco": meus[0][1] if meus else None,
-                    "educandos": [{"id": l[2], "nome": l[3]} for l in meus]})
+                    "educandos": [{"id": l[2], "nome": l[3]} for l in meus], "num_educandos": len(meus),
+                    **{k: round(v, 2) if isinstance(v, float) else v for k, v in conta.items()}})
     return out
 
 
