@@ -19,8 +19,10 @@ from app.services.financeiro import cobrancas_detalhe, encarregado_financeiro
 log = logging.getLogger("clacs.mensagens")
 
 MODELOS_PADRAO = {
-    "antes_vencimento": "Caro encarregado, a {servico} de {aluno} vence a {data}. Valor: {valor}.",
-    "apos_vencimento": "Caro encarregado, a {servico} de {aluno} venceu a {data} e continua por pagar. Valor: {valor}.",
+    "antes_vencimento": "Caro encarregado, a {servico} de {aluno} vence a {data}. Valor: {valor}. "
+                        "Pode pagar na escola ou no portal do encarregado.",
+    "apos_vencimento": "Caro encarregado, a {servico} de {aluno} venceu a {data} e continua por pagar. Valor: {valor}. "
+                       "Pode pagar na escola ou no portal do encarregado.",
     "lembrete": "Caro encarregado, a {servico} de {aluno} ({competencia}) está em dívida há {dias} dia(s). Valor: {valor}.",
     "ocorrencia": "Caro encarregado, foi registada uma ocorrência sobre {aluno}: {descricao}.",
 }

@@ -18,7 +18,7 @@ from app.database import get_db
 from app.integracoes import ErroIntegracao
 from app.integracoes.pagamentos import gateway, validar_webhook
 from app.models import (
-    Aluno, AlunoEncarregado, AnoLectivo, Avaliacao, Disciplina, DispositivoPush, Encarregado, Matricula, Mensagem,
+    Aluno, AlunoEncarregado, AnoLectivo, Avaliacao, Cobranca, Disciplina, DispositivoPush, Encarregado, Matricula, Mensagem,
     MetodoPagamento, Nota, Pagamento, Perfil, PeriodoLectivo, PreferenciaContacto, TipoAvaliacao, Turma, Utilizador,
     UtilizadorPerfil,
 )
@@ -26,7 +26,7 @@ from app.schemas import Canal, Entrada, com_exemplo
 from app.security import Contexto, auditar, contexto_actual, exige, hash_senha
 from app.services import documentos as docs
 from app.services.alertas import comportamento_actual
-from app.services.financeiro import cobrancas_detalhe, mudar_estado_pagamento, registar_pagamento
+from app.services.financeiro import avisar_comprovativo, cobrancas_detalhe, mudar_estado_pagamento, registar_pagamento
 from app.services.pedagogico import media_geral, total_faltas
 
 router = APIRouter(prefix="/api/portal", tags=["Portal do encarregado"])
@@ -181,6 +181,8 @@ async def enviar_comprovativo(cobranca_ids: str = Form(..., description="ids sep
     pg = registar_pagamento(db, ee.estabelecimento_id, None, metodo_id=metodo.id, valor=valor, encarregado_id=ee.id,
                             cobranca_ids=ids, referencia=referencia, comprovativo_url=armazenamento.url(chave),
                             estado="pendente")
+    avisar_comprovativo(db, pg, db.scalar(select(Cobranca.aluno_id).where(Cobranca.id == ids[0])))
+    db.commit()
     return {"pagamento_id": pg.id, "estado": pg.estado, "valor": float(pg.valor),
             "mensagem": "Comprovativo recebido. A secretaria confirma o pagamento depois de verificar."}
 

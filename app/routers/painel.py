@@ -96,9 +96,13 @@ def apagar_indicador(iid: int, ctx: Contexto = Depends(exige("painel", "editar")
 
 # ---------------------------------------------------------------- alertas
 @router.get("/alertas", response_model=list[R.AlertaComAluno])
-def alertas(estado: str | None = None, ctx: Contexto = Depends(exige("painel")), db: Session = Depends(get_db)):
+def alertas(estado: str | None = None, tipo: str | None = None, ctx: Contexto = Depends(exige("painel")),
+            db: Session = Depends(get_db)):
+    """tipo=comprovativo_pagamento: comprovativos enviados pelos encarregados à espera de verificação."""
     stmt = (select(Alerta, Aluno.nome_completo).outerjoin(Aluno, Aluno.id == Alerta.aluno_id)
             .where(Alerta.estabelecimento_id == ctx.estabelecimento_id))
+    if tipo:
+        stmt = stmt.where(Alerta.tipo == tipo)
     if estado:
         stmt = stmt.where(Alerta.estado == estado)
     return [{**as_dict(a), "aluno": n} for a, n in db.execute(stmt.order_by(Alerta.criado_em.desc()).limit(500))]

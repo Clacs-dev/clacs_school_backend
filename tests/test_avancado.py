@@ -220,3 +220,31 @@ def test_whatsapp_zapi_erro(monkeypatch):
     monkeypatch.setattr(mensagens.httpx, "post", lambda *a, **k: httpx.Response(401, text="instância desligada"))
     with pytest.raises(mensagens.ErroIntegracao):
         mensagens.enviar_whatsapp("923000111", "Olá")
+
+
+# ---------------------------------------------------------------- mapa de cobrança do ano inteiro
+# (no fim: gera todos os meses do ano, que os testes acima geram um a um)
+def test_gerar_o_ano_inteiro_com_plano_e_alertas(client, admin):
+    """Ponto 3: 10 prestações a partir de Setembro, vencimento no dia 10, lembretes 20/15/5/0 dias antes."""
+    ano = _ano(client, admin)
+    setembro = f"{ano['data_inicio'][:4]}-09-01"
+    r = client.post("/api/cobrancas/gerar", headers=admin, json={
+        "competencia": setembro, "prestacoes": 10, "mes_inicio": 9, "dia_vencimento": 10, "todo_o_ano": True})
+    assert r.status_code == 200, r.text
+    meses = [m["competencia"][5:7] for m in r.json()["meses"]]
+    assert meses == ["09", "10", "11", "12", "01", "02", "03", "04", "05", "06"]  # Julho e Agosto ficam de fora
+    cfg = client.get("/api/cobrancas/configuracao", headers=admin).json()
+    assert cfg["plano"] == {"prestacoes": 10, "mes_inicio": 9, "dia_vencimento": 10,
+                            "meses": [9, 10, 11, 12, 1, 2, 3, 4, 5, 6]}
+    assert cfg["alertas_dias"] == [20, 15, 5, 0]  # criados por omissão no primeiro "Gerar"
+    regras = [x for x in client.get("/api/regras", headers=admin).json() if x["evento"] == "antes_vencimento"]
+    assert {x["dias_offset"] for x in regras if x["activa"]} >= {20, 15, 5, 0}
+
+    # repetir não duplica e os alertas podem mudar: só 5 dias antes e no próprio dia
+    r = client.post("/api/cobrancas/gerar", headers=admin, json={"competencia": setembro, "todo_o_ano": True,
+                                                                  "alertas_dias": [0, 5]}).json()
+    assert r["criadas"] == 0
+    assert client.get("/api/cobrancas/configuracao", headers=admin).json()["alertas_dias"] == [5, 0]
+    r = client.post("/api/cobrancas/gerar", headers=admin, json={"competencia": setembro, "alertas_dias": [99]})
+    assert r.status_code == 422
+    client.post("/api/cobrancas/gerar", headers=admin, json={"competencia": setembro, "alertas_dias": [20, 15, 5, 0]})

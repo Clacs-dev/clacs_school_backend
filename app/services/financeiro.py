@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.common import ano_activo, dinheiro, soma_meses
 from app.models import (
-    AdesaoServico, Aluno, AlunoEncarregado, Classe, Cobranca, Desconto, Encarregado, Matricula,
-    MatriculaDesconto, MetodoPagamento, MultaRegra, Pagamento, PagamentoAlocacao, Parametro,
-    PlanoPagamento, Servico, TabelaPreco, Turma,
+    AdesaoServico, Alerta, Aluno, AlunoEncarregado, Classe, Cobranca, Desconto, Encarregado, Matricula,
+    MatriculaDesconto, Mensagem, MetodoPagamento, MultaRegra, Pagamento, PagamentoAlocacao, Parametro,
+    PlanoPagamento, RegraAutomacao, Servico, TabelaPreco, Turma,
 )
 
 ABERTAS = ("pendente", "parcial")
@@ -152,8 +152,7 @@ def _desconto(db: Session, matricula_id: int, servico_id: int, base: Decimal, co
 
 def meses_do_plano(db: Session, est: int) -> list[int] | None:
     """Meses (1–12) em que há prestação, segundo o plano de pagamento; None = sem plano, todos os meses."""
-    plano = db.scalar(select(PlanoPagamento).where(PlanoPagamento.estabelecimento_id == est)
-                      .order_by(PlanoPagamento.id).limit(1))
+    plano = _plano(db, est)
     if not plano:
         return None
     return [(plano.mes_inicio - 1 + i) % 12 + 1 for i in range(plano.num_prestacoes)]
@@ -212,15 +211,70 @@ def configuracao_cobranca(db: Session, est: int) -> dict:
         multa = regra and {"tipo": regra.tipo, "valor": float(regra.valor), "dias_tolerancia": regra.dias_tolerancia,
                            "maximo": _talvez(regra.maximo)}
         propinas.append({"servico_id": s.id, "nome": s.nome, "precos": precos, "multa": multa})
+    plano = _plano(db, est)
     return {"ano": ano.designacao, "propinas": propinas, "dia_vencimento": _dia_vencimento(db, est),
+            "plano": plano and {"prestacoes": plano.num_prestacoes, "mes_inicio": plano.mes_inicio,
+                                "dia_vencimento": plano.dia_vencimento, "meses": meses_do_plano(db, est)},
+            "alertas_dias": sorted((r.dias_offset or 0 for r in _regras_alerta(db, est) if r.activa), reverse=True),
             "pendentes": pendentes, "pronto": not pendentes}
 
 
-def configurar_cobranca(db: Session, est: int, servico_id: int | None, valor: Decimal | None,
-                        precos: list[tuple[int, Decimal]] | None, multa_percentual: Decimal | None,
-                        dias_tolerancia: int | None, multa_maximo: Decimal | None) -> Servico | None:
-    """Grava o que o "Gerar" trouxe: preço da propina (todas as classes ou por classe) e a regra de multa."""
+# Lembretes do mapa de cobrança: dias antes do vencimento (dia 10) em que o encarregado é avisado.
+# 20 e 15 dias antes ≈ dias 20 e 25 do mês anterior; 5 dias antes; 0 = no próprio dia do vencimento.
+ALERTAS_PADRAO = [20, 15, 5, 0]
+ORIGEM_ALERTAS = "mapa_cobranca"
+
+
+def _plano(db: Session, est: int) -> PlanoPagamento | None:
+    return db.scalar(select(PlanoPagamento).where(PlanoPagamento.estabelecimento_id == est)
+                     .order_by(PlanoPagamento.id).limit(1))
+
+
+def _regras_alerta(db: Session, est: int) -> list[RegraAutomacao]:
+    regras = db.scalars(select(RegraAutomacao).where(RegraAutomacao.estabelecimento_id == est,
+                                                     RegraAutomacao.evento == "antes_vencimento")).all()
+    return [r for r in regras if (r.condicao or {}).get("origem") == ORIGEM_ALERTAS]
+
+
+def _gravar_alertas(db: Session, est: int, dias: list[int]) -> None:
+    """Um lembrete por dia pedido (antes do vencimento, por WhatsApp); os que deixaram de ser pedidos desligam-se."""
+    existentes = {r.dias_offset or 0: r for r in _regras_alerta(db, est)}
+    for d, r in existentes.items():
+        r.activa = d in dias
+    for d in set(dias) - set(existentes):
+        db.add(RegraAutomacao(
+            estabelecimento_id=est, evento="antes_vencimento", dias_offset=d, canais=["whatsapp"], activa=True,
+            nome="Propina: lembrete no dia do vencimento" if d == 0 else f"Propina: lembrete {d} dias antes",
+            condicao={"categoria": "propina", "origem": ORIGEM_ALERTAS}, destino="encarregado"))
+
+
+def configurar_cobranca(db: Session, est: int, servico_id: int | None = None, valor: Decimal | None = None,
+                        precos: list[tuple[int, Decimal]] | None = None, multa_percentual: Decimal | None = None,
+                        dias_tolerancia: int | None = None, multa_maximo: Decimal | None = None,
+                        prestacoes: int | None = None, mes_inicio: int | None = None,
+                        dia_vencimento: int | None = None, alertas_dias: list[int] | None = None) -> Servico | None:
+    """Grava o que o "Gerar" trouxe: plano (prestações e vencimento), alertas, preço da propina e regra de multa."""
+    if prestacoes is not None or mes_inicio is not None or dia_vencimento is not None:
+        plano = _plano(db, est)
+        if plano is None:
+            if prestacoes is None or mes_inicio is None:
+                raise HTTPException(422, "Para criar o plano indique prestacoes e mes_inicio")
+            plano = PlanoPagamento(estabelecimento_id=est, designacao="", num_prestacoes=prestacoes,
+                                   mes_inicio=mes_inicio, dia_vencimento=dia_vencimento or 10)
+            db.add(plano)
+        plano.num_prestacoes = prestacoes or plano.num_prestacoes
+        plano.mes_inicio = mes_inicio or plano.mes_inicio
+        plano.dia_vencimento = dia_vencimento or plano.dia_vencimento
+        plano.designacao = f"{plano.num_prestacoes} prestações"
+        parametro = db.get(Parametro, (est, "dia_vencimento"))
+        if parametro is not None and dia_vencimento is not None:  # o parâmetro manda sobre o plano: acompanha-o
+            parametro.valor = dia_vencimento
+    if alertas_dias is not None:
+        _gravar_alertas(db, est, alertas_dias)
+    elif not _regras_alerta(db, est):
+        _gravar_alertas(db, est, ALERTAS_PADRAO)
     if valor is None and not precos and multa_percentual is None and dias_tolerancia is None and multa_maximo is None:
+        db.flush()
         return None
     servicos = _propinas(db, est)
     if servico_id is not None:
@@ -269,6 +323,24 @@ def configurar_cobranca(db: Session, est: int, servico_id: int | None, valor: De
             regra.maximo = multa_maximo
     db.flush()
     return s
+
+
+def gerar_ano(db: Session, est: int, desde: date) -> dict:
+    """O mapa de cobrança de uma vez: todas as prestações do plano, de `desde` até ao fim do ano lectivo activo."""
+    ano = ano_activo(db, est)
+    meses, mes = [], max(desde.replace(day=1), ano.data_inicio.replace(day=1))
+    while mes <= ano.data_fim:
+        r = gerar_cobrancas(db, est, mes)
+        if not r["fora_do_plano"]:
+            meses.append(r)
+        mes = soma_meses(mes, 1)
+    if not meses:
+        return gerar_cobrancas(db, est, desde) | {"meses": []}
+    return {"competencia": meses[0]["competencia"], "criadas": sum(r["criadas"] for r in meses),
+            "ja_existentes": sum(r["ja_existentes"] for r in meses),
+            "servicos_sem_preco": sorted({s for r in meses for s in r["servicos_sem_preco"]}),
+            "com_desconto_irmaos": max(r["com_desconto_irmaos"] for r in meses), "fora_do_plano": False,
+            "meses": [{"competencia": r["competencia"], "criadas": r["criadas"]} for r in meses]}
 
 
 def gerar_cobrancas(db: Session, est: int, competencia: date) -> dict:
@@ -406,13 +478,42 @@ def registar_pagamento(db: Session, est: int, utilizador_id: int | None, *, meto
     return pg
 
 
-def mudar_estado_pagamento(db: Session, pg: Pagamento, estado: str) -> None:
-    """Confirma ou rejeita um pagamento pendente (ex.: comprovativo enviado pelo encarregado)."""
+def _kz(v) -> str:
+    return f"{float(v):,.0f}".replace(",", " ") + " Kz"
+
+
+def avisar_comprovativo(db: Session, pg: Pagamento, aluno_id: int | None) -> None:
+    """Alerta para a escola: há um comprovativo à espera de verificação (fecha-se ao confirmar ou rejeitar)."""
+    ee = db.get(Encarregado, pg.encarregado_id) if pg.encarregado_id else None
+    db.add(Alerta(estabelecimento_id=pg.estabelecimento_id, tipo="comprovativo_pagamento", aluno_id=aluno_id,
+                  gravidade="media", dados={"pagamento_id": pg.id, "valor": float(pg.valor)},
+                  mensagem=f"{ee.nome_completo if ee else 'Um encarregado'} enviou um comprovativo de "
+                           f"{_kz(pg.valor)} para verificar."))
+
+
+def mudar_estado_pagamento(db: Session, pg: Pagamento, estado: str, tratado_por: int | None = None) -> None:
+    """Confirma ou rejeita um pagamento pendente (ex.: comprovativo enviado pelo encarregado).
+
+    Fecha o alerta do comprovativo e avisa o encarregado na app e por WhatsApp."""
     pg.estado = estado
     db.flush()
     cids = db.scalars(select(PagamentoAlocacao.cobranca_id).where(PagamentoAlocacao.pagamento_id == pg.id)).all()
     for cid in cids:
         actualizar_estado(db, db.get(Cobranca, cid))
+    avisos = db.scalars(select(Alerta).where(Alerta.estabelecimento_id == pg.estabelecimento_id,
+                                             Alerta.tipo == "comprovativo_pagamento",
+                                             Alerta.estado.in_(("novo", "visto")))).all()
+    for a in avisos:
+        if (a.dados or {}).get("pagamento_id") == pg.id:
+            a.estado, a.tratado_por = "tratado", tratado_por
+    if avisos and pg.encarregado_id and estado in ("confirmado", "rejeitado"):
+        texto = (f"O seu pagamento de {_kz(pg.valor)} foi confirmado pela escola. Obrigado."
+                 if estado == "confirmado" else
+                 f"O comprovativo do pagamento de {_kz(pg.valor)} não foi aceite. Por favor contacte a secretaria.")
+        aluno_id = next((a.aluno_id for a in avisos if (a.dados or {}).get("pagamento_id") == pg.id), None)
+        for canal in ("app", "whatsapp"):
+            db.add(Mensagem(estabelecimento_id=pg.estabelecimento_id, encarregado_id=pg.encarregado_id,
+                            aluno_id=aluno_id, canal=canal, assunto="Pagamento", corpo=texto))
     db.commit()
 
 

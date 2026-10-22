@@ -407,6 +407,19 @@ class ResultadoGeracao(Saida):
     motivo: str | None = Field(None, description="Só quando fora_do_plano é true")
     com_desconto_irmaos: int | None = Field(None, description="Matrículas com desconto de irmãos aplicado")
     multas_aplicadas: int | None = Field(None, description="Cobranças em atraso que receberam ou actualizaram a multa")
+    meses: list["MesGerado"] | None = Field(None, description="Só com todo_o_ano: cobranças criadas em cada mês")
+
+
+class MesGerado(Saida):
+    competencia: date
+    criadas: int
+
+
+class PlanoDoAno(Saida):
+    prestacoes: int
+    mes_inicio: int
+    dia_vencimento: int
+    meses: list[int] = Field(description="Meses (1–12) com prestação, por ordem")
 
 
 class PrecoDaClasse(Saida):
@@ -433,6 +446,8 @@ class ConfiguracaoCobranca(Saida):
     ano: str | None
     propinas: list[PropinaConfigurada]
     dia_vencimento: int
+    plano: PlanoDoAno | None
+    alertas_dias: list[int] = Field(description="Dias antes do vencimento com lembrete por WhatsApp (0 = no dia)")
     pendentes: list[str] = Field(description="O que falta configurar antes de gerar")
     pronto: bool
 
@@ -792,3 +807,4 @@ QUALQUER_FICHEIRO = ficheiro("application/octet-stream", "O ficheiro (PDF, image
 
 Financeiro360.model_rebuild()
 Aluno360.model_rebuild()
+ResultadoGeracao.model_rebuild()

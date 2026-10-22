@@ -880,7 +880,7 @@ class Alerta(Base):
     __tablename__ = "alerta"
     __table_args__ = (
         ck_in("tipo", "risco_incumprimento", "queda_desempenho", "padrao_faltas",
-              "divergencia_primavera", "comportamento"),
+              "divergencia_primavera", "comportamento", "comprovativo_pagamento"),
         ck_in("gravidade", "baixa", "media", "alta"),
         ck_in("estado", "novo", "visto", "tratado", "descartado"),
         Index("ix_alerta_aberto", "estabelecimento_id", "tipo",

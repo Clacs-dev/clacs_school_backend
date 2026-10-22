@@ -159,9 +159,19 @@ def test_portal_comprovativo_confirmado_pela_escola(client, admin, ee):
     pid = r.json()["pagamento_id"]
     ainda = client.get("/api/portal/cobrancas", headers=ee).json()["linhas"]
     assert next(c for c in ainda if c["cobranca_id"] == alvo)["estado"] != "paga"
+
+    # a escola é avisada: alerta aberto ligado a este pagamento
+    def aviso():
+        return [a for a in client.get("/api/alertas", headers=admin, params={"tipo": "comprovativo_pagamento"}).json()
+                if a["dados"]["pagamento_id"] == pid]
+    assert [a["estado"] for a in aviso()] == ["novo"] and "comprovativo" in aviso()[0]["mensagem"]
+
     assert client.post(f"/api/pagamentos/{pid}/confirmar", headers=admin).status_code == 200
     depois = client.get("/api/portal/cobrancas", headers=ee).json()["linhas"]
     assert next(c for c in depois if c["cobranca_id"] == alvo)["estado"] == "paga"
+    assert [a["estado"] for a in aviso()] == ["tratado"]  # o alerta fecha-se com a decisão
+    client.post("/api/mensagens/despachar", headers=admin)
+    assert any("foi confirmado pela escola" in m["corpo"] for m in client.get("/api/portal/mensagens", headers=ee).json())
 
 
 def test_criar_conta_do_portal(client, admin):

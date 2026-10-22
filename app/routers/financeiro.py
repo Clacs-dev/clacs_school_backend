@@ -176,22 +176,24 @@ def gerar(dados: GerarIn, ctx: Contexto = Depends(criar), db: Session = Depends(
     enquanto faltar alguma coisa. A multa fica automática: aplicada agora às cobranças já em atraso e,
     depois, todos os dias pelo agendador."""
     est = ctx.estabelecimento_id
-    configura = dados.model_dump(exclude={"competencia", "servico_id"}, exclude_none=True)
+    configura = dados.model_dump(mode="json", exclude={"competencia", "servico_id", "todo_o_ano"}, exclude_none=True)
     if configura and not ctx.pode("propinas", "editar"):
-        raise HTTPException(403, "Sem permissão para alterar preços e multas: propinas/editar")
-    servico = fin.configurar_cobranca(
-        db, est, dados.servico_id, dados.valor, [(p.classe_id, p.valor) for p in dados.precos or []],
-        dados.multa_percentual, dados.dias_tolerancia, dados.multa_maximo)
-    if servico is not None:
-        auditar(db, ctx, "servico", servico.id, "update",
-                {"configuracao_cobranca": dados.model_dump(mode="json", exclude={"competencia"}, exclude_none=True)})
+        raise HTTPException(403, "Sem permissão para alterar o plano, os preços, a multa ou os alertas: propinas/editar")
+    fin.configurar_cobranca(
+        db, est, servico_id=dados.servico_id, valor=dados.valor,
+        precos=[(p.classe_id, p.valor) for p in dados.precos or []], multa_percentual=dados.multa_percentual,
+        dias_tolerancia=dados.dias_tolerancia, multa_maximo=dados.multa_maximo, prestacoes=dados.prestacoes,
+        mes_inicio=dados.mes_inicio, dia_vencimento=dados.dia_vencimento, alertas_dias=dados.alertas_dias)
+    if configura:
+        auditar(db, ctx, "plano_pagamento", None, "update", {"configuracao_cobranca": configura})
     estado = fin.configuracao_cobranca(db, est)
     if not estado["pronto"]:
         db.rollback()
         raise HTTPException(422, "Configure primeiro: " + "; ".join(estado["pendentes"]))
-    res = fin.gerar_cobrancas(db, est, dados.competencia)
+    res = fin.gerar_ano(db, est, dados.competencia) if dados.todo_o_ano else fin.gerar_cobrancas(db, est, dados.competencia)
     res["multas_aplicadas"] = fin.aplicar_multas(db, est)
-    auditar(db, ctx, "cobranca", None, "insert", res | {"competencia": str(res["competencia"])})
+    auditar(db, ctx, "cobranca", None, "insert", {"competencia": str(res["competencia"]), "criadas": res["criadas"],
+                                                  "todo_o_ano": dados.todo_o_ano})
     db.commit()
     return res
 
@@ -288,7 +290,7 @@ def pagar(dados: PagamentoIn, ctx: Contexto = Depends(criar), db: Session = Depe
 
 def _decidir(pid: int, novo: str, ctx: Contexto, db: Session):
     pg = obter(db, Pagamento, pid, ctx.estabelecimento_id, "Pagamento")
-    fin.mudar_estado_pagamento(db, pg, novo)
+    fin.mudar_estado_pagamento(db, pg, novo, tratado_por=ctx.id)
     auditar(db, ctx, "pagamento", pid, "update", {"estado": novo})
     db.commit()
     return as_dict(pg)

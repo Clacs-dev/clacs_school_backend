@@ -300,6 +300,20 @@ class GerarIn(Entrada):
     multa_percentual: Decimal | None = Field(None, gt=0, le=100, description="Multa sobre a propina em atraso, em %")
     dias_tolerancia: int | None = Field(None, ge=0, le=90, description="Dias depois do vencimento sem multa")
     multa_maximo: Decimal | None = Field(None, gt=0, description="Tecto da multa em Kz (opcional)")
+    prestacoes: int | None = Field(None, ge=1, le=12, description="Número de prestações do ano (ex.: 10)")
+    mes_inicio: int | None = Field(None, ge=1, le=12, description="Mês da 1.ª prestação (ex.: 9 = Setembro)")
+    dia_vencimento: int | None = Field(None, ge=1, le=28, description="Dia do mês em que a propina vence (ex.: 10)")
+    alertas_dias: list[int] | None = Field(
+        None, description="Dias antes do vencimento em que o encarregado é avisado por WhatsApp; 0 = no próprio dia. "
+                          "Por omissão [20, 15, 5, 0]")
+    todo_o_ano: bool = Field(False, description="true = gera de uma vez todas as prestações, da competência ao fim do ano")
+
+    @field_validator("alertas_dias")
+    @classmethod
+    def dias_validos(cls, v):
+        if v is not None and any(d < 0 or d > 60 for d in v):
+            raise ValueError("cada dia de alerta tem de estar entre 0 e 60")
+        return sorted(set(v), reverse=True) if v is not None else v
 
 
 class CobrancaAvulsaIn(Entrada):
@@ -565,8 +579,9 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     MatriculaDescontoIn: {"desconto_id": 1, "valido_ate": "2027-07-15"},
     MetodoIn: {"nome": "Multicaixa Express", "tipo": "multicaixa"},
     PrecoClasseIn: {"classe_id": 4, "valor": 50000},
-    GerarIn: {"competencia": "2026-11-01", "valor": 45000, "precos": [{"classe_id": 4, "valor": 50000}],
-              "multa_percentual": 10, "dias_tolerancia": 15},
+    GerarIn: {"competencia": "2026-09-01", "prestacoes": 10, "mes_inicio": 9, "dia_vencimento": 10, "valor": 45000,
+              "precos": [{"classe_id": 4, "valor": 50000}], "multa_percentual": 10, "dias_tolerancia": 0,
+              "alertas_dias": [20, 15, 5, 0], "todo_o_ano": True},
     CobrancaAvulsaIn: {"aluno_id": 1, "servico_id": 5, "competencia": "2026-10-01", "valor_base": 15000,
                        "vencimento": "2026-10-20", "descricao": "Fardamento (2 camisolas)"},
     AlocacaoIn: {"cobranca_id": 36, "valor": 18000},
