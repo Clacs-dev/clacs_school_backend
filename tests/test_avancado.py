@@ -11,6 +11,7 @@ import pytest
 from app.config import get_settings
 from app.database import SessionLocal
 from app.integracoes import mensagens
+from app.models import Cobranca
 from app.services import assistente_ia
 from tests.conftest import login
 
@@ -31,6 +32,49 @@ def test_nao_gera_fora_do_plano(client, admin):
     assert r["fora_do_plano"] and r["criadas"] == 0 and "plano" in r["motivo"]
     r = client.post("/api/cobrancas/gerar", headers=admin, json={"competencia": "2040-01-01"}).json()
     assert r["fora_do_plano"] and "ano lectivo" in r["motivo"]
+
+
+def test_gerar_exige_propina_preco_e_multa(client, admin):
+    """O mapa de cobrança só é gerado com a propina, o preço de cada classe e a percentagem da multa."""
+    ano = _ano(client, admin)
+    novembro = f"{ano['data_inicio'][:4]}-11-01"
+    cfg = client.get("/api/cobrancas/configuracao", headers=admin).json()
+    assert cfg["pronto"] and cfg["pendentes"] == []
+    propina = cfg["propinas"][0]
+    assert propina["multa"]["tipo"] == "percentual" and all(p["valor"] for p in propina["precos"])
+
+    # uma segunda propina sem preço nem multa bloqueia o "Gerar" e diz o que falta
+    servico = {"codigo": "PROP-B", "nome": "Propina B", "categoria": "propina", "periodicidade": "mensal"}
+    sid = client.post("/api/servicos", headers=admin, json=servico).json()["id"]
+    try:
+        r = client.post("/api/cobrancas/gerar", headers=admin, json={"competencia": novembro})
+        assert r.status_code == 422 and "preço da Propina B" in r.json()["detail"]
+        assert "percentagem da multa da Propina B" in r.json()["detail"]
+        r = client.post("/api/cobrancas/gerar", headers=admin, json={"competencia": novembro, "valor": 30000})
+        assert r.status_code == 422 and "servico_id" in r.json()["detail"]  # duas propinas: qual configurar?
+
+        # a configuração vem no próprio "Gerar": preço para todas as classes + multa → regra criada sozinha
+        r = client.post("/api/cobrancas/gerar", headers=admin, json={
+            "competencia": novembro, "servico_id": sid, "valor": 30000, "multa_percentual": 5, "dias_tolerancia": 3})
+        assert r.status_code == 200, r.text
+        assert r.json()["criadas"] > 0 and isinstance(r.json()["multas_aplicadas"], int)
+        b = next(p for p in client.get("/api/cobrancas/configuracao", headers=admin).json()["propinas"]
+                 if p["servico_id"] == sid)
+        assert {p["valor"] for p in b["precos"]} == {30000}
+        assert b["multa"] == {"tipo": "percentual", "valor": 5, "dias_tolerancia": 3, "maximo": None}
+        regra = next(m for m in client.get("/api/multas", headers=admin).json() if m["servico_id"] == sid)
+        assert regra["tipo"] == "percentual" and float(regra["valor"]) == 5
+    finally:
+        client.patch(f"/api/servicos/{sid}", headers=admin, json={**servico, "activo": False})
+        with SessionLocal() as db:  # retira as cobranças de teste da Propina B para não mexer nos outros testes
+            db.query(Cobranca).filter(Cobranca.servico_id == sid).delete()
+            db.commit()
+
+    # mudar preços e multas pelo "Gerar" exige propinas/editar; só gerar, não
+    secretaria = login(client, "secretaria@teste.ao", "secretaria-123")
+    r = client.post("/api/cobrancas/gerar", headers=secretaria, json={"competencia": novembro, "multa_percentual": 50})
+    assert r.status_code == 403
+    assert client.post("/api/cobrancas/gerar", headers=secretaria, json={"competencia": novembro}).status_code == 200
 
 
 def test_desconto_de_irmaos_automatico(client, admin):

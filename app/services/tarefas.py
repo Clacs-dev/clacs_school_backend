@@ -8,7 +8,7 @@ from app.database import SessionLocal
 from app.models import Estabelecimento
 from app.services.alertas import persistir_alertas
 from app.services.comunicacao import despachar, executar_regras
-from app.services.financeiro import aplicar_multas, gerar_cobrancas
+from app.services.financeiro import aplicar_multas, configuracao_cobranca, gerar_cobrancas
 from app.services.relatorios import executar_devidos
 
 log = logging.getLogger("clacs.tarefas")
@@ -23,7 +23,12 @@ def diarias(hoje: date | None = None) -> dict:
             r = {}
             try:
                 if hoje.day == 1:
-                    r["cobrancas"] = gerar_cobrancas(db, est.id, hoje)["criadas"]
+                    pendentes = configuracao_cobranca(db, est.id)["pendentes"]
+                    if pendentes:  # como no botão "Gerar": sem propina, preços e multa configurados, não gera
+                        log.warning("Cobranças de %s não geradas; falta: %s", est.nome, "; ".join(pendentes))
+                        r["cobrancas_por_configurar"] = pendentes
+                    else:
+                        r["cobrancas"] = gerar_cobrancas(db, est.id, hoje)["criadas"]
                 r["multas"] = aplicar_multas(db, est.id, hoje)
                 r["regras"] = sum(executar_regras(db, est.id, hoje).values())
                 r["alertas"] = persistir_alertas(db, est.id, hoje)

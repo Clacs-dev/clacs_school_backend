@@ -406,6 +406,35 @@ class ResultadoGeracao(Saida):
     fora_do_plano: bool
     motivo: str | None = Field(None, description="Só quando fora_do_plano é true")
     com_desconto_irmaos: int | None = Field(None, description="Matrículas com desconto de irmãos aplicado")
+    multas_aplicadas: int | None = Field(None, description="Cobranças em atraso que receberam ou actualizaram a multa")
+
+
+class PrecoDaClasse(Saida):
+    classe_id: int
+    classe: str
+    valor: float | None = Field(description="null = sem preço: o mapa não pode ser gerado")
+
+
+class MultaDaPropina(Saida):
+    tipo: str
+    valor: float = Field(description="Percentagem (tipo percentual) ou Kz (tipo fixo)")
+    dias_tolerancia: int
+    maximo: float | None
+
+
+class PropinaConfigurada(Saida):
+    servico_id: int
+    nome: str
+    precos: list[PrecoDaClasse] = Field(description="Uma linha por classe com alunos matriculados no ano activo")
+    multa: MultaDaPropina | None
+
+
+class ConfiguracaoCobranca(Saida):
+    ano: str | None
+    propinas: list[PropinaConfigurada]
+    dia_vencimento: int
+    pendentes: list[str] = Field(description="O que falta configurar antes de gerar")
+    pronto: bool
 
 
 class MultasAplicadas(Saida):

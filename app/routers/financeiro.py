@@ -163,9 +163,34 @@ def devedores(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     return fin.devedores(db, ctx.estabelecimento_id)
 
 
-@router.post("/cobrancas/gerar", response_model=R.ResultadoGeracao, summary="Gera as cobranças mensais (idempotente)")
+@router.get("/cobrancas/configuracao", response_model=R.ConfiguracaoCobranca,
+            summary="Propina, preços por classe e multa: o que o mapa de cobrança precisa antes de gerar")
+def configuracao(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
+    return fin.configuracao_cobranca(db, ctx.estabelecimento_id)
+
+
+@router.post("/cobrancas/gerar", response_model=R.ResultadoGeracao,
+             summary="Gera o mapa de cobrança do mês (idempotente) e aplica as multas em atraso")
 def gerar(dados: GerarIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
-    res = fin.gerar_cobrancas(db, ctx.estabelecimento_id, dados.competencia)
+    """Grava primeiro a configuração enviada (preço da propina e percentagem da multa) e recusa gerar (422)
+    enquanto faltar alguma coisa. A multa fica automática: aplicada agora às cobranças já em atraso e,
+    depois, todos os dias pelo agendador."""
+    est = ctx.estabelecimento_id
+    configura = dados.model_dump(exclude={"competencia", "servico_id"}, exclude_none=True)
+    if configura and not ctx.pode("propinas", "editar"):
+        raise HTTPException(403, "Sem permissão para alterar preços e multas: propinas/editar")
+    servico = fin.configurar_cobranca(
+        db, est, dados.servico_id, dados.valor, [(p.classe_id, p.valor) for p in dados.precos or []],
+        dados.multa_percentual, dados.dias_tolerancia, dados.multa_maximo)
+    if servico is not None:
+        auditar(db, ctx, "servico", servico.id, "update",
+                {"configuracao_cobranca": dados.model_dump(mode="json", exclude={"competencia"}, exclude_none=True)})
+    estado = fin.configuracao_cobranca(db, est)
+    if not estado["pronto"]:
+        db.rollback()
+        raise HTTPException(422, "Configure primeiro: " + "; ".join(estado["pendentes"]))
+    res = fin.gerar_cobrancas(db, est, dados.competencia)
+    res["multas_aplicadas"] = fin.aplicar_multas(db, est)
     auditar(db, ctx, "cobranca", None, "insert", res | {"competencia": str(res["competencia"])})
     db.commit()
     return res

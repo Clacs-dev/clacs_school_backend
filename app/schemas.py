@@ -285,8 +285,21 @@ class MetodoIn(Entrada):
     tipo: Literal["numerario", "transferencia", "multicaixa", "tpa", "deposito", "referencia"]
 
 
+class PrecoClasseIn(Entrada):
+    classe_id: int
+    valor: Decimal = Field(ge=0)
+
+
 class GerarIn(Entrada):
+    """Mapa de cobrança do mês. Os campos de configuração são opcionais quando já estão gravados
+    (veja GET /api/cobrancas/configuracao); sem eles configurados, não gera."""
     competencia: date
+    servico_id: int | None = Field(None, description="A propina; por omissão, a única propina mensal activa")
+    valor: Decimal | None = Field(None, ge=0, description="Preço da propina, igual para todas as classes")
+    precos: list[PrecoClasseIn] | None = Field(None, description="Preço por classe (sobrepõe valor nessas classes)")
+    multa_percentual: Decimal | None = Field(None, gt=0, le=100, description="Multa sobre a propina em atraso, em %")
+    dias_tolerancia: int | None = Field(None, ge=0, le=90, description="Dias depois do vencimento sem multa")
+    multa_maximo: Decimal | None = Field(None, gt=0, description="Tecto da multa em Kz (opcional)")
 
 
 class CobrancaAvulsaIn(Entrada):
@@ -551,7 +564,9 @@ EXEMPLOS: dict[type[Entrada], dict] = {
                  "servico_id": 1},
     MatriculaDescontoIn: {"desconto_id": 1, "valido_ate": "2027-07-15"},
     MetodoIn: {"nome": "Multicaixa Express", "tipo": "multicaixa"},
-    GerarIn: {"competencia": "2026-10-01"},
+    PrecoClasseIn: {"classe_id": 4, "valor": 50000},
+    GerarIn: {"competencia": "2026-11-01", "valor": 45000, "precos": [{"classe_id": 4, "valor": 50000}],
+              "multa_percentual": 10, "dias_tolerancia": 15},
     CobrancaAvulsaIn: {"aluno_id": 1, "servico_id": 5, "competencia": "2026-10-01", "valor_base": 15000,
                        "vencimento": "2026-10-20", "descricao": "Fardamento (2 camisolas)"},
     AlocacaoIn: {"cobranca_id": 36, "valor": 18000},

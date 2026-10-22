@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.common import ano_activo, dinheiro, soma_meses
 from app.models import (
-    AdesaoServico, Aluno, AlunoEncarregado, Cobranca, Desconto, Encarregado, Matricula,
+    AdesaoServico, Aluno, AlunoEncarregado, Classe, Cobranca, Desconto, Encarregado, Matricula,
     MatriculaDesconto, MetodoPagamento, MultaRegra, Pagamento, PagamentoAlocacao, Parametro,
     PlanoPagamento, Servico, TabelaPreco, Turma,
 )
@@ -169,6 +169,108 @@ def _irmaos(db: Session, est: int, matriculas: list[Matricula]) -> set[int]:
     return {mid for ids in por_ee.values() for mid in ids[1:]}
 
 
+def _talvez(v: Decimal | None) -> float | None:
+    return None if v is None else float(v)
+
+
+def _propinas(db: Session, est: int) -> list[Servico]:
+    return db.scalars(select(Servico).where(Servico.estabelecimento_id == est, Servico.activo,
+                                            Servico.categoria == "propina", Servico.periodicidade == "mensal")
+                      .order_by(Servico.id)).all()
+
+
+def _regra_multa(db: Session, est: int, servico_id: int) -> MultaRegra | None:
+    regras = db.scalars(select(MultaRegra).where(MultaRegra.estabelecimento_id == est)).all()
+    return next((r for r in regras if r.servico_id == servico_id), None) or \
+        next((r for r in regras if r.servico_id is None), None)
+
+
+def configuracao_cobranca(db: Session, est: int) -> dict:
+    """O que o mapa de cobrança precisa antes de gerar: a propina, o preço de cada classe com alunos e a multa."""
+    ano = ano_activo(db, est, obrigatorio=False)
+    if ano is None:
+        return {"ano": None, "propinas": [], "dia_vencimento": _dia_vencimento(db, est),
+                "pendentes": ["ano lectivo activo"], "pronto": False}
+    classes = db.execute(select(Classe.id, Classe.designacao).join(Turma, Turma.classe_id == Classe.id)
+                         .join(Matricula, Matricula.turma_id == Turma.id)
+                         .where(Matricula.estabelecimento_id == est, Matricula.ano_id == ano.id,
+                                Matricula.estado == "activa")
+                         .distinct().order_by(Classe.designacao)).all()
+    pendentes, propinas = [], []
+    servicos = _propinas(db, est)
+    if not servicos:
+        pendentes.append("serviço de propina (categoria propina, mensal)")
+    for s in servicos:
+        precos = [{"classe_id": cid, "classe": nome, "valor": _talvez(preco(db, s.id, ano.id, cid))}
+                  for cid, nome in classes]
+        sem = [p["classe"] for p in precos if p["valor"] is None]
+        if sem:
+            pendentes.append(f"preço da {s.nome} para {', '.join(sem)}")
+        regra = _regra_multa(db, est, s.id)
+        if regra is None:
+            pendentes.append(f"percentagem da multa da {s.nome}")
+        multa = regra and {"tipo": regra.tipo, "valor": float(regra.valor), "dias_tolerancia": regra.dias_tolerancia,
+                           "maximo": _talvez(regra.maximo)}
+        propinas.append({"servico_id": s.id, "nome": s.nome, "precos": precos, "multa": multa})
+    return {"ano": ano.designacao, "propinas": propinas, "dia_vencimento": _dia_vencimento(db, est),
+            "pendentes": pendentes, "pronto": not pendentes}
+
+
+def configurar_cobranca(db: Session, est: int, servico_id: int | None, valor: Decimal | None,
+                        precos: list[tuple[int, Decimal]] | None, multa_percentual: Decimal | None,
+                        dias_tolerancia: int | None, multa_maximo: Decimal | None) -> Servico | None:
+    """Grava o que o "Gerar" trouxe: preço da propina (todas as classes ou por classe) e a regra de multa."""
+    if valor is None and not precos and multa_percentual is None and dias_tolerancia is None and multa_maximo is None:
+        return None
+    servicos = _propinas(db, est)
+    if servico_id is not None:
+        s = next((x for x in servicos if x.id == servico_id), None)
+        if s is None:
+            raise HTTPException(422, f"O serviço {servico_id} não é uma propina mensal activa")
+    elif len(servicos) == 1:
+        s = servicos[0]
+    elif not servicos:
+        raise HTTPException(422, "Crie primeiro o serviço de propina (categoria propina, periodicidade mensal)")
+    else:
+        raise HTTPException(422, "Há mais de uma propina mensal: indique servico_id")
+    ano = ano_activo(db, est)
+
+    def gravar_preco(classe_id: int | None, v: Decimal) -> None:
+        p = db.scalar(select(TabelaPreco).where(
+            TabelaPreco.servico_id == s.id, TabelaPreco.ano_id == ano.id,
+            TabelaPreco.classe_id.is_(None) if classe_id is None else TabelaPreco.classe_id == classe_id))
+        if p is None:
+            p = TabelaPreco(estabelecimento_id=est, servico_id=s.id, ano_id=ano.id, classe_id=classe_id)
+            db.add(p)
+        p.valor = v
+
+    if valor is not None:  # o mesmo preço para todas as classes, também as que tinham preço próprio
+        gravar_preco(None, valor)
+        for p in db.scalars(select(TabelaPreco).where(TabelaPreco.servico_id == s.id, TabelaPreco.ano_id == ano.id,
+                                                      TabelaPreco.classe_id.is_not(None))):
+            p.valor = valor
+    for classe_id, v in precos or []:
+        if db.get(Classe, classe_id) is None:
+            raise HTTPException(422, f"A classe {classe_id} não existe")
+        gravar_preco(classe_id, v)
+
+    if multa_percentual is not None or dias_tolerancia is not None or multa_maximo is not None:
+        regra = db.scalar(select(MultaRegra).where(MultaRegra.estabelecimento_id == est, MultaRegra.servico_id == s.id))
+        if regra is None:
+            if multa_percentual is None:
+                raise HTTPException(422, "Indique a percentagem da multa (multa_percentual)")
+            regra = MultaRegra(estabelecimento_id=est, servico_id=s.id, tipo="percentual", dias_tolerancia=0)
+            db.add(regra)
+        if multa_percentual is not None:
+            regra.tipo, regra.valor = "percentual", multa_percentual
+        if dias_tolerancia is not None:
+            regra.dias_tolerancia = dias_tolerancia
+        if multa_maximo is not None:
+            regra.maximo = multa_maximo
+    db.flush()
+    return s
+
+
 def gerar_cobrancas(db: Session, est: int, competencia: date) -> dict:
     """Cria as cobranças mensais (propina + serviços aderidos) das matrículas activas. Idempotente.
 
@@ -188,9 +290,7 @@ def gerar_cobrancas(db: Session, est: int, competencia: date) -> dict:
         return {"competencia": competencia, "criadas": 0, "ja_existentes": 0, "servicos_sem_preco": [],
                 "fora_do_plano": True, "motivo": fora}
     dia = _dia_vencimento(db, est)
-    propinas = db.scalars(select(Servico).where(Servico.estabelecimento_id == est, Servico.activo,
-                                                Servico.categoria == "propina",
-                                                Servico.periodicidade == "mensal")).all()
+    propinas = _propinas(db, est)
     fim_mes = soma_meses(competencia, 1)
     existentes = set(db.execute(select(Cobranca.matricula_id, Cobranca.servico_id)
                                 .where(Cobranca.estabelecimento_id == est,
