@@ -891,6 +891,68 @@ class RegistoDiario(Base):
 # =====================================================================
 # 9. ALERTAS, KPIs, RELATÓRIOS E IA
 # =====================================================================
+# =====================================================================
+# TRANSPORTE ESCOLAR
+# =====================================================================
+class Viatura(Base):
+    __tablename__ = "viatura"
+    __table_args__ = (UniqueConstraint("estabelecimento_id", "matricula"),)
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    matricula: Mapped[str] = mapped_column(Text)          # matrícula da viatura, ex.: LD-12-34-AB
+    descricao: Mapped[str | None] = mapped_column(Text)   # marca e modelo
+    lugares: Mapped[int] = mapped_column(SmallInteger)
+    motorista: Mapped[str | None] = mapped_column(Text)
+    telefone_motorista: Mapped[str | None] = mapped_column(Text)
+    observacoes: Mapped[str | None] = mapped_column(Text)
+    activo: Mapped[bool] = mapped_column(Boolean, server_default=true())
+
+
+class RotaTransporte(Base):
+    __tablename__ = "rota_transporte"
+    __table_args__ = (UniqueConstraint("estabelecimento_id", "nome"),)
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    nome: Mapped[str] = mapped_column(Text)
+    descricao: Mapped[str | None] = mapped_column(Text)
+    viatura_id: Mapped[int | None] = fk("viatura.id", nullable=True)
+    servico_id: Mapped[int | None] = fk("servico.id", nullable=True)   # serviço cobrado a quem se inscreve
+    hora_ida: Mapped[time | None] = mapped_column(Time)
+    hora_volta: Mapped[time | None] = mapped_column(Time)
+    activo: Mapped[bool] = mapped_column(Boolean, server_default=true())
+
+
+class ParagemTransporte(Base):
+    __tablename__ = "paragem_transporte"
+    id: Mapped[int] = pk()
+    rota_id: Mapped[int] = fk("rota_transporte.id", ondelete="CASCADE")
+    ordem: Mapped[int] = mapped_column(SmallInteger)
+    nome: Mapped[str] = mapped_column(Text)
+    referencia: Mapped[str | None] = mapped_column(Text)
+    hora_ida: Mapped[time | None] = mapped_column(Time)
+    hora_volta: Mapped[time | None] = mapped_column(Time)
+
+
+class AlunoTransporte(Base):
+    """Inscrição de um aluno numa rota; com o serviço da rota, cria a adesão que o põe nas cobranças."""
+    __tablename__ = "aluno_transporte"
+    __table_args__ = (
+        ck_in("sentido", "ida", "volta", "ida_volta"),
+        ck_in("estado", "activa", "suspensa", "cancelada"),
+    )
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    aluno_id: Mapped[int] = fk("aluno.id")
+    rota_id: Mapped[int] = fk("rota_transporte.id")
+    paragem_id: Mapped[int | None] = fk("paragem_transporte.id", nullable=True, ondelete="SET NULL")
+    sentido: Mapped[str] = mapped_column(Text, server_default="ida_volta")
+    data_inicio: Mapped[date] = mapped_column(Date, server_default=func.current_date())
+    data_fim: Mapped[date | None] = mapped_column(Date)
+    estado: Mapped[str] = mapped_column(Text, server_default="activa")
+    adesao_id: Mapped[int | None] = fk("adesao_servico.id", nullable=True, ondelete="SET NULL")
+    criado_em: Mapped[datetime] = criado_em()
+
+
 class AvaliacaoProfessor(Base):
     """Avaliação de um professor por um encarregado (1 a 5), uma por educando, professor e trimestre."""
     __tablename__ = "avaliacao_professor"

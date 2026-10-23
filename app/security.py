@@ -15,7 +15,7 @@ from app.models import AuditoriaLog, Perfil, PerfilPermissao, Permissao, Utiliza
 oauth2 = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 MODULOS = ("painel", "cadastro", "academico", "propinas", "refeitorio", "pedagogico",
-           "comunicacao", "primavera", "utilizadores", "importacao")
+           "comunicacao", "primavera", "utilizadores", "importacao", "transporte")
 ACCOES = ("ver", "criar", "editar", "apagar", "exportar")
 TUDO = {m: ACCOES for m in MODULOS}
 
@@ -26,10 +26,11 @@ MATRIZ: dict[str, dict[str, tuple[str, ...]]] = {
     "secretaria": {
         "painel": ("ver",), "cadastro": ACCOES, "academico": ACCOES, "refeitorio": ACCOES,
         "propinas": ("ver", "criar", "exportar"), "comunicacao": ("ver", "criar"), "importacao": ACCOES,
+        "transporte": ACCOES,
     },
     "financeiro": {
         "painel": ("ver",), "propinas": ACCOES, "refeitorio": ("ver", "exportar"), "cadastro": ("ver",),
-        "primavera": ACCOES, "comunicacao": ("ver", "criar"),
+        "primavera": ACCOES, "comunicacao": ("ver", "criar"), "transporte": ("ver", "exportar"),
     },
     "coordenacao": {
         "painel": ("ver",), "pedagogico": ACCOES, "cadastro": ("ver",),

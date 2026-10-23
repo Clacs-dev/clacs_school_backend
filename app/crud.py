@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session
 from app.common import aplicar, as_dict
 from app.database import get_db
 from app.models import (
-    Aluno, AnoLectivo, Avaliacao, Base, Classe, Ementa, NivelEnsino, Ocorrencia, PeriodoLectivo, RefeicaoTipo, Turma,
+    Aluno, AnoLectivo, Avaliacao, Base, Classe, Ementa, NivelEnsino, Ocorrencia, ParagemTransporte, PeriodoLectivo,
+    RefeicaoTipo, RotaTransporte, Turma,
 )
 from app.schemas import EXEMPLOS, Entrada, com_exemplo
 from app.security import Contexto, exige, turmas_permitidas
@@ -22,7 +23,7 @@ from app.security import Contexto, exige, turmas_permitidas
 # Tabelas sem estabelecimento_id: o dono é o da tabela-mãe.
 PAIS: dict[type, tuple[str, type]] = {
     Classe: ("nivel_id", NivelEnsino), PeriodoLectivo: ("ano_id", AnoLectivo), Ementa: ("refeicao_tipo_id", RefeicaoTipo),
-    Avaliacao: ("turma_id", Turma), Ocorrencia: ("aluno_id", Aluno),
+    Avaliacao: ("turma_id", Turma), Ocorrencia: ("aluno_id", Aluno), ParagemTransporte: ("rota_id", RotaTransporte),
 }
 _POR_TABELA = {m.class_.__tablename__: m.class_ for m in Base.registry.mappers}
 

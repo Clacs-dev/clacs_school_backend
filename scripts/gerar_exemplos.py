@@ -57,7 +57,9 @@ POVOAR = [("POST", "/api/comunicados", S.ComunicadoIn), ("POST", "/api/alunos/1/
           ("POST", "/api/relatorios/agendados", S.RelatorioIn), ("POST", "/api/relatorios/agendados/1/executar", None),
           ("POST", "/api/alertas/gerar", None), ("POST", "/api/portal/pedidos", S.PedidoIn),
           ("POST", "/api/avaliacoes", S.AvaliacaoIn), ("PUT", "/api/turmas/2/atribuicoes", S.AtribuicaoIn),
-          ("POST", "/api/portal/avaliacoes-professores", S.AvaliacaoProfessorIn)]
+          ("POST", "/api/portal/avaliacoes-professores", S.AvaliacaoProfessorIn),
+          ("POST", "/api/transporte/viaturas", S.ViaturaIn), ("POST", "/api/transporte/rotas", S.RotaIn),
+          ("POST", "/api/transporte/inscricoes", S.InscricaoTransporteIn)]
 
 PDF = ("comprovativo.pdf", b"%PDF-1.4\n%exemplo\n", "application/pdf")
 CSV_ALUNOS = ("nome_completo;numero_processo;data_nascimento;sexo;bi_numero;turma;encarregado_nif;encarregado_nome;"
@@ -135,6 +137,12 @@ ESPECIAIS = {
                                                               json={"email": "pai.silva@gmail.com",
                                                                     "senha": "Primeira-senha-2026"}),
     "POST /api/pagamentos/webhook": _webhook,
+    "POST /api/transporte/viaturas": lambda pedir: pedir(  # a base de exemplo já tem a viatura e a rota do exemplo
+        "POST", "/api/transporte/viaturas", json={**S.EXEMPLOS[S.ViaturaIn], "matricula": "LD-77-31-CC"}),
+    "POST /api/transporte/rotas": lambda pedir: pedir(
+        "POST", "/api/transporte/rotas", json={**S.EXEMPLOS[S.RotaIn], "nome": "Rota Kilamba"}),
+    "POST /api/transporte/inscricoes": lambda pedir: pedir(  # o aluno 1 já está inscrito na base de exemplo
+        "POST", "/api/transporte/inscricoes", json={**S.EXEMPLOS[S.InscricaoTransporteIn], "aluno_id": 2}),
     "POST /api/alunos/{aid}/documentos/ficheiro": lambda pedir: pedir(
         "POST", "/api/alunos/1/documentos/ficheiro", data={"tipo": "certidao_nascimento"},
         files={"ficheiro": ("certidao.pdf", PDF[1], PDF[2])}),

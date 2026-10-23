@@ -18,8 +18,8 @@ from app.database import get_db
 from app.integracoes import ErroIntegracao
 from app.integracoes.pagamentos import gateway, validar_webhook
 from app.models import (
-    Aluno, AlunoEncarregado, AnoLectivo, AtribuicaoDocente, Avaliacao, AvaliacaoProfessor, ClasseDisciplina, Cobranca, Disciplina, DispositivoPush, Encarregado, Matricula, Mensagem,
-    Funcionario, MetodoPagamento, Nota, Pagamento, Pedido, Perfil, PeriodoLectivo, PreferenciaContacto, TipoAvaliacao, Turma, Utilizador,
+    Aluno, AlunoEncarregado, AlunoTransporte, AnoLectivo, AtribuicaoDocente, Avaliacao, AvaliacaoProfessor, ClasseDisciplina, Cobranca, Disciplina, DispositivoPush, Encarregado, Matricula, Mensagem,
+    Funcionario, MetodoPagamento, Nota, Pagamento, ParagemTransporte, Pedido, Perfil, RotaTransporte, Viatura, PeriodoLectivo, PreferenciaContacto, TipoAvaliacao, Turma, Utilizador,
     UtilizadorPerfil,
 )
 from app.schemas import AvaliacaoProfessorIn, Canal, Entrada, PedidoIn, com_exemplo
@@ -177,6 +177,26 @@ def mac_educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Se
                                "media": media_ponderada(db, aid, turma.id, did, p.id)} for p in periodos]}
               for did, nome in discs]
     return {"aluno_id": a.id, "aluno": a.nome_completo, "periodos": [p.designacao for p in periodos], "linhas": linhas}
+
+
+@router.get("/educandos/{aid}/transporte", response_model=R.TransporteEducando | None,
+            summary="Transporte escolar do educando: rota, paragem, horários, viatura e motorista (null = não usa)")
+def transporte_educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    _educando(db, ee, aid)
+    i = db.scalar(select(AlunoTransporte).where(AlunoTransporte.aluno_id == aid,
+                                                AlunoTransporte.estado.in_(("activa", "suspensa")))
+                  .order_by(AlunoTransporte.id.desc()))
+    if i is None:
+        return None
+    rota = db.get(RotaTransporte, i.rota_id)
+    paragem = db.get(ParagemTransporte, i.paragem_id) if i.paragem_id else None
+    v = db.get(Viatura, rota.viatura_id) if rota.viatura_id else None
+    return {"inscricao_id": i.id, "rota": rota.nome, "sentido": i.sentido, "estado": i.estado,
+            "paragem": paragem.nome if paragem else None,
+            "hora_ida": (paragem and paragem.hora_ida) or rota.hora_ida,
+            "hora_volta": (paragem and paragem.hora_volta) or rota.hora_volta,
+            "viatura": v.matricula if v else None, "motorista": v.motorista if v else None,
+            "telefone_motorista": v.telefone_motorista if v else None}
 
 
 # ---------------------------------------------------------------- avaliação dos professores

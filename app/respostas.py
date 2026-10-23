@@ -110,6 +110,46 @@ RegistoDiario = _de_tabela(m.RegistoDiario, "RegistoDiario")
 Alerta = _de_tabela(m.Alerta, "Alerta")
 Pedido = _de_tabela(m.Pedido, "Pedido")
 AvaliacaoProfessor = _de_tabela(m.AvaliacaoProfessor, "AvaliacaoProfessor")
+Viatura = _de_tabela(m.Viatura, "Viatura")
+RotaTransporte = _de_tabela(m.RotaTransporte, "RotaTransporte")
+ParagemTransporte = _de_tabela(m.ParagemTransporte, "ParagemTransporte")
+AlunoTransporte = _de_tabela(m.AlunoTransporte, "AlunoTransporte")
+
+
+class RotaCompleta(RotaTransporte):
+    viatura: str | None = Field(description="Matrícula da viatura")
+    motorista: str | None
+    telefone_motorista: str | None
+    lugares: int | None
+    inscritos: int
+    lugares_livres: int | None
+    paragens: list[ParagemTransporte]
+
+
+class PassageiroTransporte(Saida):
+    inscricao_id: int
+    aluno_id: int
+    aluno: str
+    turma: str | None
+    paragem: str | None
+    ordem: int | None
+    sentido: str
+    encarregado: str | None
+    telefone: str | None
+    necessidade_especial: bool
+
+
+class TransporteEducando(Saida):
+    inscricao_id: int
+    rota: str
+    sentido: str
+    estado: str
+    paragem: str | None
+    hora_ida: time | None = Field(description="Hora na paragem (ou de partida da rota)")
+    hora_volta: time | None
+    viatura: str | None
+    motorista: str | None
+    telefone_motorista: str | None
 
 
 class ProfessorDoEducando(Saida):

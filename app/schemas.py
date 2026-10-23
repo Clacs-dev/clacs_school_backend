@@ -531,6 +531,51 @@ class RegistoDiarioIn(Entrada):
     nota_texto: str | None = None
 
 
+# ---------------------------------------------------------------- transporte
+class ViaturaIn(Entrada):
+    matricula: str = Field(description="Matrícula da viatura")
+    descricao: str | None = Field(None, description="Marca e modelo")
+    lugares: int = Field(ge=1, le=100)
+    motorista: str | None = None
+    telefone_motorista: str | None = None
+    observacoes: str | None = None
+    activo: bool = True
+
+
+class ParagemIn(Entrada):
+    nome: str
+    ordem: int = Field(ge=1)
+    referencia: str | None = Field(None, description="Ponto de referência")
+    hora_ida: time | None = None
+    hora_volta: time | None = None
+
+
+class RotaIn(Entrada):
+    nome: str
+    descricao: str | None = None
+    viatura_id: int | None = None
+    servico_id: int | None = Field(None, description="Serviço de transporte cobrado a quem se inscreve na rota")
+    hora_ida: time | None = None
+    hora_volta: time | None = None
+    activo: bool = True
+    paragens: list[ParagemIn] = Field([], description="Só na criação; depois, /rotas/{id}/paragens")
+
+
+class InscricaoTransporteIn(Entrada):
+    aluno_id: int
+    rota_id: int
+    paragem_id: int | None = None
+    sentido: Literal["ida", "volta", "ida_volta"] = "ida_volta"
+    data_inicio: date | None = None
+    cobrar: bool = Field(True, description="Cria a adesão ao serviço da rota (entra nas cobranças mensais)")
+
+
+class InscricaoTransporteUpd(Entrada):
+    paragem_id: int | None = None
+    sentido: Literal["ida", "volta", "ida_volta"] | None = None
+    estado: Literal["activa", "suspensa", "cancelada"] | None = None
+
+
 # ---------------------------------------------------------------- pedidos do encarregado
 TipoPedido = Literal["vaga", "matricula", "transferencia", "declaracao", "justificacao_falta"]
 CAMPOS_PEDIDO = {  # campos obrigatórios de cada tipo
@@ -704,6 +749,15 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     OcorrenciaUpd: {"estado": "fechada", "accao_tomada": "Reunião com o encarregado realizada"},
     RegistoDiarioIn: {"turma_id": 1, "aluno_id": 6, "data": "2026-10-20", "comportamento": "bom",
                       "nota_texto": "Participou muito bem na aula de leitura."},
+    ViaturaIn: {"matricula": "LD-45-12-AB", "descricao": "Toyota Hiace", "lugares": 15, "motorista": "Domingos Kiala",
+                "telefone_motorista": "+244923456000"},
+    ParagemIn: {"nome": "Talatona — Shopping", "ordem": 1, "referencia": "Paragem do Belas Shopping",
+                "hora_ida": "06:45:00", "hora_volta": "17:15:00"},
+    RotaIn: {"nome": "Rota Talatona", "descricao": "Talatona e Camama", "viatura_id": 1, "hora_ida": "06:30:00",
+             "hora_volta": "17:00:00", "paragens": [{"nome": "Talatona — Shopping", "ordem": 1, "hora_ida": "06:45:00"},
+                                                    {"nome": "Camama — Bomba", "ordem": 2, "hora_ida": "07:05:00"}]},
+    InscricaoTransporteIn: {"aluno_id": 1, "rota_id": 1, "paragem_id": 1, "sentido": "ida_volta", "cobrar": True},
+    InscricaoTransporteUpd: {"paragem_id": 2, "sentido": "ida"},
     PedidoIn: {"tipo": "vaga", "nome_aluno": "Pedro Domingos", "data_nascimento": "2020-05-02", "sexo": "M",
                "parentesco": "mae", "classe_id": 1, "observacoes": "Irmão da Ana Paula, já aluna da escola"},
     DecisaoIn: {"resposta": "Vaga aceite. Bem-vindo ao colégio!"},

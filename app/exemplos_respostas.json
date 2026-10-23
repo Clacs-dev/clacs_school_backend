@@ -7,7 +7,7 @@
   {
    "aluno": "Paula Tavares",
    "aluno_id": 16,
-   "criado_em": "2026-10-23T07:56:45",
+   "criado_em": "2026-10-23T08:06:22",
    "dados": {
     "meses_em_atraso": 2
    },
@@ -22,7 +22,7 @@
   {
    "aluno": "Laura Pinto",
    "aluno_id": 12,
-   "criado_em": "2026-10-23T07:56:45",
+   "criado_em": "2026-10-23T08:06:22",
    "dados": {
     "meses_em_atraso": 2
    },
@@ -37,7 +37,7 @@
  ],
  "GET /api/alunos": [
   {
-   "actualizado_em": "2026-10-23T07:56:42",
+   "actualizado_em": "2026-10-23T08:06:17",
    "alergias": null,
    "ano_lectivo": "2026/2027",
    "avaliacoes": [
@@ -55,7 +55,7 @@
    "bi_numero": null,
    "condicoes_saude": null,
    "contacto_emergencia": null,
-   "criado_em": "2026-10-23T07:56:42",
+   "criado_em": "2026-10-23T08:06:17",
    "data_nascimento": "2016-01-01",
    "encarregado": "Maria Cota",
    "escola_anterior": null,
@@ -78,7 +78,7 @@
    "turma_id": 2
   },
   {
-   "actualizado_em": "2026-10-23T07:56:42",
+   "actualizado_em": "2026-10-23T08:06:17",
    "alergias": null,
    "ano_lectivo": "2026/2027",
    "avaliacoes": [
@@ -96,7 +96,7 @@
    "bi_numero": null,
    "condicoes_saude": null,
    "contacto_emergencia": null,
-   "criado_em": "2026-10-23T07:56:42",
+   "criado_em": "2026-10-23T08:06:17",
    "data_nascimento": "2015-02-02",
    "encarregado": "José Lima",
    "escola_anterior": null,
@@ -120,12 +120,12 @@
   }
  ],
  "GET /api/alunos/{aid}": {
-  "actualizado_em": "2026-10-23T07:56:42",
+  "actualizado_em": "2026-10-23T08:06:17",
   "alergias": null,
   "bi_numero": null,
   "condicoes_saude": null,
   "contacto_emergencia": null,
-  "criado_em": "2026-10-23T07:56:42",
+  "criado_em": "2026-10-23T08:06:17",
   "data_nascimento": "2016-01-01",
   "disciplinas": [
    {
@@ -151,10 +151,10 @@
   "encarregados": [
    {
     "activo": true,
-    "actualizado_em": "2026-10-23T07:56:42",
+    "actualizado_em": "2026-10-23T08:06:17",
     "autorizado_recolha": true,
     "bi_numero": null,
-    "criado_em": "2026-10-23T07:56:42",
+    "criado_em": "2026-10-23T08:06:17",
     "email": "ee1@exemplo.ao",
     "encarregado_id": 1,
     "estabelecimento_id": 1,
@@ -204,12 +204,12 @@
  },
  "GET /api/alunos/{aid}/360": {
   "aluno": {
-   "actualizado_em": "2026-10-23T07:56:42",
+   "actualizado_em": "2026-10-23T08:06:17",
    "alergias": null,
    "bi_numero": null,
    "condicoes_saude": null,
    "contacto_emergencia": null,
-   "criado_em": "2026-10-23T07:56:42",
+   "criado_em": "2026-10-23T08:06:17",
    "data_nascimento": "2016-01-01",
    "escola_anterior": null,
    "estabelecimento_id": 1,
@@ -421,7 +421,32 @@
  "GET /api/auditoria": [
   {
    "accao": "insert",
-   "criado_em": "2026-10-23T07:56:44",
+   "criado_em": "2026-10-23T08:06:22",
+   "dados_antes": null,
+   "dados_depois": {
+    "adesao_id": null,
+    "aluno_id": 1,
+    "criado_em": "2026-10-23T08:06:22",
+    "data_fim": null,
+    "data_inicio": "2026-10-23",
+    "estabelecimento_id": 1,
+    "estado": "activa",
+    "id": 1,
+    "paragem_id": 1,
+    "rota_id": 1,
+    "sentido": "ida_volta"
+   },
+   "estabelecimento_id": 1,
+   "id": 4,
+   "ip": null,
+   "registo_id": 1,
+   "tabela": "aluno_transporte",
+   "utilizador": "Administrador",
+   "utilizador_id": 1
+  },
+  {
+   "accao": "insert",
+   "criado_em": "2026-10-23T08:06:22",
    "dados_antes": null,
    "dados_depois": {
     "desconto_id": 1,
@@ -434,24 +459,11 @@
    "tabela": "matricula_desconto",
    "utilizador": "Administrador",
    "utilizador_id": 1
-  },
-  {
-   "accao": "login",
-   "criado_em": "2026-10-23T07:56:44",
-   "dados_antes": null,
-   "dados_depois": null,
-   "estabelecimento_id": 1,
-   "id": 2,
-   "ip": null,
-   "registo_id": 3,
-   "tabela": "utilizador",
-   "utilizador": "Maria Cota",
-   "utilizador_id": 3
   }
  ],
  "GET /api/auth/me": {
   "activo": true,
-  "criado_em": "2026-10-23T07:56:42",
+  "criado_em": "2026-10-23T08:06:17",
   "doisfa_activo": false,
   "email": "admin@clacs.ao",
   "encarregado_id": null,
@@ -511,6 +523,11 @@
    "refeitorio:editar",
    "refeitorio:exportar",
    "refeitorio:ver",
+   "transporte:apagar",
+   "transporte:criar",
+   "transporte:editar",
+   "transporte:exportar",
+   "transporte:ver",
    "utilizadores:apagar",
    "utilizadores:criar",
    "utilizadores:editar",
@@ -518,7 +535,7 @@
    "utilizadores:ver"
   ],
   "telefone": null,
-  "ultimo_login": "2026-10-23T07:56:44.113501"
+  "ultimo_login": "2026-10-23T08:06:21.522571"
  },
  "GET /api/avaliacoes": [
   {
@@ -743,7 +760,7 @@
    "alvo": "turma",
    "autor_id": 1,
    "corpo": "Não haverá aulas no dia 11 de Novembro.",
-   "criado_em": "2026-10-23T07:56:44",
+   "criado_em": "2026-10-23T08:06:22",
    "estabelecimento_id": 1,
    "id": 1,
    "titulo": "Feriado de 11 de Novembro"
@@ -792,10 +809,10 @@
  "GET /api/encarregados": [
   {
    "activo": true,
-   "actualizado_em": "2026-10-23T07:56:42",
+   "actualizado_em": "2026-10-23T08:06:17",
    "bi_numero": null,
    "cobrancas_em_atraso": 0,
-   "criado_em": "2026-10-23T07:56:42",
+   "criado_em": "2026-10-23T08:06:17",
    "educandos": [
     {
      "id": 14,
@@ -818,10 +835,10 @@
   },
   {
    "activo": true,
-   "actualizado_em": "2026-10-23T07:56:42",
+   "actualizado_em": "2026-10-23T08:06:17",
    "bi_numero": null,
    "cobrancas_em_atraso": 2,
-   "criado_em": "2026-10-23T07:56:42",
+   "criado_em": "2026-10-23T08:06:17",
    "educandos": [
     {
      "id": 4,
@@ -845,9 +862,9 @@
  ],
  "GET /api/encarregados/{eid}": {
   "activo": true,
-  "actualizado_em": "2026-10-23T07:56:42",
+  "actualizado_em": "2026-10-23T08:06:17",
   "bi_numero": null,
-  "criado_em": "2026-10-23T07:56:42",
+  "criado_em": "2026-10-23T08:06:17",
   "educandos": [
    {
     "id": 1,
@@ -875,8 +892,8 @@
  },
  "GET /api/estabelecimento": {
   "activo": true,
-  "actualizado_em": "2026-10-23T07:56:41",
-  "criado_em": "2026-10-23T07:56:41",
+  "actualizado_em": "2026-10-23T08:06:17",
+  "criado_em": "2026-10-23T08:06:17",
   "email": "geral@clacs.ao",
   "id": 1,
   "logotipo_url": null,
@@ -890,7 +907,7 @@
    "activo": true,
    "ano_contratacao": null,
    "cargo": "director",
-   "criado_em": "2026-10-23T07:56:42",
+   "criado_em": "2026-10-23T08:06:17",
    "email": null,
    "estabelecimento_id": 1,
    "id": 6,
@@ -902,7 +919,7 @@
    "activo": true,
    "ano_contratacao": null,
    "cargo": "professor",
-   "criado_em": "2026-10-23T07:56:42",
+   "criado_em": "2026-10-23T08:06:17",
    "email": null,
    "estabelecimento_id": 1,
    "id": 3,
@@ -915,7 +932,7 @@
   "activo": true,
   "ano_contratacao": null,
   "cargo": "professor",
-  "criado_em": "2026-10-23T07:56:42",
+  "criado_em": "2026-10-23T08:06:17",
   "email": null,
   "estabelecimento_id": 1,
   "id": 1,
@@ -928,7 +945,7 @@
  },
  "GET /api/importacao/lotes": [
   {
-   "criado_em": "2026-10-23T07:56:52",
+   "criado_em": "2026-10-23T08:06:30",
    "criado_por": 1,
    "entidade": "aluno",
    "estabelecimento_id": 1,
@@ -1053,7 +1070,7 @@
  ],
  "GET /api/matriculas/{mid}/historico": [
   {
-   "data_alteracao": "2026-10-23T07:56:44",
+   "data_alteracao": "2026-10-23T08:06:22",
    "id": 1,
    "matricula_id": 1,
    "motivo": "Pedido do encarregado (horário da tarde)",
@@ -1063,7 +1080,7 @@
  ],
  "GET /api/mensagens": [
   {
-   "agendada_para": "2026-10-23T07:56:44",
+   "agendada_para": "2026-10-23T08:06:22",
    "aluno_id": 1,
    "assunto": "Reunião de pais",
    "canal": "email",
@@ -1081,7 +1098,7 @@
    "regra_id": null
   },
   {
-   "agendada_para": "2026-10-23T07:56:44",
+   "agendada_para": "2026-10-23T08:06:22",
    "aluno_id": 1,
    "assunto": "Reunião de pais",
    "canal": "whatsapp",
@@ -1197,7 +1214,7 @@
    "accao_tomada": "Conversa com a coordenação",
    "aluno": "Ana Cota",
    "aluno_id": 1,
-   "criada_em": "2026-10-23T07:56:44",
+   "criada_em": "2026-10-23T08:06:22",
    "data": "2026-10-20",
    "descricao": "Conflito com um colega no intervalo.",
    "estado": "aberta",
@@ -1212,7 +1229,7 @@
  "GET /api/ocorrencias/{id_}": {
   "accao_tomada": "Conversa com a coordenação",
   "aluno_id": 1,
-  "criada_em": "2026-10-23T07:56:44",
+  "criada_em": "2026-10-23T08:06:22",
   "data": "2026-10-20",
   "descricao": "Conflito com um colega no intervalo.",
   "estado": "aberta",
@@ -1230,7 +1247,7 @@
     }
    ],
    "comprovativo_url": null,
-   "criado_em": "2026-10-23T07:56:43",
+   "criado_em": "2026-10-23T08:06:18",
    "data_pagamento": "2026-10-09",
    "documento_fiscal_id": null,
    "encarregado": "Francisco Varela",
@@ -1252,7 +1269,7 @@
     }
    ],
    "comprovativo_url": null,
-   "criado_em": "2026-10-23T07:56:43",
+   "criado_em": "2026-10-23T08:06:18",
    "data_pagamento": "2026-10-09",
    "documento_fiscal_id": null,
    "encarregado": "Rosa Reis",
@@ -1490,7 +1507,7 @@
  },
  "GET /api/pedagogico/alunos": [
   {
-   "actualizado_em": "2026-10-23T07:56:42",
+   "actualizado_em": "2026-10-23T08:06:17",
    "alergias": null,
    "ano_lectivo": "2026/2027",
    "avaliacoes": [
@@ -1508,7 +1525,7 @@
    "bi_numero": null,
    "condicoes_saude": null,
    "contacto_emergencia": null,
-   "criado_em": "2026-10-23T07:56:42",
+   "criado_em": "2026-10-23T08:06:17",
    "data_nascimento": "2016-01-01",
    "encarregado": "Maria Cota",
    "escola_anterior": null,
@@ -1531,7 +1548,7 @@
    "turma_id": 2
   },
   {
-   "actualizado_em": "2026-10-23T07:56:42",
+   "actualizado_em": "2026-10-23T08:06:17",
    "alergias": null,
    "ano_lectivo": "2026/2027",
    "avaliacoes": [
@@ -1549,7 +1566,7 @@
    "bi_numero": null,
    "condicoes_saude": null,
    "contacto_emergencia": null,
-   "criado_em": "2026-10-23T07:56:42",
+   "criado_em": "2026-10-23T08:06:17",
    "data_nascimento": "2015-02-02",
    "encarregado": "José Lima",
    "escola_anterior": null,
@@ -1576,7 +1593,7 @@
   {
    "aluno": "Pedro Domingos",
    "aluno_id": null,
-   "criado_em": "2026-10-23T07:56:45",
+   "criado_em": "2026-10-23T08:06:22",
    "dados": {
     "classe_id": 1,
     "data_nascimento": "2020-05-02",
@@ -1600,7 +1617,7 @@
  "GET /api/pedidos/{pid}": {
   "aluno": "Pedro Domingos",
   "aluno_id": null,
-  "criado_em": "2026-10-23T07:56:45",
+  "criado_em": "2026-10-23T08:06:22",
   "dados": {
    "classe_id": 1,
    "data_nascimento": "2020-05-02",
@@ -1906,6 +1923,18 @@
    "periodo": "1.º Trimestre"
   }
  ],
+ "GET /api/portal/educandos/{aid}/transporte": {
+  "estado": "activa",
+  "hora_ida": "06:45:00",
+  "hora_volta": "17:00:00",
+  "inscricao_id": 1,
+  "motorista": "Domingos Kiala",
+  "paragem": "Talatona — Shopping",
+  "rota": "Rota Talatona",
+  "sentido": "ida_volta",
+  "telefone_motorista": "+244923456000",
+  "viatura": "LD-45-12-AB"
+ },
  "GET /api/portal/eu": {
   "educandos": [
    {
@@ -1937,7 +1966,7 @@
    "assunto": "Reunião de pais",
    "canal": "email",
    "corpo": "A reunião de pais é na sexta-feira às 17h.",
-   "data": "2026-10-23T07:56:44",
+   "data": "2026-10-23T08:06:22",
    "estado": "agendada",
    "id": 18
   },
@@ -1945,7 +1974,7 @@
    "assunto": "Reunião de pais",
    "canal": "whatsapp",
    "corpo": "A reunião de pais é na sexta-feira às 17h.",
-   "data": "2026-10-23T07:56:44",
+   "data": "2026-10-23T08:06:22",
    "estado": "agendada",
    "id": 17
   }
@@ -1972,7 +2001,7 @@
   {
    "aluno": "Pedro Domingos",
    "aluno_id": null,
-   "criado_em": "2026-10-23T07:56:45",
+   "criado_em": "2026-10-23T08:06:22",
    "dados": {
     "classe_id": 1,
     "data_nascimento": "2020-05-02",
@@ -2045,8 +2074,8 @@
    "estabelecimento_id": 1,
    "estado": "ok",
    "id": 1,
-   "iniciado_em": "2026-10-23T07:44:43.710321",
-   "terminado_em": "2026-10-23T07:45:43.710321",
+   "iniciado_em": "2026-10-23T07:54:19.739671",
+   "terminado_em": "2026-10-23T07:55:19.739671",
    "total_erros": 0,
    "total_registos": 86
   }
@@ -2055,7 +2084,7 @@
   {
    "campo": "estado",
    "descricao": "Pago no Primavera, pendente na escola",
-   "detectada_em": "2026-10-23T07:56:43",
+   "detectada_em": "2026-10-23T08:06:20",
    "entidade": "cobranca",
    "estabelecimento_id": 1,
    "estado": "aberta",
@@ -2070,7 +2099,7 @@
   {
    "campo": "nif",
    "descricao": "NIF diferente entre os sistemas",
-   "detectada_em": "2026-10-23T07:56:43",
+   "detectada_em": "2026-10-23T08:06:20",
    "entidade": "cliente",
    "estabelecimento_id": 1,
    "estado": "aberta",
@@ -2119,7 +2148,7 @@
    "comentarios": [
     {
      "comentario": "Muito atenciosa e explica bem os trabalhos de casa.",
-     "criado_em": "2026-10-23T07:56:45",
+     "criado_em": "2026-10-23T08:06:22",
      "nota": 5,
      "periodo": "1.º Trimestre"
     }
@@ -2276,7 +2305,7 @@
     "whatsapp"
    ],
    "condicao": null,
-   "criada_em": "2026-10-23T07:56:43",
+   "criada_em": "2026-10-23T08:06:19",
    "criada_por": null,
    "destino": "encarregado",
    "dias_offset": 3,
@@ -2293,7 +2322,7 @@
     "sms"
    ],
    "condicao": null,
-   "criada_em": "2026-10-23T07:56:43",
+   "criada_em": "2026-10-23T08:06:19",
    "criada_por": null,
    "destino": "encarregado",
    "dias_offset": 3,
@@ -2310,7 +2339,7 @@
    "whatsapp"
   ],
   "condicao": null,
-  "criada_em": "2026-10-23T07:56:43",
+  "criada_em": "2026-10-23T08:06:19",
   "criada_por": null,
   "destino": "encarregado",
   "dias_offset": 3,
@@ -2355,8 +2384,8 @@
  "GET /api/relatorios/agendados/{rid}/execucoes": [
   {
    "estado": "ok",
-   "executado_em": "2026-10-23T07:56:44",
-   "ficheiro_url": "/api/ficheiros/1/relatorios/320f858f4af74763b6716e5262f892cd.xlsx",
+   "executado_em": "2026-10-23T08:06:22",
+   "ficheiro_url": "/api/ficheiros/1/relatorios/3a7182826aa446acb662239541989d8d.xlsx",
    "id": 1,
    "relatorio_id": 1
   }
@@ -2470,6 +2499,131 @@
   "gravidade": "positiva",
   "id": 1
  },
+ "GET /api/transporte/inscricoes": [
+  {
+   "adesao_id": null,
+   "aluno_id": 1,
+   "criado_em": "2026-10-23T08:06:22",
+   "data_fim": null,
+   "data_inicio": "2026-10-23",
+   "estabelecimento_id": 1,
+   "estado": "activa",
+   "id": 1,
+   "paragem_id": 1,
+   "rota_id": 1,
+   "sentido": "ida_volta"
+  }
+ ],
+ "GET /api/transporte/inscricoes/{id_}": {
+  "adesao_id": null,
+  "aluno_id": 1,
+  "criado_em": "2026-10-23T08:06:22",
+  "data_fim": null,
+  "data_inicio": "2026-10-23",
+  "estabelecimento_id": 1,
+  "estado": "activa",
+  "id": 1,
+  "paragem_id": 1,
+  "rota_id": 1,
+  "sentido": "ida_volta"
+ },
+ "GET /api/transporte/paragens/{id_}": {
+  "hora_ida": "06:45:00",
+  "hora_volta": null,
+  "id": 1,
+  "nome": "Talatona — Shopping",
+  "ordem": 1,
+  "referencia": null,
+  "rota_id": 1
+ },
+ "GET /api/transporte/rotas": [
+  {
+   "activo": true,
+   "descricao": "Talatona e Camama",
+   "estabelecimento_id": 1,
+   "hora_ida": "06:30:00",
+   "hora_volta": "17:00:00",
+   "id": 1,
+   "inscritos": 1,
+   "lugares": 15,
+   "lugares_livres": 14,
+   "motorista": "Domingos Kiala",
+   "nome": "Rota Talatona",
+   "paragens": [
+    {
+     "hora_ida": "06:45:00",
+     "hora_volta": null,
+     "id": 1,
+     "nome": "Talatona — Shopping",
+     "ordem": 1,
+     "referencia": null,
+     "rota_id": 1
+    },
+    {
+     "hora_ida": "07:05:00",
+     "hora_volta": null,
+     "id": 2,
+     "nome": "Camama — Bomba",
+     "ordem": 2,
+     "referencia": null,
+     "rota_id": 1
+    }
+   ],
+   "servico_id": null,
+   "telefone_motorista": "+244923456000",
+   "viatura": "LD-45-12-AB",
+   "viatura_id": 1
+  }
+ ],
+ "GET /api/transporte/rotas/{id_}": {
+  "activo": true,
+  "descricao": "Talatona e Camama",
+  "estabelecimento_id": 1,
+  "hora_ida": "06:30:00",
+  "hora_volta": "17:00:00",
+  "id": 1,
+  "nome": "Rota Talatona",
+  "servico_id": null,
+  "viatura_id": 1
+ },
+ "GET /api/transporte/rotas/{rid}/alunos": [
+  {
+   "aluno": "Ana Cota",
+   "aluno_id": 1,
+   "encarregado": "Maria Cota",
+   "inscricao_id": 1,
+   "necessidade_especial": false,
+   "ordem": 1,
+   "paragem": "Talatona — Shopping",
+   "sentido": "ida_volta",
+   "telefone": "+244 923000000",
+   "turma": "6.ª B"
+  }
+ ],
+ "GET /api/transporte/viaturas": [
+  {
+   "activo": true,
+   "descricao": "Toyota Hiace",
+   "estabelecimento_id": 1,
+   "id": 1,
+   "lugares": 15,
+   "matricula": "LD-45-12-AB",
+   "motorista": "Domingos Kiala",
+   "observacoes": null,
+   "telefone_motorista": "+244923456000"
+  }
+ ],
+ "GET /api/transporte/viaturas/{id_}": {
+  "activo": true,
+  "descricao": "Toyota Hiace",
+  "estabelecimento_id": 1,
+  "id": 1,
+  "lugares": 15,
+  "matricula": "LD-45-12-AB",
+  "motorista": "Domingos Kiala",
+  "observacoes": null,
+  "telefone_motorista": "+244923456000"
+ },
  "GET /api/turmas": [
   {
    "alunos": 3,
@@ -2552,7 +2706,7 @@
  "GET /api/utilizadores": [
   {
    "activo": true,
-   "criado_em": "2026-10-23T07:56:42",
+   "criado_em": "2026-10-23T08:06:17",
    "doisfa_activo": false,
    "email": "admin@clacs.ao",
    "encarregado_id": null,
@@ -2563,11 +2717,11 @@
     "admin"
    ],
    "telefone": null,
-   "ultimo_login": "2026-10-23T07:56:44.113501"
+   "ultimo_login": "2026-10-23T08:06:21.522571"
   },
   {
    "activo": true,
-   "criado_em": "2026-10-23T07:56:43",
+   "criado_em": "2026-10-23T08:06:19",
    "doisfa_activo": false,
    "email": "encarregado@clacs.ao",
    "encarregado_id": 1,
@@ -2578,12 +2732,12 @@
     "encarregado"
    ],
    "telefone": null,
-   "ultimo_login": "2026-10-23T07:56:44.479903"
+   "ultimo_login": "2026-10-23T08:06:22.132863"
   }
  ],
  "PATCH /api/alertas/{aid}": {
   "aluno_id": 16,
-  "criado_em": "2026-10-23T07:56:45",
+  "criado_em": "2026-10-23T08:06:22",
   "dados": {
    "meses_em_atraso": 2
   },
@@ -2596,12 +2750,12 @@
   "tratado_por": 1
  },
  "PATCH /api/alunos/{aid}": {
-  "actualizado_em": "2026-10-23T07:56:48",
+  "actualizado_em": "2026-10-23T08:06:26",
   "alergias": null,
   "bi_numero": null,
   "condicoes_saude": null,
   "contacto_emergencia": null,
-  "criado_em": "2026-10-23T07:56:42",
+  "criado_em": "2026-10-23T08:06:17",
   "data_nascimento": "2016-01-01",
   "escola_anterior": null,
   "estabelecimento_id": 1,
@@ -2658,9 +2812,9 @@
  },
  "PATCH /api/encarregados/{eid}": {
   "activo": true,
-  "actualizado_em": "2026-10-23T07:56:48",
+  "actualizado_em": "2026-10-23T08:06:26",
   "bi_numero": null,
-  "criado_em": "2026-10-23T07:56:42",
+  "criado_em": "2026-10-23T08:06:17",
   "email": "isabel.d@hotmail.com",
   "estabelecimento_id": 1,
   "id": 1,
@@ -2673,8 +2827,8 @@
  },
  "PATCH /api/estabelecimento": {
   "activo": true,
-  "actualizado_em": "2026-10-23T07:56:46",
-  "criado_em": "2026-10-23T07:56:41",
+  "actualizado_em": "2026-10-23T08:06:24",
+  "criado_em": "2026-10-23T08:06:17",
   "email": "geral@clacs.ao",
   "id": 1,
   "logotipo_url": null,
@@ -2687,7 +2841,7 @@
   "activo": true,
   "ano_contratacao": null,
   "cargo": "coordenador",
-  "criado_em": "2026-10-23T07:56:42",
+  "criado_em": "2026-10-23T08:06:17",
   "email": null,
   "estabelecimento_id": 1,
   "id": 1,
@@ -2734,7 +2888,7 @@
  "PATCH /api/ocorrencias/{oid}": {
   "accao_tomada": "Reunião com o encarregado realizada",
   "aluno_id": 1,
-  "criada_em": "2026-10-23T07:56:44",
+  "criada_em": "2026-10-23T08:06:22",
   "data": "2026-10-20",
   "descricao": "Conflito com um colega no intervalo.",
   "estado": "fechada",
@@ -2794,7 +2948,7 @@
    "whatsapp"
   ],
   "condicao": null,
-  "criada_em": "2026-10-23T07:56:43",
+  "criada_em": "2026-10-23T08:06:19",
   "criada_por": null,
   "destino": "encarregado",
   "dias_offset": 5,
@@ -2852,6 +3006,50 @@
   "gravidade": "positiva",
   "id": 1
  },
+ "PATCH /api/transporte/inscricoes/{iid}": {
+  "adesao_id": null,
+  "aluno_id": 1,
+  "criado_em": "2026-10-23T08:06:22",
+  "data_fim": null,
+  "data_inicio": "2026-10-23",
+  "estabelecimento_id": 1,
+  "estado": "activa",
+  "id": 1,
+  "paragem_id": 2,
+  "rota_id": 1,
+  "sentido": "ida"
+ },
+ "PATCH /api/transporte/paragens/{id_}": {
+  "hora_ida": "06:45:00",
+  "hora_volta": "17:15:00",
+  "id": 1,
+  "nome": "Talatona — Shopping",
+  "ordem": 1,
+  "referencia": "Paragem do Belas Shopping",
+  "rota_id": 1
+ },
+ "PATCH /api/transporte/rotas/{id_}": {
+  "activo": true,
+  "descricao": "Talatona e Camama",
+  "estabelecimento_id": 1,
+  "hora_ida": "06:30:00",
+  "hora_volta": "17:00:00",
+  "id": 1,
+  "nome": "Rota Talatona",
+  "servico_id": null,
+  "viatura_id": 1
+ },
+ "PATCH /api/transporte/viaturas/{id_}": {
+  "activo": true,
+  "descricao": "Toyota Hiace",
+  "estabelecimento_id": 1,
+  "id": 1,
+  "lugares": 15,
+  "matricula": "LD-45-12-AB",
+  "motorista": "Domingos Kiala",
+  "observacoes": null,
+  "telefone_motorista": "+244923456000"
+ },
  "PATCH /api/turmas/{tid}": {
   "ano_id": 2,
   "capacidade": 32,
@@ -2865,7 +3063,7 @@
  },
  "PATCH /api/utilizadores/{uid}": {
   "activo": true,
-  "criado_em": "2026-10-23T07:56:42",
+  "criado_em": "2026-10-23T08:06:17",
   "doisfa_activo": false,
   "email": "admin@clacs.ao",
   "encarregado_id": null,
@@ -2877,18 +3075,18 @@
    "financeiro"
   ],
   "telefone": "+244923000111",
-  "ultimo_login": "2026-10-23T07:56:44.113501"
+  "ultimo_login": "2026-10-23T08:06:21.522571"
  },
  "POST /api/alertas/gerar": {
   "novos": 0
  },
  "POST /api/alunos": {
-  "actualizado_em": "2026-10-23T07:56:48",
+  "actualizado_em": "2026-10-23T08:06:25",
   "alergias": "Amendoim",
   "bi_numero": "006123456LA041",
   "condicoes_saude": "Asma ligeira",
   "contacto_emergencia": "Isabel Domingos (mãe)",
-  "criado_em": "2026-10-23T07:56:48",
+  "criado_em": "2026-10-23T08:06:25",
   "data_nascimento": "2018-03-14",
   "escola_anterior": null,
   "estabelecimento_id": 1,
@@ -2907,7 +3105,7 @@
  },
  "POST /api/alunos/{aid}/documentos": {
   "aluno_id": 1,
-  "criado_em": "2026-10-23T07:56:48",
+  "criado_em": "2026-10-23T08:06:26",
   "ficheiro_url": "/api/ficheiros/alunos/1/certidao.pdf",
   "id": 1,
   "tipo": "certidao_nascimento",
@@ -2915,8 +3113,8 @@
  },
  "POST /api/alunos/{aid}/documentos/ficheiro": {
   "aluno_id": 1,
-  "criado_em": "2026-10-23T07:56:52",
-  "ficheiro_url": "/api/ficheiros/1/documentos/ab1c0f2b9d6f41a1b24c4d7eba406e2a.pdf",
+  "criado_em": "2026-10-23T08:06:30",
+  "ficheiro_url": "/api/ficheiros/1/documentos/c54ae78a7e644edc961763db91343f88.pdf",
   "id": 1,
   "tipo": "certidao_nascimento",
   "validade": null
@@ -2930,7 +3128,7 @@
   "responsavel_financeiro": true
  },
  "POST /api/alunos/{aid}/foto": {
-  "foto_url": "/api/ficheiros/1/fotos/63c6be3c6fe5453382bf5b8d696f1da1.png"
+  "foto_url": "/api/ficheiros/1/fotos/b05d9b03f189421a82dbf847b98c97b7.png"
  },
  "POST /api/alunos/{aid}/mensagem": {
   "mensagens": 2
@@ -2993,8 +3191,8 @@
   "resposta": "7 aluno(s) em dívida, num total de 494 000 Kz."
  },
  "POST /api/auth/2fa/iniciar": {
-  "segredo": "2F3O3E4IC5OL2CST2OWPVR5MVWVUZ4T2",
-  "uri": "otpauth://totp/CLACS%20Escola:admin%40clacs.ao?secret=2F3O3E4IC5OL2CST2OWPVR5MVWVUZ4T2&issuer=CLACS%20Escola"
+  "segredo": "4MGS3OJTZHZXGORGC335ECK7LEODZIJ5",
+  "uri": "otpauth://totp/CLACS%20Escola:admin%40clacs.ao?secret=4MGS3OJTZHZXGORGC335ECK7LEODZIJ5&issuer=CLACS%20Escola"
  },
  "POST /api/auth/login": {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.exemplo.assinatura",
@@ -3021,10 +3219,10 @@
   "disciplina_id": 8
  },
  "POST /api/cobrancas": {
-  "actualizado_em": "2026-10-23T07:56:50",
+  "actualizado_em": "2026-10-23T08:06:28",
   "aluno_id": 1,
   "competencia": "2026-10-01",
-  "criado_em": "2026-10-23T07:56:50",
+  "criado_em": "2026-10-23T08:06:28",
   "descricao": "Fardamento (2 camisolas)",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -3067,10 +3265,10 @@
   "mensagens": 4
  },
  "POST /api/cobrancas/{cid}/anular": {
-  "actualizado_em": "2026-10-23T07:56:50",
+  "actualizado_em": "2026-10-23T08:06:28",
   "aluno_id": 1,
   "competencia": "2026-10-01",
-  "criado_em": "2026-10-23T07:56:42",
+  "criado_em": "2026-10-23T08:06:18",
   "descricao": "Alimentação 10/2026",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -3089,7 +3287,7 @@
   "alvo": "turma",
   "autor_id": 1,
   "corpo": "Não haverá aulas no dia 11 de Novembro.",
-  "criado_em": "2026-10-23T07:56:51",
+  "criado_em": "2026-10-23T08:06:29",
   "destinatarios": 8,
   "estabelecimento_id": 1,
   "id": 2,
@@ -3112,9 +3310,9 @@
  },
  "POST /api/encarregados": {
   "activo": true,
-  "actualizado_em": "2026-10-23T07:56:48",
+  "actualizado_em": "2026-10-23T08:06:26",
   "bi_numero": null,
-  "criado_em": "2026-10-23T07:56:48",
+  "criado_em": "2026-10-23T08:06:26",
   "email": "isabel.domingos@gmail.com",
   "estabelecimento_id": 1,
   "id": 21,
@@ -3133,7 +3331,7 @@
   "activo": true,
   "ano_contratacao": 2021,
   "cargo": "professor",
-  "criado_em": "2026-10-23T07:56:47",
+  "criado_em": "2026-10-23T08:06:24",
   "email": "joao.sebastiao@clacs.ao",
   "estabelecimento_id": 1,
   "id": 7,
@@ -3142,7 +3340,7 @@
   "telefone": "+244912345678"
  },
  "POST /api/importacao/{entidade}": {
-  "criado_em": "2026-10-23T07:56:52",
+  "criado_em": "2026-10-23T08:06:30",
   "criado_por": 1,
   "entidade": "aluno",
   "erros": 1,
@@ -3251,7 +3449,7 @@
  "POST /api/ocorrencias": {
   "accao_tomada": "Conversa com a coordenação",
   "aluno_id": 1,
-  "criada_em": "2026-10-23T07:56:51",
+  "criada_em": "2026-10-23T08:06:29",
   "data": "2026-10-20",
   "descricao": "Conflito com um colega no intervalo.",
   "estado": "aberta",
@@ -3268,7 +3466,7 @@
    }
   ],
   "comprovativo_url": null,
-  "criado_em": "2026-10-23T07:56:50",
+  "criado_em": "2026-10-23T08:06:28",
   "data_pagamento": "2026-10-08",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -3285,11 +3483,11 @@
   "pagamento_id": 56
  },
  "POST /api/pagamentos/{pid}/comprovativo": {
-  "comprovativo_url": "/api/ficheiros/1/comprovativos/47ad427e5b784f2a92bf2050a3f25d62.pdf"
+  "comprovativo_url": "/api/ficheiros/1/comprovativos/cbc9b284122f4ea89f57b63c980b044b.pdf"
  },
  "POST /api/pagamentos/{pid}/confirmar": {
   "comprovativo_url": null,
-  "criado_em": "2026-10-23T07:56:42",
+  "criado_em": "2026-10-23T08:06:17",
   "data_pagamento": "2026-09-05",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -3303,7 +3501,7 @@
  },
  "POST /api/pagamentos/{pid}/rejeitar": {
   "comprovativo_url": null,
-  "criado_em": "2026-10-23T07:56:42",
+  "criado_em": "2026-10-23T08:06:17",
   "data_pagamento": "2026-09-05",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -3321,7 +3519,7 @@
  "POST /api/pedidos/{pid}/aprovar": {
   "aluno": "Pedro Domingos",
   "aluno_id": 21,
-  "criado_em": "2026-10-23T07:56:45",
+  "criado_em": "2026-10-23T08:06:22",
   "dados": {
    "classe_id": 1,
    "data_nascimento": "2020-05-02",
@@ -3330,7 +3528,7 @@
    "parentesco": "mae",
    "sexo": "M"
   },
-  "decidido_em": "2026-10-23T07:56:53.053444Z",
+  "decidido_em": "2026-10-23T08:06:31.062986Z",
   "decidido_por": 1,
   "encarregado": "Maria Cota",
   "encarregado_id": 1,
@@ -3349,7 +3547,7 @@
  "POST /api/pedidos/{pid}/rejeitar": {
   "aluno": "Pedro Domingos",
   "aluno_id": null,
-  "criado_em": "2026-10-23T07:56:45",
+  "criado_em": "2026-10-23T08:06:22",
   "dados": {
    "classe_id": 1,
    "data_nascimento": "2020-05-02",
@@ -3358,7 +3556,7 @@
    "parentesco": "mae",
    "sexo": "M"
   },
-  "decidido_em": "2026-10-23T07:56:53.086549Z",
+  "decidido_em": "2026-10-23T08:06:31.098498Z",
   "decidido_por": 1,
   "encarregado": "Maria Cota",
   "encarregado_id": 1,
@@ -3380,7 +3578,7 @@
  "POST /api/portal/avaliacoes-professores": {
   "aluno_id": 1,
   "comentario": "Muito atenciosa e explica bem os trabalhos de casa.",
-  "criado_em": "2026-10-23T07:56:45",
+  "criado_em": "2026-10-23T08:06:22",
   "encarregado_id": 1,
   "estabelecimento_id": 1,
   "funcionario_id": 1,
@@ -3401,13 +3599,13 @@
   "entidade": "00000",
   "expira": "2026-11-07",
   "pagamento_id": 56,
-  "referencia": "371169064",
+  "referencia": "242681053",
   "valor": 18000.0
  },
  "POST /api/portal/pedidos": {
   "aluno": "Pedro Domingos",
   "aluno_id": null,
-  "criado_em": "2026-10-23T07:56:53",
+  "criado_em": "2026-10-23T08:06:31",
   "dados": {
    "classe_id": 1,
    "data_nascimento": "2020-05-02",
@@ -3430,7 +3628,7 @@
  "POST /api/portal/pedidos/{pid}/cancelar": {
   "aluno": "Pedro Domingos",
   "aluno_id": null,
-  "criado_em": "2026-10-23T07:56:45",
+  "criado_em": "2026-10-23T08:06:22",
   "dados": {
    "classe_id": 1,
    "data_nascimento": "2020-05-02",
@@ -3453,14 +3651,14 @@
  "POST /api/primavera/divergencias/{did}/{accao}": {
   "campo": "estado",
   "descricao": "Pago no Primavera, pendente na escola",
-  "detectada_em": "2026-10-23T07:56:43",
+  "detectada_em": "2026-10-23T08:06:20",
   "entidade": "cobranca",
   "estabelecimento_id": 1,
   "estado": "resolvida",
   "id": 1,
   "id_externo": "FT 2026/412",
   "id_local": 6,
-  "resolvida_em": "2026-10-23T07:56:52.672203Z",
+  "resolvida_em": "2026-10-23T08:06:30.628610Z",
   "resolvida_por": 1,
   "valor_externo": "paga",
   "valor_local": "pendente"
@@ -3475,8 +3673,8 @@
   "estabelecimento_id": 1,
   "estado": "ok",
   "id": 2,
-  "iniciado_em": "2026-10-23T07:56:52",
-  "terminado_em": "2026-10-23T07:56:52.621182Z",
+  "iniciado_em": "2026-10-23T08:06:30",
+  "terminado_em": "2026-10-23T08:06:30.578072Z",
   "total_erros": 0,
   "total_registos": 0
  },
@@ -3515,7 +3713,7 @@
    "whatsapp"
   ],
   "condicao": null,
-  "criada_em": "2026-10-23T07:56:51",
+  "criada_em": "2026-10-23T08:06:28",
   "criada_por": 1,
   "destino": "encarregado",
   "dias_offset": 3,
@@ -3548,8 +3746,8 @@
  },
  "POST /api/relatorios/agendados/{rid}/executar": {
   "estado": "ok",
-  "executado_em": "2026-10-23T07:56:52",
-  "ficheiro_url": "/api/ficheiros/1/relatorios/d945bdef31f04eb4908abec8aff8d20f.xlsx",
+  "executado_em": "2026-10-23T08:06:30",
+  "ficheiro_url": "/api/ficheiros/1/relatorios/3651d9aebd26485294b4c0645c0a1e0a.xlsx",
   "id": 2,
   "relatorio_id": 1
  },
@@ -3586,6 +3784,76 @@
   "gravidade": "positiva",
   "id": 5
  },
+ "POST /api/transporte/inscricoes": {
+  "adesao_id": null,
+  "aluno_id": 2,
+  "criado_em": "2026-10-23T08:06:31",
+  "data_fim": null,
+  "data_inicio": "2026-10-23",
+  "estabelecimento_id": 1,
+  "estado": "activa",
+  "id": 2,
+  "paragem_id": 1,
+  "rota_id": 1,
+  "sentido": "ida_volta"
+ },
+ "POST /api/transporte/rotas": {
+  "activo": true,
+  "descricao": "Talatona e Camama",
+  "estabelecimento_id": 1,
+  "hora_ida": "06:30:00",
+  "hora_volta": "17:00:00",
+  "id": 2,
+  "inscritos": 0,
+  "lugares": 15,
+  "lugares_livres": 15,
+  "motorista": "Domingos Kiala",
+  "nome": "Rota Kilamba",
+  "paragens": [
+   {
+    "hora_ida": "06:45:00",
+    "hora_volta": null,
+    "id": 3,
+    "nome": "Talatona — Shopping",
+    "ordem": 1,
+    "referencia": null,
+    "rota_id": 2
+   },
+   {
+    "hora_ida": "07:05:00",
+    "hora_volta": null,
+    "id": 4,
+    "nome": "Camama — Bomba",
+    "ordem": 2,
+    "referencia": null,
+    "rota_id": 2
+   }
+  ],
+  "servico_id": null,
+  "telefone_motorista": "+244923456000",
+  "viatura": "LD-45-12-AB",
+  "viatura_id": 1
+ },
+ "POST /api/transporte/rotas/{rid}/paragens": {
+  "hora_ida": "06:45:00",
+  "hora_volta": "17:15:00",
+  "id": 3,
+  "nome": "Talatona — Shopping",
+  "ordem": 1,
+  "referencia": "Paragem do Belas Shopping",
+  "rota_id": 1
+ },
+ "POST /api/transporte/viaturas": {
+  "activo": true,
+  "descricao": "Toyota Hiace",
+  "estabelecimento_id": 1,
+  "id": 2,
+  "lugares": 15,
+  "matricula": "LD-77-31-CC",
+  "motorista": "Domingos Kiala",
+  "observacoes": null,
+  "telefone_motorista": "+244923456000"
+ },
  "POST /api/turmas": {
   "ano_id": 2,
   "capacidade": 30,
@@ -3599,7 +3867,7 @@
  },
  "POST /api/utilizadores": {
   "activo": true,
-  "criado_em": "2026-10-23T07:56:46",
+  "criado_em": "2026-10-23T08:06:24",
   "doisfa_activo": false,
   "email": "marta.kiala@clacs.ao",
   "encarregado_id": null,
