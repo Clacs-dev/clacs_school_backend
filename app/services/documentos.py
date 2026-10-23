@@ -13,7 +13,7 @@ from app.models import (
 )
 from app.services.alertas import comportamento_actual
 from app.services.financeiro import cobrancas_detalhe
-from app.services.pedagogico import FALTAS, escala, media_ponderada
+from app.services.pedagogico import FALTAS, escala, media_ponderada, pauta_final
 
 AVISO_FISCAL = "Documento interno. A factura legal é emitida pelo Primavera."
 
@@ -118,7 +118,31 @@ def pauta(db: Session, turma: Turma, periodo: PeriodoLectivo) -> bytes:
               Spacer(1, 5 * mm), pdf.tabela(t), Spacer(1, 14 * mm),
               pdf.p("_______________________________ &nbsp;&nbsp;&nbsp;&nbsp; _______________________________<br/>"
                     "O Director de Turma &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; A Direcção Pedagógica")]
-    return pdf.gerar(est, "Pauta de avaliação", blocos, horizontal=len(discs) > 5)
+    return pdf.gerar(est, "Pauta de avaliação", blocos, horizontal=True)
+
+
+def pauta_final_pdf(db: Session, turma: Turma) -> bytes:
+    """Pauta final na horizontal: classificação final de cada disciplina, médias de cada trimestre e situação."""
+    est = db.get(Estabelecimento, turma.estabelecimento_id)
+    dados = pauta_final(db, turma)
+    fmt = lambda v: "—" if v is None else f"{v:.1f}"  # noqa: E731
+    cab = ["N.º", "Aluno", *[pdf.esc(d["sigla"] or d["nome"][:4]) for d in dados["disciplinas"]],
+           *[f"Média {p.split(' ')[0]}T" for p in dados["periodos"]], "Média final", "Situação"]
+    t = [cab]
+    for i, ln in enumerate(dados["linhas"], start=1):
+        t.append([i, pdf.esc(ln["aluno"]), *[fmt(d["final"]) for d in ln["disciplinas"]],
+                  *[fmt(m) for m in ln["medias_trimestre"]], fmt(ln["media_final"]),
+                  {"aprovado": "Aprovado", "reprovado": "Reprovado"}.get(ln["situacao"], "—")])
+    ano, classe = db.get(AnoLectivo, turma.ano_id), db.get(Classe, turma.classe_id)
+    legenda = " · ".join(f"{pdf.esc(d['sigla'] or d['nome'][:4])} = {pdf.esc(d['nome'])}" for d in dados["disciplinas"])
+    blocos = [pdf.p(f"<b>Turma:</b> {pdf.esc(turma.designacao)} ({pdf.esc(classe.designacao)}) &nbsp; "
+                    f"<b>Ano lectivo:</b> {pdf.esc(ano.designacao)} &nbsp; <b>Escala:</b> 0 a {dados['nota_maxima']:g}, "
+                    f"positiva a partir de {dados['nota_minima']:g}"),
+              Spacer(1, 4 * mm), pdf.tabela(t), Spacer(1, 3 * mm), pdf.p(f"<font size=7>{legenda}</font>"),
+              Spacer(1, 12 * mm),
+              pdf.p("_______________________________ &nbsp;&nbsp;&nbsp;&nbsp; _______________________________<br/>"
+                    "O Director de Turma &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; A Direcção Pedagógica")]
+    return pdf.gerar(est, "Pauta final", blocos, horizontal=True)
 
 
 def declaracao(db: Session, m: Matricula) -> bytes:

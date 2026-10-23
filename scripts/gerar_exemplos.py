@@ -44,7 +44,8 @@ MAX_ITENS = 2  # listas de registos encurtadas para o exemplo ficar legível
 FILTROS = {"/api/avaliacoes": {"turma_id": 1}, "/api/pautas": {"turma_id": 1, "periodo_id": 1},
            "/api/registo-diario": {"turma_id": 1, "data": "2026-10-20"},
            "/api/refeitorio/registos": {"data": "2026-10-20"},
-           "/api/turmas/sugestao": {"turma_id": 1}}  # parâmetros obrigatórios ou datas dos exemplos
+           "/api/turmas/sugestao": {"turma_id": 1}, "/api/pautas/final": {"turma_id": 1},
+           "/api/portal/educandos/{aid}/calendario": {"desde": "2026-01-01"}}  # parâmetros obrigatórios ou datas dos exemplos
 
 # Registos que os dados de demonstração não trazem, criados com os pedidos de exemplo para que as listas
 # correspondentes também tenham uma resposta de exemplo.
@@ -54,7 +55,9 @@ POVOAR = [("POST", "/api/comunicados", S.ComunicadoIn), ("POST", "/api/alunos/1/
           ("POST", "/api/matriculas/1/turma", S.MudancaTurmaIn),
           ("POST", "/api/matriculas/1/descontos", S.MatriculaDescontoIn),
           ("POST", "/api/relatorios/agendados", S.RelatorioIn), ("POST", "/api/relatorios/agendados/1/executar", None),
-          ("POST", "/api/alertas/gerar", None), ("POST", "/api/portal/pedidos", S.PedidoIn)]
+          ("POST", "/api/alertas/gerar", None), ("POST", "/api/portal/pedidos", S.PedidoIn),
+          ("POST", "/api/avaliacoes", S.AvaliacaoIn), ("PUT", "/api/turmas/2/atribuicoes", S.AtribuicaoIn),
+          ("POST", "/api/portal/avaliacoes-professores", S.AvaliacaoProfessorIn)]
 
 PDF = ("comprovativo.pdf", b"%PDF-1.4\n%exemplo\n", "application/pdf")
 CSV_ALUNOS = ("nome_completo;numero_processo;data_nascimento;sexo;bi_numero;turma;encarregado_nif;encarregado_nome;"

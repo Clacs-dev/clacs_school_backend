@@ -14,10 +14,11 @@ from app.models import (
     ResultadoPeriodo, TipoAvaliacao, TipoOcorrencia, Turma,
 )
 from app.schemas import (
-    AssiduidadeIn, AvaliacaoIn, NotasIn, OcorrenciaIn, OcorrenciaUpd, RegistoDiarioIn, TipoAvaliacaoIn,
+    AssiduidadeIn, AvaliacaoIn, NotasIn, OcorrenciaIn, OcorrenciaUpd, PresencaItem, RegistoDiarioIn, TipoAvaliacaoIn,
     TipoOcorrenciaIn,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas, verificar_turma
+from app.services import pedagogico as svc_pedagogico
 from app.services.pedagogico import escala, media_ponderada
 
 router = APIRouter(prefix="/api", tags=["Pedagógico"])
@@ -138,6 +139,12 @@ def pauta(turma_id: int, periodo_id: int, ctx: Contexto = Depends(ver), db: Sess
     return {"disciplinas": [n for _, n in discs], "linhas": linhas, **escala(db, ctx.estabelecimento_id)}
 
 
+@router.get("/pautas/final", response_model=R.PautaFinal,
+            summary="Pauta final: cada disciplina em todos os trimestres, classificação final e situação")
+def pauta_final(turma_id: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
+    return svc_pedagogico.pauta_final(db, _turma(db, ctx, turma_id))
+
+
 @router.post("/pautas/fechar", response_model=R.Resultados, summary="Grava as médias do período em resultado_periodo")
 def fechar_pauta(turma_id: int, periodo_id: int, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     _turma(db, ctx, turma_id)
@@ -164,6 +171,9 @@ def fechar_pauta(turma_id: int, periodo_id: int, ctx: Contexto = Depends(editar)
 def chamada(dados: AssiduidadeIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     _turma(db, ctx, dados.turma_id)
     da_turma = {aid for _, aid, _ in _alunos_turma(db, dados.turma_id)}
+    if dados.todos:  # "todos presentes" / "todos ausentes": a turma inteira, menos os que vêm em registos
+        individuais = {r.aluno_id for r in dados.registos}
+        dados.registos += [PresencaItem(aluno_id=aid, estado=dados.todos) for aid in sorted(da_turma - individuais)]
     for r in dados.registos:
         if r.aluno_id not in da_turma:
             raise HTTPException(422, f"O aluno {r.aluno_id} não pertence à turma")

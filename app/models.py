@@ -891,6 +891,24 @@ class RegistoDiario(Base):
 # =====================================================================
 # 9. ALERTAS, KPIs, RELATÓRIOS E IA
 # =====================================================================
+class AvaliacaoProfessor(Base):
+    """Avaliação de um professor por um encarregado (1 a 5), uma por educando, professor e trimestre."""
+    __tablename__ = "avaliacao_professor"
+    __table_args__ = (
+        UniqueConstraint("encarregado_id", "funcionario_id", "aluno_id", "periodo_id"),
+        CheckConstraint("nota BETWEEN 1 AND 5", name="nota"),
+    )
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    encarregado_id: Mapped[int] = fk("encarregado.id")
+    funcionario_id: Mapped[int] = fk("funcionario.id")
+    aluno_id: Mapped[int] = fk("aluno.id")
+    periodo_id: Mapped[int] = fk("periodo_lectivo.id")
+    nota: Mapped[int] = mapped_column(SmallInteger)
+    comentario: Mapped[str | None] = mapped_column(Text)
+    criado_em: Mapped[datetime] = criado_em()
+
+
 TIPOS_PEDIDO = ("vaga", "matricula", "transferencia", "declaracao", "justificacao_falta")
 
 

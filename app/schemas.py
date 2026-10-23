@@ -492,7 +492,16 @@ class AssiduidadeIn(Entrada):
     turma_id: int
     data: date
     disciplina_id: int | None = None
-    registos: list[PresencaItem]
+    todos: Literal["presente", "falta_justificada", "falta_injustificada", "atraso"] | None = Field(
+        None, description="Botão \"todos presentes\" / \"todos ausentes\": aplica-se a toda a turma, "
+                          "excepto aos alunos que vierem em registos")
+    registos: list[PresencaItem] = []
+
+    @model_validator(mode="after")
+    def algum_registo(self):
+        if not self.todos and not self.registos:
+            raise ValueError("indique registos ou todos")
+        return self
 
 
 class TipoOcorrenciaIn(Entrada):
@@ -554,6 +563,13 @@ class PedidoIn(Entrada):
         if faltam:
             raise ValueError(f"o pedido de {self.tipo} precisa de: {', '.join(faltam)}")
         return self
+
+
+class AvaliacaoProfessorIn(Entrada):
+    funcionario_id: int
+    aluno_id: int = Field(description="O educando de quem o professor dá aulas")
+    nota: int = Field(ge=1, le=5, description="1 = muito insatisfeito … 5 = muito satisfeito")
+    comentario: str | None = Field(None, max_length=1000)
 
 
 class DecisaoIn(Entrada):
@@ -691,6 +707,8 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     PedidoIn: {"tipo": "vaga", "nome_aluno": "Pedro Domingos", "data_nascimento": "2020-05-02", "sexo": "M",
                "parentesco": "mae", "classe_id": 1, "observacoes": "Irmão da Ana Paula, já aluna da escola"},
     DecisaoIn: {"resposta": "Vaga aceite. Bem-vindo ao colégio!"},
+    AvaliacaoProfessorIn: {"funcionario_id": 1, "aluno_id": 1, "nota": 5,
+                           "comentario": "Muito atenciosa e explica bem os trabalhos de casa."},
     EstadoIn: {"estado": "tratado"},
     PerguntaIn: {"pergunta": "Quantos alunos da 3.ª A têm propinas em atraso?"},
     IntegracaoIn: {"versao": "V10", "url_base": "https://primavera.clacs.ao/api", "credenciais_ref": "PRIMAVERA",

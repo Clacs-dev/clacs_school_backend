@@ -118,6 +118,13 @@ def pauta_pdf(tid: int, periodo_id: int, ctx: Contexto = Depends(exige("pedagogi
     return _pdf(docs.pauta(db, t, _periodo(db, periodo_id, ctx.estabelecimento_id)), f"pauta-{t.designacao}")
 
 
+@router.get("/turmas/{tid}/pauta-final.pdf", responses=R.PDF, summary="Pauta final da turma (todos os trimestres), na horizontal")
+def pauta_final_pdf(tid: int, ctx: Contexto = Depends(exige("pedagogico")), db: Session = Depends(get_db)):
+    t = obter(db, Turma, tid, ctx.estabelecimento_id, "Turma")
+    verificar_turma(db, ctx, tid)
+    return _pdf(docs.pauta_final_pdf(db, t), f"pauta-final-{t.designacao}")
+
+
 @router.get("/matriculas/{mid}/declaracao.pdf", responses=R.PDF, summary="Declaração de matrícula")
 def declaracao_pdf(mid: int, ctx: Contexto = Depends(exige("cadastro")), db: Session = Depends(get_db)):
     m = obter(db, Matricula, mid, ctx.estabelecimento_id, "Matrícula")

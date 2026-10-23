@@ -16,8 +16,8 @@ from app.database import get_db
 from app.exportar import tabela
 from app.integracoes import ErroIntegracao
 from app.models import (
-    Alerta, Aluno, AuditoriaLog, IaConsultaLog, Indicador, Matricula, Pagamento, Perfil, RelatorioAgendado,
-    RelatorioExecucao, Turma, Utilizador,
+    Alerta, Aluno, AuditoriaLog, AvaliacaoProfessor, Funcionario, IaConsultaLog, Indicador, Matricula, Pagamento,
+    PeriodoLectivo, Perfil, RelatorioAgendado, RelatorioExecucao, Turma, Utilizador,
 )
 from app.schemas import Entrada, EstadoIn, PerguntaIn, RelatorioIn, com_exemplo
 from app.security import Contexto, exige
@@ -280,6 +280,33 @@ def health(db: Session = Depends(get_db)):
     db.execute(select(1))
     return {"estado": "ok"}
 
+
+
+# ---------------------------------------------------------------- avaliação dos professores pelos encarregados
+@router.get("/professores/avaliacoes", response_model=list[R.ResumoAvaliacaoProfessor],
+            summary="Como os encarregados avaliam cada professor: média, distribuição e comentários (anónimos)")
+def avaliacoes_professores(periodo_id: int | None = None, ctx: Contexto = Depends(exige("painel")),
+                           db: Session = Depends(get_db)):
+    stmt = (select(AvaliacaoProfessor, Funcionario.nome_completo, PeriodoLectivo.designacao)
+            .join(Funcionario, Funcionario.id == AvaliacaoProfessor.funcionario_id)
+            .join(PeriodoLectivo, PeriodoLectivo.id == AvaliacaoProfessor.periodo_id)
+            .where(AvaliacaoProfessor.estabelecimento_id == ctx.estabelecimento_id))
+    if periodo_id:
+        stmt = stmt.where(AvaliacaoProfessor.periodo_id == periodo_id)
+    resumo: dict[int, dict] = {}
+    for a, nome, periodo in db.execute(stmt.order_by(AvaliacaoProfessor.criado_em.desc())):
+        r = resumo.setdefault(a.funcionario_id, {"funcionario_id": a.funcionario_id, "professor": nome, "notas": [],
+                                                 "comentarios": []})
+        r["notas"].append(a.nota)
+        if (a.comentario or "").strip():
+            r["comentarios"].append({"nota": a.nota, "comentario": a.comentario, "periodo": periodo,
+                                     "criado_em": a.criado_em})
+    out = []
+    for r in resumo.values():
+        notas = r.pop("notas")
+        out.append({**r, "avaliacoes": len(notas), "media": round(sum(notas) / len(notas), 1),
+                    "distribuicao": {str(n): notas.count(n) for n in range(1, 6)}})
+    return sorted(out, key=lambda r: r["professor"])
 
 
 # ---------------------------------------------------------------- CRUD completo (ver, apagar)

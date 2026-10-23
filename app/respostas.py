@@ -109,6 +109,32 @@ Ocorrencia = _de_tabela(m.Ocorrencia, "Ocorrencia")
 RegistoDiario = _de_tabela(m.RegistoDiario, "RegistoDiario")
 Alerta = _de_tabela(m.Alerta, "Alerta")
 Pedido = _de_tabela(m.Pedido, "Pedido")
+AvaliacaoProfessor = _de_tabela(m.AvaliacaoProfessor, "AvaliacaoProfessor")
+
+
+class ProfessorDoEducando(Saida):
+    funcionario_id: int
+    nome: str
+    disciplinas: list[str]
+    periodo: str | None = Field(description="Trimestre em curso, a que a avaliação se refere")
+    minha_nota: int | None
+    meu_comentario: str | None
+
+
+class ComentarioProfessor(Saida):
+    nota: int
+    comentario: str
+    periodo: str
+    criado_em: datetime
+
+
+class ResumoAvaliacaoProfessor(Saida):
+    funcionario_id: int
+    professor: str
+    avaliacoes: int
+    media: float | None = Field(description="Média de 1 a 5")
+    distribuicao: dict[str, int] = Field(description="Quantas avaliações com cada nota, de '1' a '5'")
+    comentarios: list[ComentarioProfessor] = Field(description="Anónimos: sem o nome do encarregado")
 
 
 class PedidoComNomes(Pedido):
@@ -625,6 +651,68 @@ class PautaEducando(Saida):
     medias_gerais: list[float | None] = Field(description="Média geral de cada trimestre")
     nota_maxima: float
     nota_minima: float
+
+
+class DisciplinaNaPautaFinal(Saida):
+    disciplina_id: int
+    disciplina: str
+    trimestres: list[float | None] = Field(description="Média de cada trimestre, pela ordem de periodos")
+    final: float | None = Field(description="Classificação final da disciplina")
+
+
+class LinhaPautaFinal(Saida):
+    aluno_id: int
+    numero_processo: str
+    aluno: str
+    disciplinas: list[DisciplinaNaPautaFinal]
+    medias_trimestre: list[float | None]
+    media_final: float | None
+    negativas: int = Field(description="Disciplinas com classificação final abaixo da nota mínima")
+    situacao: Literal["aprovado", "reprovado"] | None
+
+
+class DisciplinaCurta(Saida):
+    id: int
+    nome: str
+    sigla: str | None
+
+
+class PautaFinal(Saida):
+    turma_id: int
+    turma: str
+    periodos: list[str]
+    disciplinas: list[DisciplinaCurta]
+    linhas: list[LinhaPautaFinal]
+    nota_maxima: float
+    nota_minima: float
+
+
+class ProvaMarcada(Saida):
+    avaliacao_id: int
+    data: date
+    disciplina: str
+    tipo: str
+    descricao: str | None
+    periodo: str
+
+
+class MacTrimestre(Saida):
+    mac: float | None = Field(description="Média das avaliações contínuas (tipos com MAC no nome)")
+    provas: float | None = Field(description="Média das provas e restantes avaliações")
+    media: float | None = Field(description="Média do trimestre, pelos pesos de cada tipo")
+
+
+class MacDisciplina(Saida):
+    disciplina_id: int
+    disciplina: str
+    trimestres: list[MacTrimestre]
+
+
+class MacEducando(Saida):
+    aluno_id: int
+    aluno: str
+    periodos: list[str]
+    linhas: list[MacDisciplina]
 
 
 class Pauta(Saida):

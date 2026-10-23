@@ -18,17 +18,17 @@ from app.database import get_db
 from app.integracoes import ErroIntegracao
 from app.integracoes.pagamentos import gateway, validar_webhook
 from app.models import (
-    Aluno, AlunoEncarregado, AnoLectivo, Avaliacao, ClasseDisciplina, Cobranca, Disciplina, DispositivoPush, Encarregado, Matricula, Mensagem,
-    MetodoPagamento, Nota, Pagamento, Pedido, Perfil, PeriodoLectivo, PreferenciaContacto, TipoAvaliacao, Turma, Utilizador,
+    Aluno, AlunoEncarregado, AnoLectivo, AtribuicaoDocente, Avaliacao, AvaliacaoProfessor, ClasseDisciplina, Cobranca, Disciplina, DispositivoPush, Encarregado, Matricula, Mensagem,
+    Funcionario, MetodoPagamento, Nota, Pagamento, Pedido, Perfil, PeriodoLectivo, PreferenciaContacto, TipoAvaliacao, Turma, Utilizador,
     UtilizadorPerfil,
 )
-from app.schemas import Canal, Entrada, PedidoIn, com_exemplo
+from app.schemas import AvaliacaoProfessorIn, Canal, Entrada, PedidoIn, com_exemplo
 from app.security import Contexto, auditar, contexto_actual, exige, hash_senha
 from app.services import documentos as docs
 from app.services import pedidos
 from app.services.alertas import comportamento_actual
 from app.services.financeiro import avisar_comprovativo, cobrancas_detalhe, mudar_estado_pagamento, registar_pagamento
-from app.services.pedagogico import escala, media_geral, media_ponderada, total_faltas
+from app.services.pedagogico import escala, media_geral, media_ponderada, periodo_actual, total_faltas
 
 router = APIRouter(prefix="/api/portal", tags=["Portal do encarregado"])
 extra = APIRouter(prefix="/api", tags=["Portal do encarregado"])
@@ -134,6 +134,98 @@ def pauta_educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: 
         gerais.append(round(sum(validas) / len(validas), 1) if validas else None)
     return {"aluno_id": a.id, "aluno": a.nome_completo, "turma": turma.designacao,
             "periodos": [p.designacao for p in periodos], "linhas": linhas, "medias_gerais": gerais, **escala_notas}
+
+
+def _turma_actual(db: Session, aid: int) -> Matricula | None:
+    return db.scalar(select(Matricula).join(AnoLectivo, AnoLectivo.id == Matricula.ano_id)
+                     .where(Matricula.aluno_id == aid, Matricula.estado == "activa", AnoLectivo.estado == "activo"))
+
+
+@router.get("/educandos/{aid}/calendario", response_model=list[R.ProvaMarcada],
+            summary="Calendário das provas e avaliações da turma do educando (por omissão, a partir de hoje)")
+def calendario_provas(aid: int, desde: date | None = None, ee: Encarregado = Depends(encarregado_actual),
+                      db: Session = Depends(get_db)):
+    _educando(db, ee, aid)
+    m = _turma_actual(db, aid)
+    if m is None:
+        return []
+    rows = db.execute(select(Avaliacao, Disciplina.nome, TipoAvaliacao.designacao, PeriodoLectivo.designacao)
+                      .join(Disciplina, Disciplina.id == Avaliacao.disciplina_id)
+                      .join(TipoAvaliacao, TipoAvaliacao.id == Avaliacao.tipo_id)
+                      .join(PeriodoLectivo, PeriodoLectivo.id == Avaliacao.periodo_id)
+                      .where(Avaliacao.turma_id == m.turma_id, Avaliacao.data >= (desde or date.today()))
+                      .order_by(Avaliacao.data, Disciplina.nome))
+    return [{"avaliacao_id": a.id, "data": a.data, "disciplina": d, "tipo": t, "descricao": a.descricao, "periodo": p}
+            for a, d, t, p in rows]
+
+
+@router.get("/educandos/{aid}/mac", response_model=R.MacEducando,
+            summary="MAC (média das avaliações contínuas), média das provas e média de cada disciplina por trimestre")
+def mac_educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    a = _educando(db, ee, aid)
+    m = _turma_actual(db, aid)
+    if m is None:
+        return {"aluno_id": a.id, "aluno": a.nome_completo, "periodos": [], "linhas": []}
+    turma = db.get(Turma, m.turma_id)
+    periodos = db.scalars(select(PeriodoLectivo).where(PeriodoLectivo.ano_id == m.ano_id)
+                          .order_by(PeriodoLectivo.ordem)).all()
+    discs = db.execute(select(Disciplina.id, Disciplina.nome).join(ClasseDisciplina, ClasseDisciplina.disciplina_id == Disciplina.id)
+                       .where(ClasseDisciplina.classe_id == turma.classe_id).order_by(Disciplina.nome)).all()
+    linhas = [{"disciplina_id": did, "disciplina": nome,
+               "trimestres": [{"mac": media_ponderada(db, aid, turma.id, did, p.id, mac=True),
+                               "provas": media_ponderada(db, aid, turma.id, did, p.id, mac=False),
+                               "media": media_ponderada(db, aid, turma.id, did, p.id)} for p in periodos]}
+              for did, nome in discs]
+    return {"aluno_id": a.id, "aluno": a.nome_completo, "periodos": [p.designacao for p in periodos], "linhas": linhas}
+
+
+# ---------------------------------------------------------------- avaliação dos professores
+@router.get("/educandos/{aid}/professores", response_model=list[R.ProfessorDoEducando],
+            summary="Professores do educando, com a avaliação que o encarregado já deu neste trimestre")
+def professores_educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    _educando(db, ee, aid)
+    m = _turma_actual(db, aid)
+    if m is None:
+        return []
+    periodo = periodo_actual(db, m.ano_id)
+    rows = db.execute(select(Funcionario.id, Funcionario.nome_completo, Disciplina.nome)
+                      .join(AtribuicaoDocente, AtribuicaoDocente.funcionario_id == Funcionario.id)
+                      .join(Disciplina, Disciplina.id == AtribuicaoDocente.disciplina_id)
+                      .where(AtribuicaoDocente.turma_id == m.turma_id).order_by(Funcionario.nome_completo)).all()
+    minhas = {a.funcionario_id: a for a in db.scalars(select(AvaliacaoProfessor).where(
+        AvaliacaoProfessor.encarregado_id == ee.id, AvaliacaoProfessor.aluno_id == aid,
+        AvaliacaoProfessor.periodo_id == (periodo.id if periodo else -1)))}
+    profs: dict[int, dict] = {}
+    for fid, nome, disc in rows:
+        p = profs.setdefault(fid, {"funcionario_id": fid, "nome": nome, "disciplinas": [],
+                                   "periodo": periodo.designacao if periodo else None,
+                                   "minha_nota": minhas[fid].nota if fid in minhas else None,
+                                   "meu_comentario": minhas[fid].comentario if fid in minhas else None})
+        p["disciplinas"].append(disc)
+    return list(profs.values())
+
+
+@router.post("/avaliacoes-professores", response_model=R.AvaliacaoProfessor,
+             summary="Avalia um professor do educando (1 a 5) no trimestre em curso; repetir corrige a avaliação")
+def avaliar_professor(dados: AvaliacaoProfessorIn, ee: Encarregado = Depends(encarregado_actual),
+                      db: Session = Depends(get_db)):
+    _educando(db, ee, dados.aluno_id)
+    m = _turma_actual(db, dados.aluno_id)
+    da_turma = m is not None and db.scalar(select(AtribuicaoDocente.id).where(
+        AtribuicaoDocente.turma_id == m.turma_id, AtribuicaoDocente.funcionario_id == dados.funcionario_id).limit(1))
+    if not da_turma:
+        raise HTTPException(422, "Este professor não dá aulas ao seu educando")
+    periodo = periodo_actual(db, m.ano_id)
+    a = db.scalar(select(AvaliacaoProfessor).where(
+        AvaliacaoProfessor.encarregado_id == ee.id, AvaliacaoProfessor.funcionario_id == dados.funcionario_id,
+        AvaliacaoProfessor.aluno_id == dados.aluno_id, AvaliacaoProfessor.periodo_id == periodo.id))
+    if a is None:
+        a = AvaliacaoProfessor(estabelecimento_id=ee.estabelecimento_id, encarregado_id=ee.id,
+                               funcionario_id=dados.funcionario_id, aluno_id=dados.aluno_id, periodo_id=periodo.id)
+        db.add(a)
+    a.nota, a.comentario = dados.nota, dados.comentario
+    db.commit()
+    return as_dict(a)
 
 
 @router.get("/educandos/{aid}/notas", response_model=list[R.NotaPortal], summary="Notas lançadas do educando")

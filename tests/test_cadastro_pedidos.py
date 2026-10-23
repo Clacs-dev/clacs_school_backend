@@ -93,7 +93,7 @@ def test_justificacao_de_falta_e_historico(client, admin):
     assert client.post(f"/api/pedidos/{p['id']}/aprovar", headers=secretaria, json={}).status_code == 403
     feito = _ok(client.post(f"/api/pedidos/{p['id']}/aprovar", headers=admin, json={}))
     assert feito["resultado"] == {"faltas_justificadas": 1}
-    registo = next(r for r in client.get("/api/assiduidade", headers=admin, params={"turma_id": aluno["turma_id"], "data": dia}).json()
+    registo = next(r for r in client.get("/api/assiduidade", headers=admin, params={"turma_id": aluno["turma_id"], "desde": dia, "ate": dia}).json()
                    if r["aluno_id"] == meu)
     assert (registo["estado"], registo["justificacao"]) == ("falta_justificada", "Consulta no pediatra")
     historico = _ok(client.get("/api/portal/pedidos", headers=ee, params={"tipo": "justificacao_falta"}))
