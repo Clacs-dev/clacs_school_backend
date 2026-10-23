@@ -891,11 +891,36 @@ class RegistoDiario(Base):
 # =====================================================================
 # 9. ALERTAS, KPIs, RELATÓRIOS E IA
 # =====================================================================
+TIPOS_PEDIDO = ("vaga", "matricula", "transferencia", "declaracao", "justificacao_falta")
+
+
+class Pedido(Base):
+    """Pedido do encarregado pelo portal, decidido pela escola (aprovar executa o efeito: matrícula, PDF…)."""
+    __tablename__ = "pedido"
+    __table_args__ = (
+        ck_in("tipo", *TIPOS_PEDIDO),
+        ck_in("estado", "pendente", "aprovado", "rejeitado", "cancelado"),
+        Index("ix_pedido_estado", "estabelecimento_id", "estado"),
+    )
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    tipo: Mapped[str] = mapped_column(Text)
+    encarregado_id: Mapped[int] = fk("encarregado.id")
+    aluno_id: Mapped[int | None] = fk("aluno.id", nullable=True)   # na vaga, preenchido ao aprovar
+    dados: Mapped[dict] = mapped_column(JSONType)
+    estado: Mapped[str] = mapped_column(Text, server_default="pendente")
+    resposta: Mapped[str | None] = mapped_column(Text)
+    resultado: Mapped[dict | None] = mapped_column(JSONType)      # o que a aprovação fez (matrícula, turma…)
+    decidido_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+    decidido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    criado_em: Mapped[datetime] = criado_em()
+
+
 class Alerta(Base):
     __tablename__ = "alerta"
     __table_args__ = (
         ck_in("tipo", "risco_incumprimento", "queda_desempenho", "padrao_faltas",
-              "divergencia_primavera", "comportamento", "comprovativo_pagamento"),
+              "divergencia_primavera", "comportamento", "comprovativo_pagamento", "pedido_encarregado"),
         ck_in("gravidade", "baixa", "media", "alta"),
         ck_in("estado", "novo", "visto", "tratado", "descartado"),
         Index("ix_alerta_aberto", "estabelecimento_id", "tipo",

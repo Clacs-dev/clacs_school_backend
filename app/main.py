@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from app import agendador, arranque
 from app.config import get_settings
 from app.routers import (
-    academico, auth, cadastro, comunicacao, documentos, financeiro, importacao, painel, pedagogico, portal,
+    academico, auth, cadastro, comunicacao, documentos, financeiro, importacao, painel, pedagogico, pedidos, portal,
     primavera, refeitorio,
 )
 
@@ -68,6 +68,8 @@ TAGS = [
     {"name": "Integração Primavera", "description": "Estado da sincronização e divergências com o Primavera."},
     {"name": "Importação de dados", "description": "CSV do software anterior: alunos, encarregados, cobranças, pagamentos."},
     {"name": "Documentos e ficheiros", "description": "PDFs (recibo, extracto, boletim, pauta, declaração) e envio de ficheiros."},
+    {"name": "Pedidos do encarregado", "description": "Vaga, matrícula, transferência, declaração e justificação de "
+                                                       "falta: o encarregado pede no portal, a escola aprova ou rejeita."},
     {"name": "Portal do encarregado", "description": "Tudo o que a conta de um encarregado pode ver e fazer."},
     {"name": "Sistema", "description": "Verificação de saúde da API e da base de dados."},
 ]
@@ -109,7 +111,7 @@ app.add_middleware(CORSMiddleware, allow_origins=origens, allow_credentials="*" 
 
 
 for r in (auth, academico, cadastro, financeiro, refeitorio, comunicacao, pedagogico, painel, primavera,
-          importacao, documentos, portal):
+          importacao, documentos, pedidos, portal):
     app.include_router(r.router)
 app.include_router(portal.extra)
 

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app import crud
 from app import respostas as R
-from app.common import ano_activo, aplicar, as_dict, obter
+from app.common import ano_activo, aplicar, as_dict, numero_processo, obter
 from app.database import get_db
 from app.models import (
     AdesaoServico, Aluno, AlunoEncarregado, AnoLectivo, AtribuicaoDocente, Classe, ClasseDisciplina, Desconto, Disciplina,
@@ -26,14 +26,6 @@ from app.services.pedagogico import media_geral, media_ponderada, total_faltas
 
 router = APIRouter(prefix="/api", tags=["Cadastro e matrículas"])
 ver, criar, editar = exige("cadastro"), exige("cadastro", "criar"), exige("cadastro", "editar")
-
-
-def _numero_processo(db: Session, est: int) -> str:
-    ano = date.today().year
-    n = db.scalar(select(func.count()).select_from(Aluno).where(Aluno.estabelecimento_id == est)) + 1
-    while db.scalar(select(Aluno.id).where(Aluno.estabelecimento_id == est, Aluno.numero_processo == f"{ano}{n:04d}")):
-        n += 1
-    return f"{ano}{n:04d}"
 
 
 def _turma_do_ano(db: Session, turma_id: int | None, est: int, ano_id: int, classe_id: int | None = None) -> Turma:
@@ -127,7 +119,7 @@ def alunos_pedagogico(turma_id: int | None = None, q: str | None = None,
 def criar_aluno(dados: AlunoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
     campos = dados.model_dump(exclude={"encarregado_id", "parentesco", "turma_id", "classe_id"}, exclude_none=True)
-    campos.setdefault("numero_processo", _numero_processo(db, est))
+    campos.setdefault("numero_processo", numero_processo(db, est))
     if db.scalar(select(Aluno.id).where(Aluno.estabelecimento_id == est,
                                         Aluno.numero_processo == campos["numero_processo"])):
         raise HTTPException(409, "Já existe um aluno com este número de processo")

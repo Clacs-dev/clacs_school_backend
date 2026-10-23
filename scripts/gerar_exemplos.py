@@ -54,7 +54,7 @@ POVOAR = [("POST", "/api/comunicados", S.ComunicadoIn), ("POST", "/api/alunos/1/
           ("POST", "/api/matriculas/1/turma", S.MudancaTurmaIn),
           ("POST", "/api/matriculas/1/descontos", S.MatriculaDescontoIn),
           ("POST", "/api/relatorios/agendados", S.RelatorioIn), ("POST", "/api/relatorios/agendados/1/executar", None),
-          ("POST", "/api/alertas/gerar", None)]
+          ("POST", "/api/alertas/gerar", None), ("POST", "/api/portal/pedidos", S.PedidoIn)]
 
 PDF = ("comprovativo.pdf", b"%PDF-1.4\n%exemplo\n", "application/pdf")
 CSV_ALUNOS = ("nome_completo;numero_processo;data_nascimento;sexo;bi_numero;turma;encarregado_nif;encarregado_nome;"
@@ -181,7 +181,8 @@ def main():
     encarregado = entrar("encarregado@clacs.ao")
 
     for metodo, caminho, esquema in POVOAR:
-        r = cliente.request(metodo, caminho, json=S.EXEMPLOS[esquema] if esquema else None, headers=admin)
+        r = cliente.request(metodo, caminho, json=S.EXEMPLOS[esquema] if esquema else None,
+                            headers=encarregado if caminho.startswith("/api/portal") else admin)
         if r.status_code >= 400:
             print(f"  aviso: {metodo} {caminho} -> {r.status_code} {r.text[:120]}")
     engine.dispose()

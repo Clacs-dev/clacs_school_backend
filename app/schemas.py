@@ -522,6 +522,45 @@ class RegistoDiarioIn(Entrada):
     nota_texto: str | None = None
 
 
+# ---------------------------------------------------------------- pedidos do encarregado
+TipoPedido = Literal["vaga", "matricula", "transferencia", "declaracao", "justificacao_falta"]
+CAMPOS_PEDIDO = {  # campos obrigatórios de cada tipo
+    "vaga": ("nome_aluno", "classe_id"), "matricula": ("aluno_id", "classe_id"),
+    "transferencia": ("aluno_id", "escola_destino"), "declaracao": ("aluno_id", "finalidade"),
+    "justificacao_falta": ("aluno_id", "data", "motivo"),
+}
+
+
+class PedidoIn(Entrada):
+    """Os campos dependem do tipo: vaga (nome_aluno, classe_id; filho ainda não inscrito), matricula (aluno_id,
+    classe_id), transferencia (aluno_id, escola_destino), declaracao (aluno_id, finalidade),
+    justificacao_falta (aluno_id, data, motivo)."""
+    tipo: TipoPedido
+    aluno_id: int | None = None
+    nome_aluno: str | None = Field(None, min_length=2)
+    data_nascimento: date | None = None
+    sexo: Literal["F", "M"] | None = None
+    parentesco: Parentesco = "mae"
+    classe_id: int | None = Field(None, description="Classe pretendida (vaga e matrícula)")
+    escola_destino: str | None = None
+    finalidade: str | None = Field(None, description="Para que é a declaração, ex.: abono de família")
+    data: date | None = Field(None, description="Dia da falta a justificar")
+    motivo: str | None = None
+    observacoes: str | None = None
+
+    @model_validator(mode="after")
+    def campos_do_tipo(self):
+        faltam = [c for c in CAMPOS_PEDIDO[self.tipo] if getattr(self, c) in (None, "")]
+        if faltam:
+            raise ValueError(f"o pedido de {self.tipo} precisa de: {', '.join(faltam)}")
+        return self
+
+
+class DecisaoIn(Entrada):
+    resposta: str | None = Field(None, description="Mensagem para o encarregado (obrigatória ao rejeitar)")
+    turma_id: int | None = Field(None, description="Vaga/matrícula: turma escolhida; sem ela, a 1.ª da classe com vaga")
+
+
 # ---------------------------------------------------------------- outros
 class EstadoIn(Entrada):
     """Estado de um alerta: visto (aberto mas lido), tratado ou descartado; novo volta a abri-lo."""
@@ -649,6 +688,9 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     OcorrenciaUpd: {"estado": "fechada", "accao_tomada": "Reunião com o encarregado realizada"},
     RegistoDiarioIn: {"turma_id": 1, "aluno_id": 6, "data": "2026-10-20", "comportamento": "bom",
                       "nota_texto": "Participou muito bem na aula de leitura."},
+    PedidoIn: {"tipo": "vaga", "nome_aluno": "Pedro Domingos", "data_nascimento": "2020-05-02", "sexo": "M",
+               "parentesco": "mae", "classe_id": 1, "observacoes": "Irmão da Ana Paula, já aluna da escola"},
+    DecisaoIn: {"resposta": "Vaga aceite. Bem-vindo ao colégio!"},
     EstadoIn: {"estado": "tratado"},
     PerguntaIn: {"pergunta": "Quantos alunos da 3.ª A têm propinas em atraso?"},
     IntegracaoIn: {"versao": "V10", "url_base": "https://primavera.clacs.ao/api", "credenciais_ref": "PRIMAVERA",

@@ -7,7 +7,7 @@
   {
    "aluno": "Paula Tavares",
    "aluno_id": 16,
-   "criado_em": "2026-10-22T16:49:11",
+   "criado_em": "2026-10-23T07:33:34",
    "dados": {
     "meses_em_atraso": 2
    },
@@ -22,7 +22,7 @@
   {
    "aluno": "Laura Pinto",
    "aluno_id": 12,
-   "criado_em": "2026-10-22T16:49:11",
+   "criado_em": "2026-10-23T07:33:34",
    "dados": {
     "meses_em_atraso": 2
    },
@@ -37,7 +37,7 @@
  ],
  "GET /api/alunos": [
   {
-   "actualizado_em": "2026-10-22T16:49:08",
+   "actualizado_em": "2026-10-23T07:33:31",
    "alergias": null,
    "ano_lectivo": "2026/2027",
    "avaliacoes": [
@@ -55,7 +55,7 @@
    "bi_numero": null,
    "condicoes_saude": null,
    "contacto_emergencia": null,
-   "criado_em": "2026-10-22T16:49:08",
+   "criado_em": "2026-10-23T07:33:31",
    "data_nascimento": "2016-01-01",
    "encarregado": "Maria Cota",
    "escola_anterior": null,
@@ -78,7 +78,7 @@
    "turma_id": 2
   },
   {
-   "actualizado_em": "2026-10-22T16:49:08",
+   "actualizado_em": "2026-10-23T07:33:31",
    "alergias": null,
    "ano_lectivo": "2026/2027",
    "avaliacoes": [
@@ -96,7 +96,7 @@
    "bi_numero": null,
    "condicoes_saude": null,
    "contacto_emergencia": null,
-   "criado_em": "2026-10-22T16:49:08",
+   "criado_em": "2026-10-23T07:33:31",
    "data_nascimento": "2015-02-02",
    "encarregado": "José Lima",
    "escola_anterior": null,
@@ -120,12 +120,12 @@
   }
  ],
  "GET /api/alunos/{aid}": {
-  "actualizado_em": "2026-10-22T16:49:08",
+  "actualizado_em": "2026-10-23T07:33:31",
   "alergias": null,
   "bi_numero": null,
   "condicoes_saude": null,
   "contacto_emergencia": null,
-  "criado_em": "2026-10-22T16:49:08",
+  "criado_em": "2026-10-23T07:33:31",
   "data_nascimento": "2016-01-01",
   "disciplinas": [
    {
@@ -151,10 +151,10 @@
   "encarregados": [
    {
     "activo": true,
-    "actualizado_em": "2026-10-22T16:49:08",
+    "actualizado_em": "2026-10-23T07:33:31",
     "autorizado_recolha": true,
     "bi_numero": null,
-    "criado_em": "2026-10-22T16:49:08",
+    "criado_em": "2026-10-23T07:33:31",
     "email": "ee1@exemplo.ao",
     "encarregado_id": 1,
     "estabelecimento_id": 1,
@@ -204,12 +204,12 @@
  },
  "GET /api/alunos/{aid}/360": {
   "aluno": {
-   "actualizado_em": "2026-10-22T16:49:08",
+   "actualizado_em": "2026-10-23T07:33:31",
    "alergias": null,
    "bi_numero": null,
    "condicoes_saude": null,
    "contacto_emergencia": null,
-   "criado_em": "2026-10-22T16:49:08",
+   "criado_em": "2026-10-23T07:33:31",
    "data_nascimento": "2016-01-01",
    "escola_anterior": null,
    "estabelecimento_id": 1,
@@ -421,7 +421,7 @@
  "GET /api/auditoria": [
   {
    "accao": "insert",
-   "criado_em": "2026-10-22T16:49:11",
+   "criado_em": "2026-10-23T07:33:34",
    "dados_antes": null,
    "dados_depois": {
     "desconto_id": 1,
@@ -437,7 +437,7 @@
   },
   {
    "accao": "login",
-   "criado_em": "2026-10-22T16:49:10",
+   "criado_em": "2026-10-23T07:33:33",
    "dados_antes": null,
    "dados_depois": null,
    "estabelecimento_id": 1,
@@ -451,7 +451,7 @@
  ],
  "GET /api/auth/me": {
   "activo": true,
-  "criado_em": "2026-10-22T16:49:08",
+  "criado_em": "2026-10-23T07:33:31",
   "doisfa_activo": false,
   "email": "admin@clacs.ao",
   "encarregado_id": null,
@@ -518,7 +518,7 @@
    "utilizadores:ver"
   ],
   "telefone": null,
-  "ultimo_login": "2026-10-22T16:49:10.590387"
+  "ultimo_login": "2026-10-23T07:33:33.192084"
  },
  "GET /api/avaliacoes": [
   {
@@ -721,7 +721,7 @@
    "cobrancas_em_atraso": 3,
    "encarregado": "Manuel Tavares",
    "encarregado_id": 16,
-   "maior_atraso": 42,
+   "maior_atraso": 43,
    "telefone": "+244 923109665",
    "total_em_divida": 108000.0,
    "turma": "5.ª A"
@@ -732,7 +732,7 @@
    "cobrancas_em_atraso": 2,
    "encarregado": "José Pinto",
    "encarregado_id": 12,
-   "maior_atraso": 42,
+   "maior_atraso": 43,
    "telefone": "+244 923080421",
    "total_em_divida": 90000.0,
    "turma": "6.ª B"
@@ -743,7 +743,7 @@
    "alvo": "turma",
    "autor_id": 1,
    "corpo": "Não haverá aulas no dia 11 de Novembro.",
-   "criado_em": "2026-10-22T16:49:10",
+   "criado_em": "2026-10-23T07:33:33",
    "estabelecimento_id": 1,
    "id": 1,
    "titulo": "Feriado de 11 de Novembro"
@@ -792,10 +792,10 @@
  "GET /api/encarregados": [
   {
    "activo": true,
-   "actualizado_em": "2026-10-22T16:49:08",
+   "actualizado_em": "2026-10-23T07:33:31",
    "bi_numero": null,
    "cobrancas_em_atraso": 0,
-   "criado_em": "2026-10-22T16:49:08",
+   "criado_em": "2026-10-23T07:33:31",
    "educandos": [
     {
      "id": 14,
@@ -818,10 +818,10 @@
   },
   {
    "activo": true,
-   "actualizado_em": "2026-10-22T16:49:08",
+   "actualizado_em": "2026-10-23T07:33:31",
    "bi_numero": null,
    "cobrancas_em_atraso": 2,
-   "criado_em": "2026-10-22T16:49:08",
+   "criado_em": "2026-10-23T07:33:31",
    "educandos": [
     {
      "id": 4,
@@ -845,9 +845,9 @@
  ],
  "GET /api/encarregados/{eid}": {
   "activo": true,
-  "actualizado_em": "2026-10-22T16:49:08",
+  "actualizado_em": "2026-10-23T07:33:31",
   "bi_numero": null,
-  "criado_em": "2026-10-22T16:49:08",
+  "criado_em": "2026-10-23T07:33:31",
   "educandos": [
    {
     "id": 1,
@@ -875,8 +875,8 @@
  },
  "GET /api/estabelecimento": {
   "activo": true,
-  "actualizado_em": "2026-10-22T16:49:08",
-  "criado_em": "2026-10-22T16:49:08",
+  "actualizado_em": "2026-10-23T07:33:30",
+  "criado_em": "2026-10-23T07:33:30",
   "email": "geral@clacs.ao",
   "id": 1,
   "logotipo_url": null,
@@ -890,7 +890,7 @@
    "activo": true,
    "ano_contratacao": null,
    "cargo": "director",
-   "criado_em": "2026-10-22T16:49:08",
+   "criado_em": "2026-10-23T07:33:31",
    "email": null,
    "estabelecimento_id": 1,
    "id": 6,
@@ -902,7 +902,7 @@
    "activo": true,
    "ano_contratacao": null,
    "cargo": "professor",
-   "criado_em": "2026-10-22T16:49:08",
+   "criado_em": "2026-10-23T07:33:31",
    "email": null,
    "estabelecimento_id": 1,
    "id": 3,
@@ -915,7 +915,7 @@
   "activo": true,
   "ano_contratacao": null,
   "cargo": "professor",
-  "criado_em": "2026-10-22T16:49:08",
+  "criado_em": "2026-10-23T07:33:31",
   "email": null,
   "estabelecimento_id": 1,
   "id": 1,
@@ -928,7 +928,7 @@
  },
  "GET /api/importacao/lotes": [
   {
-   "criado_em": "2026-10-22T16:49:19",
+   "criado_em": "2026-10-23T07:33:43",
    "criado_por": 1,
    "entidade": "aluno",
    "estabelecimento_id": 1,
@@ -1053,7 +1053,7 @@
  ],
  "GET /api/matriculas/{mid}/historico": [
   {
-   "data_alteracao": "2026-10-22T16:49:11",
+   "data_alteracao": "2026-10-23T07:33:34",
    "id": 1,
    "matricula_id": 1,
    "motivo": "Pedido do encarregado (horário da tarde)",
@@ -1063,7 +1063,7 @@
  ],
  "GET /api/mensagens": [
   {
-   "agendada_para": "2026-10-22T16:49:11",
+   "agendada_para": "2026-10-23T07:33:34",
    "aluno_id": 1,
    "assunto": "Reunião de pais",
    "canal": "email",
@@ -1081,7 +1081,7 @@
    "regra_id": null
   },
   {
-   "agendada_para": "2026-10-22T16:49:11",
+   "agendada_para": "2026-10-23T07:33:34",
    "aluno_id": 1,
    "assunto": "Reunião de pais",
    "canal": "whatsapp",
@@ -1197,7 +1197,7 @@
    "accao_tomada": "Conversa com a coordenação",
    "aluno": "Ana Cota",
    "aluno_id": 1,
-   "criada_em": "2026-10-22T16:49:11",
+   "criada_em": "2026-10-23T07:33:34",
    "data": "2026-10-20",
    "descricao": "Conflito com um colega no intervalo.",
    "estado": "aberta",
@@ -1212,7 +1212,7 @@
  "GET /api/ocorrencias/{id_}": {
   "accao_tomada": "Conversa com a coordenação",
   "aluno_id": 1,
-  "criada_em": "2026-10-22T16:49:11",
+  "criada_em": "2026-10-23T07:33:34",
   "data": "2026-10-20",
   "descricao": "Conflito com um colega no intervalo.",
   "estado": "aberta",
@@ -1230,7 +1230,7 @@
     }
    ],
    "comprovativo_url": null,
-   "criado_em": "2026-10-22T16:49:09",
+   "criado_em": "2026-10-23T07:33:32",
    "data_pagamento": "2026-10-09",
    "documento_fiscal_id": null,
    "encarregado": "Francisco Varela",
@@ -1252,7 +1252,7 @@
     }
    ],
    "comprovativo_url": null,
-   "criado_em": "2026-10-22T16:49:09",
+   "criado_em": "2026-10-23T07:33:32",
    "data_pagamento": "2026-10-09",
    "documento_fiscal_id": null,
    "encarregado": "Rosa Reis",
@@ -1293,7 +1293,7 @@
    }
   ],
   "ano_lectivo": "2026/2027",
-  "data": "2026-10-22",
+  "data": "2026-10-23",
   "indicadores": [
    {
     "codigo": "recebido_mes",
@@ -1395,7 +1395,7 @@
  },
  "GET /api/pedagogico/alunos": [
   {
-   "actualizado_em": "2026-10-22T16:49:08",
+   "actualizado_em": "2026-10-23T07:33:31",
    "alergias": null,
    "ano_lectivo": "2026/2027",
    "avaliacoes": [
@@ -1413,7 +1413,7 @@
    "bi_numero": null,
    "condicoes_saude": null,
    "contacto_emergencia": null,
-   "criado_em": "2026-10-22T16:49:08",
+   "criado_em": "2026-10-23T07:33:31",
    "data_nascimento": "2016-01-01",
    "encarregado": "Maria Cota",
    "escola_anterior": null,
@@ -1436,7 +1436,7 @@
    "turma_id": 2
   },
   {
-   "actualizado_em": "2026-10-22T16:49:08",
+   "actualizado_em": "2026-10-23T07:33:31",
    "alergias": null,
    "ano_lectivo": "2026/2027",
    "avaliacoes": [
@@ -1454,7 +1454,7 @@
    "bi_numero": null,
    "condicoes_saude": null,
    "contacto_emergencia": null,
-   "criado_em": "2026-10-22T16:49:08",
+   "criado_em": "2026-10-23T07:33:31",
    "data_nascimento": "2015-02-02",
    "encarregado": "José Lima",
    "escola_anterior": null,
@@ -1477,6 +1477,54 @@
    "turma_id": 2
   }
  ],
+ "GET /api/pedidos": [
+  {
+   "aluno": "Pedro Domingos",
+   "aluno_id": null,
+   "criado_em": "2026-10-23T07:33:34",
+   "dados": {
+    "classe_id": 1,
+    "data_nascimento": "2020-05-02",
+    "nome_aluno": "Pedro Domingos",
+    "observacoes": "Irmão da Ana Paula, já aluna da escola",
+    "parentesco": "mae",
+    "sexo": "M"
+   },
+   "decidido_em": null,
+   "decidido_por": null,
+   "encarregado": "Maria Cota",
+   "encarregado_id": 1,
+   "estabelecimento_id": 1,
+   "estado": "pendente",
+   "id": 1,
+   "resposta": null,
+   "resultado": null,
+   "tipo": "vaga"
+  }
+ ],
+ "GET /api/pedidos/{pid}": {
+  "aluno": "Pedro Domingos",
+  "aluno_id": null,
+  "criado_em": "2026-10-23T07:33:34",
+  "dados": {
+   "classe_id": 1,
+   "data_nascimento": "2020-05-02",
+   "nome_aluno": "Pedro Domingos",
+   "observacoes": "Irmão da Ana Paula, já aluna da escola",
+   "parentesco": "mae",
+   "sexo": "M"
+  },
+  "decidido_em": null,
+  "decidido_por": null,
+  "encarregado": "Maria Cota",
+  "encarregado_id": 1,
+  "estabelecimento_id": 1,
+  "estado": "pendente",
+  "id": 1,
+  "resposta": null,
+  "resultado": null,
+  "tipo": "vaga"
+ },
  "GET /api/perfis": [
   {
    "codigo": "admin",
@@ -1721,7 +1769,7 @@
    "assunto": "Reunião de pais",
    "canal": "email",
    "corpo": "A reunião de pais é na sexta-feira às 17h.",
-   "data": "2026-10-22T16:49:11",
+   "data": "2026-10-23T07:33:34",
    "estado": "agendada",
    "id": 18
   },
@@ -1729,7 +1777,7 @@
    "assunto": "Reunião de pais",
    "canal": "whatsapp",
    "corpo": "A reunião de pais é na sexta-feira às 17h.",
-   "data": "2026-10-22T16:49:11",
+   "data": "2026-10-23T07:33:34",
    "estado": "agendada",
    "id": 17
   }
@@ -1750,6 +1798,31 @@
    "metodo": "Numerário",
    "referencia": "REF2609001",
    "valor": 18000.0
+  }
+ ],
+ "GET /api/portal/pedidos": [
+  {
+   "aluno": "Pedro Domingos",
+   "aluno_id": null,
+   "criado_em": "2026-10-23T07:33:34",
+   "dados": {
+    "classe_id": 1,
+    "data_nascimento": "2020-05-02",
+    "nome_aluno": "Pedro Domingos",
+    "observacoes": "Irmão da Ana Paula, já aluna da escola",
+    "parentesco": "mae",
+    "sexo": "M"
+   },
+   "decidido_em": null,
+   "decidido_por": null,
+   "encarregado": "Maria Cota",
+   "encarregado_id": 1,
+   "estabelecimento_id": 1,
+   "estado": "pendente",
+   "id": 1,
+   "resposta": null,
+   "resultado": null,
+   "tipo": "vaga"
   }
  ],
  "GET /api/precos": [
@@ -1804,8 +1877,8 @@
    "estabelecimento_id": 1,
    "estado": "ok",
    "id": 1,
-   "iniciado_em": "2026-10-22T16:37:10.210454",
-   "terminado_em": "2026-10-22T16:38:10.210454",
+   "iniciado_em": "2026-10-23T07:21:32.724398",
+   "terminado_em": "2026-10-23T07:22:32.724398",
    "total_erros": 0,
    "total_registos": 86
   }
@@ -1814,7 +1887,7 @@
   {
    "campo": "estado",
    "descricao": "Pago no Primavera, pendente na escola",
-   "detectada_em": "2026-10-22T16:49:10",
+   "detectada_em": "2026-10-23T07:33:32",
    "entidade": "cobranca",
    "estabelecimento_id": 1,
    "estado": "aberta",
@@ -1829,7 +1902,7 @@
   {
    "campo": "nif",
    "descricao": "NIF diferente entre os sistemas",
-   "detectada_em": "2026-10-22T16:49:10",
+   "detectada_em": "2026-10-23T07:33:32",
    "entidade": "cliente",
    "estabelecimento_id": 1,
    "estado": "aberta",
@@ -1880,7 +1953,7 @@
     "aluno_id": 11,
     "categoria": "refeitorio",
     "cobranca_id": 53,
-    "dias_atraso": 12,
+    "dias_atraso": 13,
     "estado": "pendente",
     "modalidade": "so_utilizacao",
     "servico": "Refeitório (utilização)",
@@ -1894,7 +1967,7 @@
     "aluno_id": 16,
     "categoria": "alimentacao",
     "cobranca_id": 61,
-    "dias_atraso": 12,
+    "dias_atraso": 13,
     "estado": "pendente",
     "modalidade": "alimentacao_completa",
     "servico": "Alimentação",
@@ -2012,7 +2085,7 @@
     "whatsapp"
    ],
    "condicao": null,
-   "criada_em": "2026-10-22T16:49:10",
+   "criada_em": "2026-10-23T07:33:32",
    "criada_por": null,
    "destino": "encarregado",
    "dias_offset": 3,
@@ -2029,7 +2102,7 @@
     "sms"
    ],
    "condicao": null,
-   "criada_em": "2026-10-22T16:49:10",
+   "criada_em": "2026-10-23T07:33:32",
    "criada_por": null,
    "destino": "encarregado",
    "dias_offset": 3,
@@ -2046,7 +2119,7 @@
    "whatsapp"
   ],
   "condicao": null,
-  "criada_em": "2026-10-22T16:49:10",
+  "criada_em": "2026-10-23T07:33:32",
   "criada_por": null,
   "destino": "encarregado",
   "dias_offset": 3,
@@ -2091,8 +2164,8 @@
  "GET /api/relatorios/agendados/{rid}/execucoes": [
   {
    "estado": "ok",
-   "executado_em": "2026-10-22T16:49:11",
-   "ficheiro_url": "/api/ficheiros/1/relatorios/8ea44f47e9064020908de4c56af291b9.xlsx",
+   "executado_em": "2026-10-23T07:33:34",
+   "ficheiro_url": "/api/ficheiros/1/relatorios/8f50a42d9d604f4f878af11b731c24bc.xlsx",
    "id": 1,
    "relatorio_id": 1
   }
@@ -2288,7 +2361,7 @@
  "GET /api/utilizadores": [
   {
    "activo": true,
-   "criado_em": "2026-10-22T16:49:08",
+   "criado_em": "2026-10-23T07:33:31",
    "doisfa_activo": false,
    "email": "admin@clacs.ao",
    "encarregado_id": null,
@@ -2299,11 +2372,11 @@
     "admin"
    ],
    "telefone": null,
-   "ultimo_login": "2026-10-22T16:49:10.590387"
+   "ultimo_login": "2026-10-23T07:33:33.192084"
   },
   {
    "activo": true,
-   "criado_em": "2026-10-22T16:49:10",
+   "criado_em": "2026-10-23T07:33:32",
    "doisfa_activo": false,
    "email": "encarregado@clacs.ao",
    "encarregado_id": 1,
@@ -2314,12 +2387,12 @@
     "encarregado"
    ],
    "telefone": null,
-   "ultimo_login": "2026-10-22T16:49:10.938412"
+   "ultimo_login": "2026-10-23T07:33:33.872687"
   }
  ],
  "PATCH /api/alertas/{aid}": {
   "aluno_id": 16,
-  "criado_em": "2026-10-22T16:49:11",
+  "criado_em": "2026-10-23T07:33:34",
   "dados": {
    "meses_em_atraso": 2
   },
@@ -2332,12 +2405,12 @@
   "tratado_por": 1
  },
  "PATCH /api/alunos/{aid}": {
-  "actualizado_em": "2026-10-22T16:49:14",
+  "actualizado_em": "2026-10-23T07:33:38",
   "alergias": null,
   "bi_numero": null,
   "condicoes_saude": null,
   "contacto_emergencia": null,
-  "criado_em": "2026-10-22T16:49:08",
+  "criado_em": "2026-10-23T07:33:31",
   "data_nascimento": "2016-01-01",
   "escola_anterior": null,
   "estabelecimento_id": 1,
@@ -2394,9 +2467,9 @@
  },
  "PATCH /api/encarregados/{eid}": {
   "activo": true,
-  "actualizado_em": "2026-10-22T16:49:14",
+  "actualizado_em": "2026-10-23T07:33:38",
   "bi_numero": null,
-  "criado_em": "2026-10-22T16:49:08",
+  "criado_em": "2026-10-23T07:33:31",
   "email": "isabel.d@hotmail.com",
   "estabelecimento_id": 1,
   "id": 1,
@@ -2409,8 +2482,8 @@
  },
  "PATCH /api/estabelecimento": {
   "activo": true,
-  "actualizado_em": "2026-10-22T16:49:13",
-  "criado_em": "2026-10-22T16:49:08",
+  "actualizado_em": "2026-10-23T07:33:36",
+  "criado_em": "2026-10-23T07:33:30",
   "email": "geral@clacs.ao",
   "id": 1,
   "logotipo_url": null,
@@ -2423,7 +2496,7 @@
   "activo": true,
   "ano_contratacao": null,
   "cargo": "coordenador",
-  "criado_em": "2026-10-22T16:49:08",
+  "criado_em": "2026-10-23T07:33:31",
   "email": null,
   "estabelecimento_id": 1,
   "id": 1,
@@ -2470,7 +2543,7 @@
  "PATCH /api/ocorrencias/{oid}": {
   "accao_tomada": "Reunião com o encarregado realizada",
   "aluno_id": 1,
-  "criada_em": "2026-10-22T16:49:11",
+  "criada_em": "2026-10-23T07:33:34",
   "data": "2026-10-20",
   "descricao": "Conflito com um colega no intervalo.",
   "estado": "fechada",
@@ -2530,7 +2603,7 @@
    "whatsapp"
   ],
   "condicao": null,
-  "criada_em": "2026-10-22T16:49:10",
+  "criada_em": "2026-10-23T07:33:32",
   "criada_por": null,
   "destino": "encarregado",
   "dias_offset": 5,
@@ -2601,7 +2674,7 @@
  },
  "PATCH /api/utilizadores/{uid}": {
   "activo": true,
-  "criado_em": "2026-10-22T16:49:08",
+  "criado_em": "2026-10-23T07:33:31",
   "doisfa_activo": false,
   "email": "admin@clacs.ao",
   "encarregado_id": null,
@@ -2613,18 +2686,18 @@
    "financeiro"
   ],
   "telefone": "+244923000111",
-  "ultimo_login": "2026-10-22T16:49:10.590387"
+  "ultimo_login": "2026-10-23T07:33:33.192084"
  },
  "POST /api/alertas/gerar": {
   "novos": 0
  },
  "POST /api/alunos": {
-  "actualizado_em": "2026-10-22T16:49:14",
+  "actualizado_em": "2026-10-23T07:33:38",
   "alergias": "Amendoim",
   "bi_numero": "006123456LA041",
   "condicoes_saude": "Asma ligeira",
   "contacto_emergencia": "Isabel Domingos (mãe)",
-  "criado_em": "2026-10-22T16:49:14",
+  "criado_em": "2026-10-23T07:33:38",
   "data_nascimento": "2018-03-14",
   "escola_anterior": null,
   "estabelecimento_id": 1,
@@ -2643,7 +2716,7 @@
  },
  "POST /api/alunos/{aid}/documentos": {
   "aluno_id": 1,
-  "criado_em": "2026-10-22T16:49:14",
+  "criado_em": "2026-10-23T07:33:38",
   "ficheiro_url": "/api/ficheiros/alunos/1/certidao.pdf",
   "id": 1,
   "tipo": "certidao_nascimento",
@@ -2651,8 +2724,8 @@
  },
  "POST /api/alunos/{aid}/documentos/ficheiro": {
   "aluno_id": 1,
-  "criado_em": "2026-10-22T16:49:19",
-  "ficheiro_url": "/api/ficheiros/1/documentos/a682232d280445cd857b7cb08b7916c9.pdf",
+  "criado_em": "2026-10-23T07:33:43",
+  "ficheiro_url": "/api/ficheiros/1/documentos/2baece6285604a599b93563e05ae606b.pdf",
   "id": 1,
   "tipo": "certidao_nascimento",
   "validade": null
@@ -2666,7 +2739,7 @@
   "responsavel_financeiro": true
  },
  "POST /api/alunos/{aid}/foto": {
-  "foto_url": "/api/ficheiros/1/fotos/4d68b31ff7c04e01a3e5646f656d40e9.png"
+  "foto_url": "/api/ficheiros/1/fotos/189328dd3993435f9ce499fc0748965a.png"
  },
  "POST /api/alunos/{aid}/mensagem": {
   "mensagens": 2
@@ -2729,8 +2802,8 @@
   "resposta": "7 aluno(s) em dívida, num total de 494 000 Kz."
  },
  "POST /api/auth/2fa/iniciar": {
-  "segredo": "UOBPPGH5X3VTUZDGJDCWNFHS2XEBLVHC",
-  "uri": "otpauth://totp/CLACS%20Escola:admin%40clacs.ao?secret=UOBPPGH5X3VTUZDGJDCWNFHS2XEBLVHC&issuer=CLACS%20Escola"
+  "segredo": "5JVW5FRXQ7C2SABJ7OD4TMC7JTNFW7S3",
+  "uri": "otpauth://totp/CLACS%20Escola:admin%40clacs.ao?secret=5JVW5FRXQ7C2SABJ7OD4TMC7JTNFW7S3&issuer=CLACS%20Escola"
  },
  "POST /api/auth/login": {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.exemplo.assinatura",
@@ -2757,10 +2830,10 @@
   "disciplina_id": 8
  },
  "POST /api/cobrancas": {
-  "actualizado_em": "2026-10-22T16:49:16",
+  "actualizado_em": "2026-10-23T07:33:40",
   "aluno_id": 1,
   "competencia": "2026-10-01",
-  "criado_em": "2026-10-22T16:49:16",
+  "criado_em": "2026-10-23T07:33:40",
   "descricao": "Fardamento (2 camisolas)",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -2803,10 +2876,10 @@
   "mensagens": 4
  },
  "POST /api/cobrancas/{cid}/anular": {
-  "actualizado_em": "2026-10-22T16:49:16",
+  "actualizado_em": "2026-10-23T07:33:40",
   "aluno_id": 1,
   "competencia": "2026-10-01",
-  "criado_em": "2026-10-22T16:49:09",
+  "criado_em": "2026-10-23T07:33:31",
   "descricao": "Alimentação 10/2026",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -2825,7 +2898,7 @@
   "alvo": "turma",
   "autor_id": 1,
   "corpo": "Não haverá aulas no dia 11 de Novembro.",
-  "criado_em": "2026-10-22T16:49:18",
+  "criado_em": "2026-10-23T07:33:41",
   "destinatarios": 8,
   "estabelecimento_id": 1,
   "id": 2,
@@ -2848,9 +2921,9 @@
  },
  "POST /api/encarregados": {
   "activo": true,
-  "actualizado_em": "2026-10-22T16:49:14",
+  "actualizado_em": "2026-10-23T07:33:38",
   "bi_numero": null,
-  "criado_em": "2026-10-22T16:49:14",
+  "criado_em": "2026-10-23T07:33:38",
   "email": "isabel.domingos@gmail.com",
   "estabelecimento_id": 1,
   "id": 21,
@@ -2869,7 +2942,7 @@
   "activo": true,
   "ano_contratacao": 2021,
   "cargo": "professor",
-  "criado_em": "2026-10-22T16:49:13",
+  "criado_em": "2026-10-23T07:33:37",
   "email": "joao.sebastiao@clacs.ao",
   "estabelecimento_id": 1,
   "id": 7,
@@ -2878,7 +2951,7 @@
   "telefone": "+244912345678"
  },
  "POST /api/importacao/{entidade}": {
-  "criado_em": "2026-10-22T16:49:19",
+  "criado_em": "2026-10-23T07:33:42",
   "criado_por": 1,
   "entidade": "aluno",
   "erros": 1,
@@ -2987,7 +3060,7 @@
  "POST /api/ocorrencias": {
   "accao_tomada": "Conversa com a coordenação",
   "aluno_id": 1,
-  "criada_em": "2026-10-22T16:49:18",
+  "criada_em": "2026-10-23T07:33:42",
   "data": "2026-10-20",
   "descricao": "Conflito com um colega no intervalo.",
   "estado": "aberta",
@@ -3004,7 +3077,7 @@
    }
   ],
   "comprovativo_url": null,
-  "criado_em": "2026-10-22T16:49:17",
+  "criado_em": "2026-10-23T07:33:40",
   "data_pagamento": "2026-10-08",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -3021,11 +3094,11 @@
   "pagamento_id": 56
  },
  "POST /api/pagamentos/{pid}/comprovativo": {
-  "comprovativo_url": "/api/ficheiros/1/comprovativos/001848fe769f4ed8af8de2b8cb81ecba.pdf"
+  "comprovativo_url": "/api/ficheiros/1/comprovativos/05b87aaa6f3243fbae4fb81c40e6f680.pdf"
  },
  "POST /api/pagamentos/{pid}/confirmar": {
   "comprovativo_url": null,
-  "criado_em": "2026-10-22T16:49:08",
+  "criado_em": "2026-10-23T07:33:31",
   "data_pagamento": "2026-09-05",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -3039,7 +3112,7 @@
  },
  "POST /api/pagamentos/{pid}/rejeitar": {
   "comprovativo_url": null,
-  "criado_em": "2026-10-22T16:49:08",
+  "criado_em": "2026-10-23T07:33:31",
   "data_pagamento": "2026-09-05",
   "documento_fiscal_id": null,
   "encarregado_id": 1,
@@ -3053,6 +3126,57 @@
  },
  "POST /api/pautas/fechar": {
   "resultados": 9
+ },
+ "POST /api/pedidos/{pid}/aprovar": {
+  "aluno": "Pedro Domingos",
+  "aluno_id": 21,
+  "criado_em": "2026-10-23T07:33:34",
+  "dados": {
+   "classe_id": 1,
+   "data_nascimento": "2020-05-02",
+   "nome_aluno": "Pedro Domingos",
+   "observacoes": "Irmão da Ana Paula, já aluna da escola",
+   "parentesco": "mae",
+   "sexo": "M"
+  },
+  "decidido_em": "2026-10-23T07:33:43.259502Z",
+  "decidido_por": 1,
+  "encarregado": "Maria Cota",
+  "encarregado_id": 1,
+  "estabelecimento_id": 1,
+  "estado": "aprovado",
+  "id": 1,
+  "resposta": "Vaga aceite. Bem-vindo ao colégio!",
+  "resultado": {
+   "aluno_id": 21,
+   "matricula_id": 21,
+   "turma": "5.ª A",
+   "turma_id": 1
+  },
+  "tipo": "vaga"
+ },
+ "POST /api/pedidos/{pid}/rejeitar": {
+  "aluno": "Pedro Domingos",
+  "aluno_id": null,
+  "criado_em": "2026-10-23T07:33:34",
+  "dados": {
+   "classe_id": 1,
+   "data_nascimento": "2020-05-02",
+   "nome_aluno": "Pedro Domingos",
+   "observacoes": "Irmão da Ana Paula, já aluna da escola",
+   "parentesco": "mae",
+   "sexo": "M"
+  },
+  "decidido_em": "2026-10-23T07:33:43.294447Z",
+  "decidido_por": 1,
+  "encarregado": "Maria Cota",
+  "encarregado_id": 1,
+  "estabelecimento_id": 1,
+  "estado": "rejeitado",
+  "id": 1,
+  "resposta": "Vaga aceite. Bem-vindo ao colégio!",
+  "resultado": null,
+  "tipo": "vaga"
  },
  "POST /api/planos-pagamento": {
   "designacao": "10 prestações (Set a Jun)",
@@ -3073,22 +3197,68 @@
  },
  "POST /api/portal/pagamentos/referencia": {
   "entidade": "00000",
-  "expira": "2026-11-06",
+  "expira": "2026-11-07",
   "pagamento_id": 56,
-  "referencia": "204975686",
+  "referencia": "831746744",
   "valor": 18000.0
+ },
+ "POST /api/portal/pedidos": {
+  "aluno": "Pedro Domingos",
+  "aluno_id": null,
+  "criado_em": "2026-10-23T07:33:43",
+  "dados": {
+   "classe_id": 1,
+   "data_nascimento": "2020-05-02",
+   "nome_aluno": "Pedro Domingos",
+   "observacoes": "Irmão da Ana Paula, já aluna da escola",
+   "parentesco": "mae",
+   "sexo": "M"
+  },
+  "decidido_em": null,
+  "decidido_por": null,
+  "encarregado": "Maria Cota",
+  "encarregado_id": 1,
+  "estabelecimento_id": 1,
+  "estado": "pendente",
+  "id": 2,
+  "resposta": null,
+  "resultado": null,
+  "tipo": "vaga"
+ },
+ "POST /api/portal/pedidos/{pid}/cancelar": {
+  "aluno": "Pedro Domingos",
+  "aluno_id": null,
+  "criado_em": "2026-10-23T07:33:34",
+  "dados": {
+   "classe_id": 1,
+   "data_nascimento": "2020-05-02",
+   "nome_aluno": "Pedro Domingos",
+   "observacoes": "Irmão da Ana Paula, já aluna da escola",
+   "parentesco": "mae",
+   "sexo": "M"
+  },
+  "decidido_em": null,
+  "decidido_por": null,
+  "encarregado": "Maria Cota",
+  "encarregado_id": 1,
+  "estabelecimento_id": 1,
+  "estado": "cancelado",
+  "id": 1,
+  "resposta": null,
+  "resultado": null,
+  "tipo": "vaga"
  },
  "POST /api/primavera/divergencias/{did}/{accao}": {
   "campo": "estado",
   "descricao": "Pago no Primavera, pendente na escola",
-  "detectada_em": "2026-10-22T16:49:10",
+  "detectada_em": "2026-10-23T07:33:32",
   "entidade": "cobranca",
   "estabelecimento_id": 1,
   "estado": "resolvida",
   "id": 1,
   "id_externo": "FT 2026/412",
   "id_local": 6,
-  "resolvida_em": "2026-10-22T16:49:19.368128Z",
+  "resolvida_em": "2026-10-23T07:33:42.877771Z",
   "resolvida_por": 1,
   "valor_externo": "paga",
   "valor_local": "pendente"
@@ -3103,8 +3273,8 @@
   "estabelecimento_id": 1,
   "estado": "ok",
   "id": 2,
-  "iniciado_em": "2026-10-22T16:49:19",
-  "terminado_em": "2026-10-22T16:49:19.316804Z",
+  "iniciado_em": "2026-10-23T07:33:42",
+  "terminado_em": "2026-10-23T07:33:42.824543Z",
   "total_erros": 0,
   "total_registos": 0
  },
@@ -3143,7 +3313,7 @@
    "whatsapp"
   ],
   "condicao": null,
-  "criada_em": "2026-10-22T16:49:17",
+  "criada_em": "2026-10-23T07:33:41",
   "criada_por": 1,
   "destino": "encarregado",
   "dias_offset": 3,
@@ -3176,8 +3346,8 @@
  },
  "POST /api/relatorios/agendados/{rid}/executar": {
   "estado": "ok",
-  "executado_em": "2026-10-22T16:49:19",
-  "ficheiro_url": "/api/ficheiros/1/relatorios/619230c84446437fb4c1c020e4130eaf.xlsx",
+  "executado_em": "2026-10-23T07:33:42",
+  "ficheiro_url": "/api/ficheiros/1/relatorios/c88e053e0f394f7ea0915042b0c522ae.xlsx",
   "id": 2,
   "relatorio_id": 1
  },
@@ -3227,7 +3397,7 @@
  },
  "POST /api/utilizadores": {
   "activo": true,
-  "criado_em": "2026-10-22T16:49:13",
+  "criado_em": "2026-10-23T07:33:36",
   "doisfa_activo": false,
   "email": "marta.kiala@clacs.ao",
   "encarregado_id": null,

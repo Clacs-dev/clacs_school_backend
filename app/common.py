@@ -4,10 +4,10 @@ from typing import TypeVar
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import inspect, select
+from sqlalchemy import func, inspect, select
 from sqlalchemy.orm import Session
 
-from app.models import AnoLectivo, Base
+from app.models import Aluno, AnoLectivo, Base
 
 M = TypeVar("M", bound=Base)
 
@@ -49,3 +49,12 @@ def dinheiro(v) -> float:
 def aplicar(obj: Base, dados: dict) -> None:
     for k, v in dados.items():
         setattr(obj, k, v)
+
+
+def numero_processo(db: Session, est: int) -> str:
+    """Próximo número de processo livre: ano + sequência (ex.: 20260042)."""
+    ano = date.today().year
+    n = db.scalar(select(func.count()).select_from(Aluno).where(Aluno.estabelecimento_id == est)) + 1
+    while db.scalar(select(Aluno.id).where(Aluno.estabelecimento_id == est, Aluno.numero_processo == f"{ano}{n:04d}")):
+        n += 1
+    return f"{ano}{n:04d}"

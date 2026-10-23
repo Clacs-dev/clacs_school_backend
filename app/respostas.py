@@ -108,6 +108,12 @@ TipoOcorrencia = _de_tabela(m.TipoOcorrencia, "TipoOcorrencia")
 Ocorrencia = _de_tabela(m.Ocorrencia, "Ocorrencia")
 RegistoDiario = _de_tabela(m.RegistoDiario, "RegistoDiario")
 Alerta = _de_tabela(m.Alerta, "Alerta")
+Pedido = _de_tabela(m.Pedido, "Pedido")
+
+
+class PedidoComNomes(Pedido):
+    aluno: str | None = Field(description="Educando (na vaga, o nome pedido)")
+    encarregado: str
 Indicador = _de_tabela(m.Indicador, "Indicador")
 RelatorioAgendado = _de_tabela(m.RelatorioAgendado, "RelatorioAgendado")
 RelatorioExecucao = _de_tabela(m.RelatorioExecucao, "RelatorioExecucao")

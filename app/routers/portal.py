@@ -19,12 +19,13 @@ from app.integracoes import ErroIntegracao
 from app.integracoes.pagamentos import gateway, validar_webhook
 from app.models import (
     Aluno, AlunoEncarregado, AnoLectivo, Avaliacao, ClasseDisciplina, Cobranca, Disciplina, DispositivoPush, Encarregado, Matricula, Mensagem,
-    MetodoPagamento, Nota, Pagamento, Perfil, PeriodoLectivo, PreferenciaContacto, TipoAvaliacao, Turma, Utilizador,
+    MetodoPagamento, Nota, Pagamento, Pedido, Perfil, PeriodoLectivo, PreferenciaContacto, TipoAvaliacao, Turma, Utilizador,
     UtilizadorPerfil,
 )
-from app.schemas import Canal, Entrada, com_exemplo
+from app.schemas import Canal, Entrada, PedidoIn, com_exemplo
 from app.security import Contexto, auditar, contexto_actual, exige, hash_senha
 from app.services import documentos as docs
+from app.services import pedidos
 from app.services.alertas import comportamento_actual
 from app.services.financeiro import avisar_comprovativo, cobrancas_detalhe, mudar_estado_pagamento, registar_pagamento
 from app.services.pedagogico import escala, media_geral, media_ponderada, total_faltas
@@ -147,6 +148,47 @@ def notas(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session =
     return [{"data": av.data, "periodo": per, "disciplina": d, "tipo": t,
              "valor": float(n.valor) if n.valor is not None else None, "observacao": n.observacao}
             for n, av, d, t, per in rows]
+
+
+# ---------------------------------------------------------------- pedidos (vaga, matrícula, transferência…)
+@router.post("/pedidos", response_model=R.PedidoComNomes, status_code=201,
+             summary="Novo pedido à escola: vaga, matrícula, transferência, declaração ou justificação de falta")
+def novo_pedido(dados: PedidoIn, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    return pedidos.com_nomes(db, pedidos.criar(db, ee, dados))
+
+
+@router.get("/pedidos", response_model=list[R.PedidoComNomes],
+            summary="Histórico dos meus pedidos (tipo=justificacao_falta: histórico das justificações)")
+def meus_pedidos(tipo: str | None = None, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    stmt = select(Pedido).where(Pedido.encarregado_id == ee.id)
+    if tipo:
+        stmt = stmt.where(Pedido.tipo == tipo)
+    return [pedidos.com_nomes(db, p) for p in db.scalars(stmt.order_by(Pedido.criado_em.desc()))]
+
+
+def _meu_pedido(db: Session, ee: Encarregado, pid: int) -> Pedido:
+    p = db.get(Pedido, pid)
+    if p is None or p.encarregado_id != ee.id:
+        raise HTTPException(404, "Pedido não encontrado")
+    return p
+
+
+@router.post("/pedidos/{pid}/cancelar", response_model=R.PedidoComNomes, summary="Cancela um pedido ainda pendente")
+def cancelar_pedido(pid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    p = _meu_pedido(db, ee, pid)
+    if p.estado != "pendente":
+        raise HTTPException(409, f"O pedido já está {p.estado}")
+    p.estado = "cancelado"
+    db.commit()
+    return pedidos.com_nomes(db, p)
+
+
+@router.get("/pedidos/{pid}/declaracao.pdf", responses=R.PDF, summary="A declaração pedida, depois de aprovada")
+def declaracao_pedida(pid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    p = _meu_pedido(db, ee, pid)
+    if p.tipo != "declaracao" or p.estado != "aprovado":
+        raise HTTPException(409, "A declaração só fica disponível depois de a escola aprovar o pedido")
+    return Response(docs.declaracao(db, db.get(Matricula, p.resultado["matricula_id"])), media_type="application/pdf")
 
 
 @router.get("/educandos/{aid}/boletim.pdf", responses=R.PDF)
