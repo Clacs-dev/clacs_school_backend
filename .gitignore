@@ -6,3 +6,6 @@ venv/
 *.db
 .pytest_cache/
 .claude/
+
+# ficheiros carregados em tempo de execução (fotografias, comprovativos)
+uploads/

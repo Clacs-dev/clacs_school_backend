@@ -35,28 +35,36 @@ PERFIS = [("admin", "Administrador"), ("direccao", "Direcção"), ("secretaria",
 
 def base(db: Session) -> Estabelecimento:
     perfis = {p.codigo: p for p in db.scalars(select(Perfil))}
+    perfis_novos = set()
     for codigo, nome in PERFIS:
         if codigo not in perfis:
             perfis[codigo] = Perfil(codigo=codigo, nome=nome)
             db.add(perfis[codigo])
+            perfis_novos.add(codigo)
     perms = {(p.modulo, p.accao): p for p in db.scalars(select(Permissao))}
+    perms_novas = set()
     for m in MODULOS:
         for a in ACCOES:
             if (m, a) not in perms:
                 perms[(m, a)] = Permissao(modulo=m, accao=a)
                 db.add(perms[(m, a)])
+                perms_novas.add((m, a))
     db.flush()
+    # A matriz só se aplica a perfis e permissões acabados de criar (ex.: um módulo novo): as permissões que o
+    # administrador retirou em "Perfis e permissões" não voltam a aparecer em cada arranque. O admin tem sempre tudo.
     existentes = set(db.execute(select(PerfilPermissao.perfil_id, PerfilPermissao.permissao_id)).tuples())
     for codigo, modulos in MATRIZ.items():
         for m, accoes in modulos.items():
             for a in accoes:
+                if codigo != "admin" and codigo not in perfis_novos and (m, a) not in perms_novas:
+                    continue
                 par = (perfis[codigo].id, perms[(m, a)].id)
                 if par not in existentes:
                     db.add(PerfilPermissao(perfil_id=par[0], permissao_id=par[1]))
 
     est = db.scalar(select(Estabelecimento).order_by(Estabelecimento.id).limit(1))
     if not est:
-        est = Estabelecimento(nome="Colégio Cota Lionel", morada="Luanda, Angola", email="geral@clacs.ao")
+        est = Estabelecimento(nome="Talatona Kids", morada="Luanda, Angola", email="geral@clacs.ao")
         db.add(est)
         db.flush()
         db.add(Parametro(estabelecimento_id=est.id, chave="dia_vencimento", valor=10,
@@ -129,7 +137,7 @@ def demo(db: Session, est: Estabelecimento, hoje: date | None = None) -> bool:
                   periodo_dia="manha" if i < 3 else "tarde", director_turma_id=prof.id, capacidade=30)
         turmas.append(t)
     db.add_all(turmas)
-    db.add(Funcionario(estabelecimento_id=E, nome_completo="Cota Lionel", cargo="director"))
+    db.add(Funcionario(estabelecimento_id=E, nome_completo="Direcção Geral", cargo="director"))
 
     # Catálogo financeiro
     sv = {c: Servico(estabelecimento_id=E, codigo=c, nome=n, categoria=cat, periodicidade=per, artigo_primavera=art)

@@ -100,3 +100,23 @@ def test_pais_avaliam_os_professores(client, admin):
                   if r["funcionario_id"] == prof["id"])
     assert (resumo["avaliacoes"], resumo["media"], resumo["distribuicao"]["2"]) == (1, 2, 1)
     assert resumo["comentarios"][0]["comentario"] == "Atenciosa." and "encarregado" not in resumo["comentarios"][0]
+
+
+def test_nota_minima_fora_da_escala_passa_a_metade(client, admin):
+    """O antigo nota_minima = 10 (escala de 0 a 20) com a escala nova de 0 a 10 dava toda a gente negativa."""
+    turma = next(t for t in client.get("/api/turmas", headers=admin).json() if t["alunos"])
+    _ok(client.put("/api/parametros/nota_minima", headers=admin, json={"valor": 10}))
+    try:
+        pauta = _ok(client.get("/api/pautas/final", headers=admin, params={"turma_id": turma["id"]}))
+        assert (pauta["nota_maxima"], pauta["nota_minima"]) == (10, 5)
+        _ok(client.put("/api/parametros/nota_minima", headers=admin, json={"valor": 6}))
+        assert _ok(client.get("/api/pautas/final", headers=admin, params={"turma_id": turma["id"]}))["nota_minima"] == 6
+    finally:
+        _ok(client.put("/api/parametros/nota_minima", headers=admin, json={"valor": 5}))
+
+
+def test_portal_lista_classes_e_trimestres(client):
+    ee = login(client, "encarregado@clacs.ao", SENHA)
+    assert [p["designacao"] for p in _ok(client.get("/api/portal/periodos", headers=ee))] == \
+        ["1.º Trimestre", "2.º Trimestre", "3.º Trimestre"]
+    assert _ok(client.get("/api/portal/classes", headers=ee))

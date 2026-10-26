@@ -324,6 +324,7 @@ class Utilizador(Base):
     nome: Mapped[str] = mapped_column(Text)
     email: Mapped[str] = mapped_column(Text, unique=True)
     telefone: Mapped[str | None] = mapped_column(Text)
+    foto_url: Mapped[str | None] = mapped_column(Text)              # foto do perfil (migração 0009)
     senha_hash: Mapped[str] = mapped_column(Text)
     funcionario_id: Mapped[int | None] = fk("funcionario.id", nullable=True)
     encarregado_id: Mapped[int | None] = fk("encarregado.id", nullable=True)

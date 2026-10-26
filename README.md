@@ -1,6 +1,6 @@
 # CLACS Escola: backend
 
-API de gestão escolar do Colégio Cota Lionel em **FastAPI + SQLAlchemy 2 + Alembic**. Corre em SQLite para
+API de gestão escolar da Talatona Kids em **FastAPI + SQLAlchemy 2 + Alembic**. Corre em SQLite para
 desenvolvimento e em **PostgreSQL no Render** em produção.
 
 ## Arranque local

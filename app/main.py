@@ -31,7 +31,7 @@ async def ciclo_de_vida(_: FastAPI):
 
 
 DESCRICAO = """
-Gestão escolar do Colégio Cota Lionel: cadastro, propinas, refeitório, pedagógico, comunicação, alertas,
+Gestão escolar da Talatona Kids: cadastro, propinas, refeitório, pedagógico, comunicação, alertas,
 portal do encarregado e integração Primavera.
 
 ## Autenticação

@@ -4,21 +4,24 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 import pyotp
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app import limite_login
+from app import armazenamento, limite_login
 from app import respostas as R
 from app.common import as_dict, obter
 from app.config import get_settings
 from app.database import get_db
 from app.integracoes import ErroIntegracao
 from app.integracoes.email import enviar_email
-from app.models import Estabelecimento, Perfil, Utilizador, UtilizadorPerfil
-from app.schemas import CodigoIn, RecuperarIn, RedefinirIn, SenhaIn, UtilizadorIn, UtilizadorUpd
+from app.models import Estabelecimento, Perfil, PerfilPermissao, Permissao, Utilizador, UtilizadorPerfil
+from app.schemas import (
+    CodigoIn, MeuPerfilIn, PermissoesPerfilIn, RecuperarIn, RedefinirIn, SenhaIn, UtilizadorIn, UtilizadorUpd,
+)
 from app.security import (
-    Contexto, auditar, carregar_contexto, contexto_actual, criar_token, exige, hash_senha, verificar_senha,
+    ACCOES, MODULOS, Contexto, auditar, carregar_contexto, contexto_actual, criar_token, exige, hash_senha,
+    verificar_senha,
 )
 
 router = APIRouter(prefix="/api", tags=["Autenticação e utilizadores"])
@@ -162,6 +165,81 @@ def alterar_senha(dados: SenhaIn, ctx: Contexto = Depends(contexto_actual), db: 
         raise HTTPException(400, "A senha actual não está correcta")
     u.senha_hash = hash_senha(dados.senha_nova)
     db.commit()
+
+
+@router.patch("/auth/me", response_model=R.Utilizador, summary="O meu perfil: nome e telefone")
+def editar_meu_perfil(dados: MeuPerfilIn, ctx: Contexto = Depends(contexto_actual), db: Session = Depends(get_db)):
+    u = db.get(Utilizador, ctx.id)
+    for campo, valor in dados.model_dump(exclude_unset=True).items():
+        if valor is not None:
+            setattr(u, campo, valor)
+    db.commit()
+    return _utilizador_out(db, u, ctx.estabelecimento_id)
+
+
+@router.post("/auth/me/foto", response_model=R.FotoPerfil, summary="O meu perfil: fotografia")
+async def minha_foto(ficheiro: UploadFile = File(..., description="Imagem (JPEG ou PNG)"),
+                     ctx: Contexto = Depends(contexto_actual), db: Session = Depends(get_db)):
+    if not (ficheiro.content_type or "").startswith("image/"):
+        raise HTTPException(415, "A foto tem de ser uma imagem")
+    chave = armazenamento.guardar(ctx.estabelecimento_id, "fotos", await ficheiro.read(), ficheiro.content_type,
+                                  ficheiro.filename)
+    u = db.get(Utilizador, ctx.id)
+    u.foto_url = armazenamento.url(chave)
+    db.commit()
+    return {"foto_url": u.foto_url}
+
+
+# ---------------------------------------------------------------- perfis e permissões
+NOMES_MODULOS = {
+    "painel": "Painel e alertas", "cadastro": "Alunos e encarregados", "academico": "Estrutura académica",
+    "propinas": "Propinas e pagamentos", "refeitorio": "Refeitório", "pedagogico": "Pedagógico",
+    "comunicacao": "Comunicação", "primavera": "Primavera", "utilizadores": "Utilizadores e permissões",
+    "importacao": "Importação de dados", "transporte": "Transporte",
+}
+NOMES_ACCOES = {"ver": "Ver", "criar": "Criar", "editar": "Editar", "apagar": "Apagar", "exportar": "Exportar"}
+
+
+@router.get("/permissoes/catalogo", response_model=R.CatalogoPermissoes, summary="Módulos e acções para a matriz de permissões")
+def catalogo_permissoes(ctx: Contexto = Depends(exige("utilizadores"))):
+    return {"modulos": [{"codigo": m, "nome": NOMES_MODULOS.get(m, m)} for m in MODULOS],
+            "accoes": [{"codigo": a, "nome": NOMES_ACCOES.get(a, a)} for a in ACCOES]}
+
+
+def _permissoes_do_perfil(db: Session, p: Perfil) -> dict:
+    perms = db.execute(select(Permissao.modulo, Permissao.accao)
+                       .join(PerfilPermissao, PerfilPermissao.permissao_id == Permissao.id)
+                       .where(PerfilPermissao.perfil_id == p.id)).tuples().all()
+    n = db.scalar(select(func.count(func.distinct(UtilizadorPerfil.utilizador_id)))
+                  .where(UtilizadorPerfil.perfil_id == p.id))
+    return {"perfil_id": p.id, "codigo": p.codigo, "nome": p.nome, "editavel": p.codigo != "admin", "utilizadores": n,
+            "permissoes": sorted(f"{m}:{a}" for m, a in perms)}
+
+
+@router.get("/perfis/permissoes", response_model=list[R.PermissoesPerfil], summary="Cada perfil e o que pode fazer")
+def permissoes_perfis(ctx: Contexto = Depends(exige("utilizadores")), db: Session = Depends(get_db)):
+    return [_permissoes_do_perfil(db, p) for p in db.scalars(select(Perfil).order_by(Perfil.id))]
+
+
+@router.put("/perfis/{pid}/permissoes", response_model=R.PermissoesPerfil,
+            summary="Define o que o perfil pode fazer (substitui todas as permissões do perfil)")
+def definir_permissoes(pid: int, dados: PermissoesPerfilIn, ctx: Contexto = Depends(exige("utilizadores", "editar")),
+                       db: Session = Depends(get_db)):
+    p = obter(db, Perfil, pid, nome="Perfil")
+    if p.codigo == "admin":
+        raise HTTPException(409, "O perfil administrador tem sempre todas as permissões")
+    pedidas = set(dados.permissoes)
+    todas = {f"{x.modulo}:{x.accao}": x for x in db.scalars(select(Permissao))}
+    desconhecidas = pedidas - set(todas)
+    if desconhecidas:
+        raise HTTPException(422, f"Permissões desconhecidas: {', '.join(sorted(desconhecidas))}")
+    antes = _permissoes_do_perfil(db, p)["permissoes"]
+    db.execute(delete(PerfilPermissao).where(PerfilPermissao.perfil_id == p.id))
+    for chave in sorted(pedidas):
+        db.add(PerfilPermissao(perfil_id=p.id, permissao_id=todas[chave].id))
+    auditar(db, ctx, "perfil", p.id, "update", {"permissoes": sorted(pedidas)}, antes={"permissoes": antes})
+    db.commit()
+    return _permissoes_do_perfil(db, p)
 
 
 @router.get("/perfis", response_model=list[R.Perfil])

@@ -219,6 +219,29 @@ class Token(Saida):
     token_type: Literal["bearer"]
 
 
+class ModuloOuAccao(Saida):
+    codigo: str
+    nome: str
+
+
+class CatalogoPermissoes(Saida):
+    modulos: list[ModuloOuAccao]
+    accoes: list[ModuloOuAccao]
+
+
+class PermissoesPerfil(Saida):
+    perfil_id: int
+    codigo: str
+    nome: str
+    editavel: bool = Field(description="false no administrador: tem sempre todas as permissões")
+    utilizadores: int
+    permissoes: list[str] = Field(description="'modulo:accao'")
+
+
+class FotoPerfil(Saida):
+    foto_url: str
+
+
 class Utilizador(UtilizadorBase):
     perfis: list[str] = Field(description="Códigos dos perfis neste estabelecimento, ex. ['admin']")
 
@@ -725,6 +748,11 @@ class PautaFinal(Saida):
     linhas: list[LinhaPautaFinal]
     nota_maxima: float
     nota_minima: float
+
+
+class ClasseCurta(Saida):
+    id: int
+    designacao: str
 
 
 class ProvaMarcada(Saida):

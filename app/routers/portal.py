@@ -18,9 +18,10 @@ from app.database import get_db
 from app.integracoes import ErroIntegracao
 from app.integracoes.pagamentos import gateway, validar_webhook
 from app.models import (
-    Aluno, AlunoEncarregado, AlunoTransporte, AnoLectivo, AtribuicaoDocente, Avaliacao, AvaliacaoProfessor, ClasseDisciplina, Cobranca, Disciplina, DispositivoPush, Encarregado, Matricula, Mensagem,
-    Funcionario, MetodoPagamento, Nota, Pagamento, ParagemTransporte, Pedido, Perfil, RotaTransporte, Viatura, PeriodoLectivo, PreferenciaContacto, TipoAvaliacao, Turma, Utilizador,
-    UtilizadorPerfil,
+    Aluno, AlunoEncarregado, AlunoTransporte, AnoLectivo, AtribuicaoDocente, Avaliacao, AvaliacaoProfessor, Classe,
+    ClasseDisciplina, Cobranca, Disciplina, DispositivoPush, Encarregado, Funcionario, Matricula, Mensagem,
+    MetodoPagamento, NivelEnsino, Nota, Pagamento, ParagemTransporte, Pedido, Perfil, PeriodoLectivo,
+    PreferenciaContacto, RotaTransporte, TipoAvaliacao, Turma, Utilizador, UtilizadorPerfil, Viatura,
 )
 from app.schemas import AvaliacaoProfessorIn, Canal, Entrada, PedidoIn, com_exemplo
 from app.security import Contexto, auditar, contexto_actual, exige, hash_senha
@@ -74,6 +75,23 @@ def _minhas_cobrancas(db: Session, ee: Encarregado, estado: str | None = None) -
     for aid in _educandos(db, ee):
         linhas += cobrancas_detalhe(db, ee.estabelecimento_id, aluno_id=aid, estado=estado)
     return sorted(linhas, key=lambda x: (x["vencimento"], x["aluno"]))
+
+
+@router.get("/classes", response_model=list[R.ClasseCurta], summary="Classes da escola (para o pedido de vaga ou de matrícula)")
+def classes_portal(ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    return [{"id": c.id, "designacao": c.designacao} for c in db.scalars(
+        select(Classe).join(NivelEnsino, NivelEnsino.id == Classe.nivel_id)
+        .where(NivelEnsino.estabelecimento_id == ee.estabelecimento_id).order_by(NivelEnsino.ordem, Classe.ordem))]
+
+
+@router.get("/periodos", response_model=list[R.PeriodoLectivo], summary="Trimestres do ano lectivo activo (para o boletim)")
+def periodos_portal(ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    ano = db.scalar(select(AnoLectivo).where(AnoLectivo.estabelecimento_id == ee.estabelecimento_id,
+                                             AnoLectivo.estado == "activo"))
+    if ano is None:
+        return []
+    return [as_dict(p) for p in db.scalars(select(PeriodoLectivo).where(PeriodoLectivo.ano_id == ano.id)
+                                           .order_by(PeriodoLectivo.ordem))]
 
 
 @router.get("/eu", response_model=R.PortalEu, summary="Dados do encarregado e resumo de cada educando")

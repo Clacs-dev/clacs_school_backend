@@ -18,7 +18,11 @@ def escala(db: Session, est: int) -> dict:
     maxima = db.get(Parametro, (est, "nota_maxima"))
     maxima = float(maxima.valor) if maxima is not None else float(NOTA_MAXIMA)
     minima = db.get(Parametro, (est, "nota_minima"))
-    return {"nota_maxima": maxima, "nota_minima": float(minima.valor) if minima is not None else maxima / 2}
+    minima = float(minima.valor) if minima is not None else None
+    # Uma nota mínima fora da escala (ex.: o antigo 10 da escala de 0 a 20, agora com máxima 10) não serve: metade.
+    if minima is None or not 0 < minima < maxima:
+        minima = maxima / 2
+    return {"nota_maxima": maxima, "nota_minima": minima}
 
 
 def media_ponderada(db: Session, aluno_id: int, turma_id: int, disciplina_id: int | None = None,

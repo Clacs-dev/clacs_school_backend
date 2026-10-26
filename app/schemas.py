@@ -42,6 +42,15 @@ class UtilizadorUpd(Entrada):
     senha: str | None = Field(default=None, min_length=8)
 
 
+class MeuPerfilIn(Entrada):
+    nome: str | None = Field(None, min_length=2)
+    telefone: str | None = None
+
+
+class PermissoesPerfilIn(Entrada):
+    permissoes: list[str] = Field(description="'modulo:accao', ex. ['propinas:ver', 'propinas:criar']")
+
+
 class RecuperarIn(Entrada):
     email: str
 
@@ -658,10 +667,12 @@ EXEMPLOS: dict[type[Entrada], dict] = {
                    "telefone": "+244923456789", "perfis": ["secretaria"]},
     UtilizadorUpd: {"telefone": "+244923000111", "perfis": ["secretaria", "financeiro"], "activo": True},
     RecuperarIn: {"email": "marta.kiala@clacs.ao"},
+    MeuPerfilIn: {"nome": "Marta Kiala", "telefone": "+244923456789"},
+    PermissoesPerfilIn: {"permissoes": ["painel:ver", "cadastro:ver", "cadastro:criar", "cadastro:editar", "transporte:ver"]},
     RedefinirIn: {"token": "token-recebido-por-email", "senha_nova": "Nova-senha-2026"},
     CodigoIn: {"codigo": "482913"},
     SenhaIn: {"senha_actual": "Mudar-2026!", "senha_nova": "Nova-senha-2026"},
-    EstabelecimentoUpd: {"nome": "Colégio Cota Lionel", "nif": "5417098765", "morada": "Rua da Missão 12, Luanda",
+    EstabelecimentoUpd: {"nome": "Talatona Kids", "nif": "5417098765", "morada": "Rua da Missão 12, Luanda",
                          "telefone": "+244222123456", "email": "geral@clacs.ao"},
     ParametroIn: {"valor": 3, "descricao": "Número máximo de faltas injustificadas antes de alerta"},
     AnoIn: {"designacao": "2027/2028", "data_inicio": "2027-09-01", "data_fim": "2028-07-15",

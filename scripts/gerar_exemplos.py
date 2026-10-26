@@ -146,6 +146,10 @@ ESPECIAIS = {
     "POST /api/alunos/{aid}/documentos/ficheiro": lambda pedir: pedir(
         "POST", "/api/alunos/1/documentos/ficheiro", data={"tipo": "certidao_nascimento"},
         files={"ficheiro": ("certidao.pdf", PDF[1], PDF[2])}),
+    "PUT /api/perfis/{pid}/permissoes": lambda pedir: pedir(  # o perfil 1 é o administrador (não se edita)
+        "PUT", "/api/perfis/3/permissoes", json=S.EXEMPLOS[S.PermissoesPerfilIn]),
+    "POST /api/auth/me/foto": lambda pedir: pedir(
+        "POST", "/api/auth/me/foto", files={"ficheiro": ("eu.png", b"\x89PNG\r\n\x1a\nexemplo", "image/png")}),
     "POST /api/alunos/{aid}/foto": lambda pedir: pedir(
         "POST", "/api/alunos/1/foto", files={"ficheiro": ("foto.png", b"\x89PNG\r\n\x1a\nexemplo", "image/png")}),
     "POST /api/pagamentos/{pid}/comprovativo": lambda pedir: pedir(

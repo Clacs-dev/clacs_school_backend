@@ -21,7 +21,7 @@ def test_login_errado_e_sem_token(client):
 
 def test_me(client, admin):
     me = client.get("/api/auth/me", headers=admin).json()
-    assert "admin" in me["perfis"] and me["estabelecimento"]["nome"] == "Colégio Cota Lionel"
+    assert "admin" in me["perfis"] and me["estabelecimento"]["nome"] == "Talatona Kids"
 
 
 def test_perfil_secretaria_tem_acesso_limitado(client, admin):

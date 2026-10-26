@@ -22,7 +22,7 @@ from app.services.pedagogico import media_geral, total_faltas
 log = logging.getLogger("clacs.assistente")
 MAX_PASSOS = 6
 
-SISTEMA = """És o assistente da Direcção do Colégio Cota Lionel (Angola), dentro do sistema CLACS Escola.
+SISTEMA = """És o assistente da Direcção da Talatona Kids (Angola), dentro do sistema CLACS Escola.
 Respondes em português de Angola, em uma a três frases curtas, com os números exactos que as ferramentas devolverem.
 Valores em kwanzas escrevem-se como "45 000 Kz". Datas como dd/mm/aaaa.
 Usa sempre as ferramentas para obter dados; nunca inventes números, nomes ou turmas.
