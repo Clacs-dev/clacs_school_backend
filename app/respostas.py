@@ -844,10 +844,41 @@ class AlertaCalculado(Saida):
     dados: dict[str, Any] | None
 
 
+class ResumoEscola(Saida):
+    alunos: int
+    alunos_nee: int
+    turmas: int
+    lugares: int
+    media_geral: float | None
+    nota_maxima: float
+    nota_minima: float
+    alunos_com_negativa: int
+    faltas_injustificadas: int
+    dias_faltas: int
+    ocorrencias_abertas: int
+    ocorrencias_graves: int
+    pedidos_pendentes: int
+    avaliacao_professores: float | None
+
+
+class TurmaEscola(Saida):
+    turma_id: int
+    turma: str
+    alunos: int
+    capacidade: int
+    media: float | None
+    negativas: int
+    faltas: int
+    ocorrencias_abertas: int
+    taxa_cobranca: float | None
+
+
 class Painel(Saida):
     data: date
     ano_lectivo: str | None
     kpis: Kpis
+    escola: ResumoEscola
+    turmas: list[TurmaEscola]
     indicadores: list[IndicadorComValor]
     por_turma: list[ResumoTurma]
     alertas: list[AlertaCalculado]

@@ -142,6 +142,14 @@ def test_exportar_excel(client, admin):
 def test_painel_e_alertas(client, admin):
     p = client.get("/api/painel", headers=admin).json()
     assert p["kpis"]["alunos"] >= 20 and len(p["por_turma"]) >= 5
+    # a escola de relance, além das finanças
+    e = p["escola"]
+    assert e["alunos"] >= 20 and e["turmas"] >= 5 and e["lugares"] >= e["alunos"]
+    assert e["media_geral"] is not None and 0 <= e["media_geral"] <= e["nota_maxima"]
+    assert e["faltas_injustificadas"] > 0
+    t = {x["turma"]: x for x in p["turmas"]}
+    assert t["5.ª A"]["alunos"] >= 4 and t["5.ª A"]["media"] is not None and t["5.ª A"]["taxa_cobranca"] is not None
+    assert sum(x["alunos"] for x in p["turmas"]) == e["alunos"]
     tipos = {a["tipo"] for a in p["alertas"]}
     assert {"risco_incumprimento", "queda_desempenho", "divergencia_primavera"} <= tipos
     assert client.post("/api/alertas/gerar", headers=admin).json()["novos"] > 0

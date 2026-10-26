@@ -22,7 +22,7 @@ from app.models import (
 from app.schemas import Entrada, EstadoIn, PerguntaIn, RelatorioIn, com_exemplo
 from app.security import Contexto, exige
 from app.services import financeiro as fin
-from app.services import assistente_ia, indicadores, relatorios
+from app.services import assistente_ia, indicadores, painel_escola, relatorios
 from app.services.alertas import calcular_alertas, persistir_alertas
 from app.services.comunicacao import kz
 
@@ -42,13 +42,15 @@ def painel(ctx: Contexto = Depends(exige("painel")), db: Session = Depends(get_d
     ano = ano_activo(db, est, obrigatorio=False)
     alunos = db.scalar(select(func.count()).select_from(Matricula).where(
         Matricula.ano_id == (ano.id if ano else -1), Matricula.estado == "activa")) or 0
+    por_turma = fin.resumo_por_turma(db, est, ate_competencia=mes)
+    escola, turmas = painel_escola.resumo(db, est, hoje, {t["turma_id"]: t["taxa_cobranca"] for t in por_turma if t["facturado"]})
     return {
-        "data": hoje, "ano_lectivo": ano.designacao if ano else None,
+        "data": hoje, "ano_lectivo": ano.designacao if ano else None, "escola": escola, "turmas": turmas,
         "kpis": {"recebido_mes": float(recebido_mes), "em_atraso": r["em_atraso"],
                  "alunos_em_incumprimento": r["alunos_em_incumprimento"], "alunos": alunos,
                  "taxa_cobranca": r["taxa_cobranca"], "facturado": r["facturado"], "recebido": r["recebido"]},
         "indicadores": indicadores.visiveis(db, est, ctx.perfis),
-        "por_turma": fin.resumo_por_turma(db, est, ate_competencia=mes),
+        "por_turma": por_turma,
         "alertas": calcular_alertas(db, est, hoje),
     }
 
