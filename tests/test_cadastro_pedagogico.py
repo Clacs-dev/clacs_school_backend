@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from tests.conftest import login
 
 SENHA = "senha-de-teste-123"
+PNG = bytes.fromhex("89504e470d0a1a0a") + b"imagem"
 
 
 def _ok(r, *codigos):
@@ -120,3 +121,30 @@ def test_portal_lista_classes_e_trimestres(client):
     assert [p["designacao"] for p in _ok(client.get("/api/portal/periodos", headers=ee))] == \
         ["1.º Trimestre", "2.º Trimestre", "3.º Trimestre"]
     assert _ok(client.get("/api/portal/classes", headers=ee))
+
+
+def test_ocorrencia_com_imagens(client, admin):
+    aluno = client.get("/api/alunos", headers=admin).json()[0]
+    tipo = client.post("/api/tipos-ocorrencia", headers=admin, json={"designacao": "Dano material", "gravidade": "moderada"}).json()
+    oc = client.post("/api/ocorrencias", headers=admin, json={"aluno_id": aluno["id"], "tipo_id": tipo["id"],
+                                                            "descricao": "Partiu o vidro da janela."}).json()
+    png = ("vidro.png", PNG, "image/png")
+    r = client.post(f"/api/ocorrencias/{oc['id']}/imagens", headers=admin, files={"ficheiro": png})
+    assert r.status_code == 201, r.text
+    img = r.json()
+    assert img["url"].startswith("/api/ficheiros/") and img["nome"] == "vidro.png"
+    assert client.get(img["url"], headers=admin).status_code == 200
+    # só imagens
+    assert client.post(f"/api/ocorrencias/{oc['id']}/imagens", headers=admin,
+                       files={"ficheiro": ("x.pdf", b"%PDF-1.4", "application/pdf")}).status_code == 415
+    lista = client.get("/api/ocorrencias", headers=admin, params={"aluno_id": aluno["id"]}).json()
+    assert [i["id"] for i in next(o for o in lista if o["id"] == oc["id"])["imagens"]] == [img["id"]]
+    # no máximo seis por ocorrência
+    for _ in range(5):
+        assert client.post(f"/api/ocorrencias/{oc['id']}/imagens", headers=admin, files={"ficheiro": png}).status_code == 201
+    assert client.post(f"/api/ocorrencias/{oc['id']}/imagens", headers=admin, files={"ficheiro": png}).status_code == 409
+    # retirar uma imagem; outra ocorrência não serve de atalho
+    assert client.delete(f"/api/ocorrencias/{oc['id']}/imagens/{img['id']}", headers=admin).status_code == 204
+    assert client.delete(f"/api/ocorrencias/{oc['id']}/imagens/{img['id']}", headers=admin).status_code == 404
+    # apagar a ocorrência leva as imagens
+    assert client.delete(f"/api/ocorrencias/{oc['id']}", headers=admin).status_code == 204

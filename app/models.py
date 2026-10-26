@@ -877,6 +877,16 @@ class Ocorrencia(Base):
     criada_em: Mapped[datetime] = criado_em()
 
 
+class OcorrenciaImagem(Base):
+    """Fotografias que documentam a ocorrência (ex.: material danificado, ferimento, trabalho exemplar)."""
+    __tablename__ = "ocorrencia_imagem"
+    id: Mapped[int] = pk()
+    ocorrencia_id: Mapped[int] = fk("ocorrencia.id", ondelete="CASCADE", index=True)
+    url: Mapped[str] = mapped_column(Text)
+    nome: Mapped[str | None] = mapped_column(Text)
+    criada_em: Mapped[datetime] = criado_em()
+
+
 class RegistoDiario(Base):
     __tablename__ = "registo_diario"
     __table_args__ = (ck_in("comportamento", "bom", "regular", "atencao"),)

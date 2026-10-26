@@ -106,6 +106,7 @@ ResultadoFinal = _de_tabela(m.ResultadoFinal, "ResultadoFinal")
 Assiduidade = _de_tabela(m.Assiduidade, "Assiduidade")
 TipoOcorrencia = _de_tabela(m.TipoOcorrencia, "TipoOcorrencia")
 Ocorrencia = _de_tabela(m.Ocorrencia, "Ocorrencia")
+OcorrenciaImagem = _de_tabela(m.OcorrenciaImagem, "OcorrenciaImagem")
 RegistoDiario = _de_tabela(m.RegistoDiario, "RegistoDiario")
 Alerta = _de_tabela(m.Alerta, "Alerta")
 Pedido = _de_tabela(m.Pedido, "Pedido")
@@ -798,6 +799,7 @@ class OcorrenciaComNomes(Ocorrencia):
     aluno: str
     tipo: str
     gravidade: Literal["positiva", "leve", "moderada", "grave"]
+    imagens: list[OcorrenciaImagem]
 
 
 # ---------------------------------------------------------------- painel, alertas, relatórios

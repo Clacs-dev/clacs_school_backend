@@ -69,7 +69,8 @@ async def comprovativo(pid: int, ficheiro: UploadFile = File(..., description="P
     return {"comprovativo_url": pg.comprovativo_url}
 
 
-PERMISSAO_POR_CATEGORIA = {"documentos": "cadastro", "fotos": "cadastro", "comprovativos": "propinas", "relatorios": "painel"}
+PERMISSAO_POR_CATEGORIA = {"documentos": "cadastro", "fotos": "cadastro", "comprovativos": "propinas", "relatorios": "painel",
+                           "ocorrencias": "pedagogico"}
 
 
 @router.get("/ficheiros/{chave:path}", responses=R.QUALQUER_FICHEIRO, summary="Descarrega um ficheiro enviado ou gerado")

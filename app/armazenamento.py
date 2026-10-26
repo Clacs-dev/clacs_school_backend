@@ -15,7 +15,7 @@ TIPOS_PERMITIDOS = {
     "application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx", "text/csv": ".csv",
 }
-CATEGORIAS = ("documentos", "fotos", "comprovativos", "relatorios")
+CATEGORIAS = ("documentos", "fotos", "comprovativos", "relatorios", "ocorrencias")
 # Primeiros bytes de cada formato: o tipo declarado pelo browser não chega.
 ASSINATURAS = {".pdf": [b"%PDF"], ".jpg": [b"\xff\xd8\xff"], ".png": [b"\x89PNG"], ".webp": [b"RIFF"],
                ".xlsx": [b"PK"], ".csv": [b""]}

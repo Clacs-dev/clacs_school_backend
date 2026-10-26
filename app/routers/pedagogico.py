@@ -1,16 +1,16 @@
 from datetime import date
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import crud
+from app import armazenamento, crud
 from app import respostas as R
 from app.common import aplicar, as_dict, obter
 from app.database import get_db
 from app.models import (
-    Aluno, Assiduidade, Avaliacao, Disciplina, Matricula, Nota, Ocorrencia, PeriodoLectivo, RegistoDiario,
+    Aluno, Assiduidade, Avaliacao, Disciplina, Matricula, Nota, Ocorrencia, OcorrenciaImagem, PeriodoLectivo, RegistoDiario,
     ResultadoPeriodo, TipoAvaliacao, TipoOcorrencia, Turma,
 )
 from app.schemas import (
@@ -23,6 +23,7 @@ from app.services.pedagogico import escala, media_ponderada
 
 router = APIRouter(prefix="/api", tags=["Pedagógico"])
 ver, criar, editar = exige("pedagogico"), exige("pedagogico", "criar"), exige("pedagogico", "editar")
+MAX_IMAGENS = 6  # fotografias por ocorrência
 
 
 def _turma(db: Session, ctx: Contexto, turma_id: int) -> Turma:
@@ -236,8 +237,13 @@ def ocorrencias(aluno_id: int | None = None, estado: str | None = None, ctx: Con
         stmt = stmt.where(Ocorrencia.aluno_id == aluno_id)
     if estado:
         stmt = stmt.where(Ocorrencia.estado == estado)
-    return [{**as_dict(o), "aluno": a, "tipo": t, "gravidade": g}
-            for o, a, t, g in db.execute(stmt.order_by(Ocorrencia.data.desc()))]
+    linhas = db.execute(stmt.order_by(Ocorrencia.data.desc())).all()
+    imagens: dict[int, list[dict]] = {}
+    if linhas:
+        for i in db.scalars(select(OcorrenciaImagem).where(OcorrenciaImagem.ocorrencia_id.in_([o.id for o, *_ in linhas]))
+                            .order_by(OcorrenciaImagem.id)):
+            imagens.setdefault(i.ocorrencia_id, []).append(as_dict(i))
+    return [{**as_dict(o), "aluno": a, "tipo": t, "gravidade": g, "imagens": imagens.get(o.id, [])} for o, a, t, g in linhas]
 
 
 @router.post("/ocorrencias", response_model=R.Ocorrencia, status_code=201)
@@ -259,6 +265,44 @@ def editar_ocorrencia(oid: int, dados: OcorrenciaUpd, ctx: Contexto = Depends(ed
     aplicar(o, dados.model_dump(exclude_unset=True))
     db.commit()
     return as_dict(o)
+
+
+def _ocorrencia(db: Session, ctx: Contexto, oid: int) -> Ocorrencia:
+    o = obter(db, Ocorrencia, oid, nome="Ocorrência")
+    obter(db, Aluno, o.aluno_id, ctx.estabelecimento_id, "Ocorrência")
+    _aluno_permitido(db, ctx, o.aluno_id)
+    return o
+
+
+@router.post("/ocorrencias/{oid}/imagens", response_model=R.OcorrenciaImagem, status_code=201,
+             summary="Anexa uma fotografia à ocorrência (JPG, PNG ou WEBP)")
+async def anexar_imagem(oid: int, ficheiro: UploadFile = File(..., description="Imagem (JPEG, PNG ou WEBP)"),
+                        ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
+    o = _ocorrencia(db, ctx, oid)
+    if not (ficheiro.content_type or "").startswith("image/"):
+        raise HTTPException(415, "Só se aceitam imagens (JPG, PNG ou WEBP)")
+    if db.scalar(select(func.count()).select_from(OcorrenciaImagem).where(OcorrenciaImagem.ocorrencia_id == oid)) >= MAX_IMAGENS:
+        raise HTTPException(409, f"A ocorrência já tem {MAX_IMAGENS} imagens")
+    chave = armazenamento.guardar(ctx.estabelecimento_id, "ocorrencias", await ficheiro.read(), ficheiro.content_type,
+                                  ficheiro.filename)
+    i = OcorrenciaImagem(ocorrencia_id=o.id, url=armazenamento.url(chave), nome=ficheiro.filename)
+    db.add(i)
+    auditar(db, ctx, "ocorrencia", o.id, "update", {"imagem": chave})
+    db.commit()
+    return as_dict(i)
+
+
+@router.delete("/ocorrencias/{oid}/imagens/{iid}", status_code=204, response_class=Response,
+               summary="Retira uma fotografia da ocorrência")
+def apagar_imagem(oid: int, iid: int, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
+    _ocorrencia(db, ctx, oid)
+    i = db.get(OcorrenciaImagem, iid)
+    if i is None or i.ocorrencia_id != oid:
+        raise HTTPException(404, "Imagem não encontrada")
+    db.delete(i)
+    auditar(db, ctx, "ocorrencia", oid, "update", {"imagem_retirada": i.url})
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.post("/registo-diario", response_model=R.RegistoDiario, status_code=201)
