@@ -51,6 +51,20 @@ Para usar o PostgreSQL local em vez de SQLite, crie a base (`createdb clacs`) e 
   secretaria comunica a vaga com um link → a família preenche os dados e carrega os documentos (sem conta) → a secretaria
   matricula (aluno, encarregado, documentos e matrícula de uma vez) → boas-vindas e welcome kit. Cada etapa só é aceite
   no estado certo e pelo perfil certo, fica no histórico e avisa a etapa seguinte por alerta.
+- **Secretaria** (`/api/documentos…`, `/api/modelos-declaracao`, `/api/secretaria/painel`): pedidos com estados
+  (recebido → em análise ↔ aguarda informação → aprovado/rejeitado → concluído), encaminhamento por serviço e prazo em
+  dias úteis; documentos exigidos por classe, validação (aceite/rejeitado) e lista do que falta, com aviso às famílias;
+  declarações por modelo editável; ficha confirmada pela família na renovação (pai, mãe e encarregado, sem apagar).
+- **Saúde escolar** (`/api/saude`, perfil «Saúde / enfermagem»): ocorrências com registo cronológico, contacto à
+  família e desfecho (encerradas não se alteram), instruções de medicação com receita e administração; cada consulta
+  fica na auditoria.
+- **Calendário e horários**: feriados e eventos, horários com histórico de versões, substituições, aulas previstas e
+  registadas com a chamada por tempo lectivo, assiduidade dos professores.
+- **Acordos e orçamento**: acordos de pagamento em prestações (suspendem multas, incumprimento, cumprido), multas por
+  escalões com memória de cálculo e isenção autorizada; orçamento por categoria/mês, despesas, previsão de receitas e
+  execução (previsto versus realizado).
+- **Cobertura do levantamento de requisitos**: `docs/requisitos-cobertura.md`, contada com
+  `python -m scripts.cobertura_requisitos`.
 - **Propinas e cobranças**: serviços, tabela de preços por ano/classe, planos, multas, descontos, métodos de pagamento; geração mensal idempotente; pagamentos parciais e por encarregado (salda as mais antigas primeiro); confirmar/rejeitar comprovativos; devedores; exportação Excel/CSV.
 - **Refeitório**: adesões (alimentação vs. só utilização), ementas, registo diário de refeições.
 - **Comunicação e regras**: modelos de mensagem com variáveis, regras sem programação (antes/depois do vencimento, dívida acima de X dias → alerta à Direcção, ocorrências), fila de mensagens sem repetições, comunicados por escola/classe/turma.

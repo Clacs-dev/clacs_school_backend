@@ -186,3 +186,31 @@ def test_coordenador_do_nivel_e_configuracao_google_forms(client, admin):
     assert cfg["segredo_configurado"] and "segredo-formulario-testes" in cfg["script"]
     assert cfg["script"].count("http://testserver/api/publico/candidaturas/google-forms") == 1
     assert "COLE_AQUI_O_SEGREDO" in _ok(client.get("/api/candidaturas/google-forms", headers=coord))["script"]
+
+
+def test_editar_pre_inscricao_avisa_o_novo_nivel_e_fecha_apos_validar(client, admin):
+    turma = _turma_com_vaga(client, admin)
+    com_vaga = {t["classe_id"] for t in client.get("/api/turmas", headers=admin).json() if not t["cheia"]}
+    destino = next(c for c in client.get("/api/classes", headers=admin).json()
+                   if c["id"] in com_vaga and c["id"] != turma["classe_id"])
+    c = _ok(client.post("/api/candidaturas", headers=admin, json={
+        "nome_aluno": "Nome a Corrigir", "nome_encarregado": "Mãe Corrigida", "email": "corrigir@teste.ao",
+        "classe_id": turma["classe_id"]}), 201)
+    url = f"/api/candidaturas/{c['id']}"
+
+    # a secretaria corrige o nome e muda a classe: a coordenação do novo nível é avisada
+    d = _ok(client.patch(url, headers=admin, json={"nome_aluno": "Nome Corrigido", "classe_id": destino["id"],
+                                                   "telefone": "+244923000111"}))
+    assert (d["nome_aluno"], d["classe_id"], d["telefone"]) == ("Nome Corrigido", destino["id"], "+244923000111")
+    assert d["nivel"]
+    abertos = [a for a in client.get("/api/alertas", headers=admin, params={"tipo": "candidatura"}).json()
+               if a["dados"]["candidatura_id"] == c["id"] and a["estado"] in ("novo", "visto")]
+    assert [a["dados"]["para"] for a in abertos] == ["coordenacao"] and destino["designacao"] in abertos[0]["mensagem"]
+
+    # validada a candidatura, a classe e o ano já não mudam; os restantes dados ainda podem ser corrigidos
+    _ok(client.post(f"{url}/reuniao", headers=admin, json={"reuniao_em": "2026-11-15T09:00:00"}))
+    _ok(client.post(f"{url}/avaliacao", headers=admin, json={"avaliacao": "Reunião realizada."}))
+    _ok(client.post(f"{url}/validar", headers=admin, json={}))
+    assert client.patch(url, headers=admin, json={"classe_id": turma["classe_id"]}).status_code == 409
+    assert _ok(client.patch(url, headers=admin, json={"observacoes": "Irmão já estuda no colégio."}))["observacoes"] \
+        == "Irmão já estuda no colégio."

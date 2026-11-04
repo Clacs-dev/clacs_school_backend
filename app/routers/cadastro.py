@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, func, select, update
@@ -209,7 +209,8 @@ def desligar_encarregado(aid: int, eid: int, ctx: Contexto = Depends(editar), db
 @router.post("/alunos/{aid}/documentos", response_model=R.DocumentoAluno, status_code=201)
 def anexar_documento(aid: int, dados: DocumentoIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
-    d = DocumentoAluno(aluno_id=aid, **dados.model_dump())
+    d = DocumentoAluno(aluno_id=aid, **dados.model_dump(), estado="aceite", validado_por=ctx.id,
+                       validado_em=datetime.now(timezone.utc))
     db.add(d)
     db.commit()
     return as_dict(d)

@@ -43,7 +43,9 @@ from app.models import AnoLectivo, DocumentoFiscal, Matricula, ResultadoFinal  #
 from scripts.seed import base, demo  # noqa: E402
 
 MAX_ITENS = 2  # listas de registos encurtadas para o exemplo ficar legível
-FILTROS = {"/api/avaliacoes": {"turma_id": 1}, "/api/pautas": {"turma_id": 1, "periodo_id": 1},
+FILTROS = {"/api/aulas": {"data": "2026-11-02"}, "/api/assiduidade/relatorio": {"turma_id": 1, "desde": "2026-11-01", "ate": "2026-11-30"},
+           "/api/professores/assiduidade": {"desde": "2026-11-02", "ate": "2026-11-02"},
+           "/api/avaliacoes": {"turma_id": 1}, "/api/pautas": {"turma_id": 1, "periodo_id": 1},
            "/api/registo-diario": {"turma_id": 1, "data": "2026-10-20"},
            "/api/refeitorio/registos": {"data": "2026-10-20"},
            "/api/turmas/sugestao": {"turma_id": 1}, "/api/pautas/final": {"turma_id": 1},
@@ -61,7 +63,13 @@ POVOAR = [("POST", "/api/comunicados", S.ComunicadoIn), ("POST", "/api/alunos/1/
           ("POST", "/api/avaliacoes", S.AvaliacaoIn), ("PUT", "/api/turmas/2/atribuicoes", S.AtribuicaoIn),
           ("POST", "/api/portal/avaliacoes-professores", S.AvaliacaoProfessorIn),
           ("POST", "/api/transporte/viaturas", S.ViaturaIn), ("POST", "/api/transporte/rotas", S.RotaIn),
-          ("POST", "/api/transporte/inscricoes", S.InscricaoTransporteIn), ("POST", "/api/candidaturas", S.CandidaturaIn)]
+          ("POST", "/api/transporte/inscricoes", S.InscricaoTransporteIn), ("POST", "/api/candidaturas", S.CandidaturaIn),
+          ("POST", "/api/saude/ocorrencias", S.OcorrenciaSaudeIn), ("POST", "/api/saude/medicacao", S.MedicacaoIn),
+          ("POST", "/api/acordos-modelos", S.AcordoModeloIn), ("POST", "/api/acordos", S.AcordoIn),
+          ("POST", "/api/orcamentos", S.OrcamentoIn), ("POST", "/api/orcamentos/1/linhas", S.OrcamentoLinhaIn),
+          ("POST", "/api/despesas", S.DespesaIn), ("POST", "/api/eventos", S.EventoIn), ("POST", "/api/horarios", S.HorarioIn),
+          ("POST", "/api/substituicoes", S.SubstituicaoIn), ("POST", "/api/aulas/registar", S.AulaRegistoIn),
+          ("POST", "/api/modelos-declaracao", S.ModeloDeclaracaoIn), ("POST", "/api/documentos-exigidos", S.DocumentoExigidoIn)]
 
 PDF = ("comprovativo.pdf", b"%PDF-1.4\n%exemplo\n", "application/pdf")
 CSV_ALUNOS = ("nome_completo;numero_processo;data_nascimento;sexo;bi_numero;turma;encarregado_nif;encarregado_nome;"
@@ -158,7 +166,63 @@ CSV_FORMS = ("Carimbo de data/hora,Nome completo do aluno,Data de nascimento,Cla
 
 
 # Rotas que precisam de preparação ou de outros dados além do pedido de exemplo e do id 1.
+def _pedido(pedir, **corpo):
+    return pedir("POST", "/api/portal/pedidos", portal=True, json=corpo).json()["id"]
+
+
+def _prestacoes(pedir):
+    total = pedir("GET", "/api/acordos/1").json()["valor_total"]
+    metade = round(total / 2, 2)
+    return pedir("PUT", "/api/acordos/1/prestacoes", json={"motivo": "Pedido do encarregado: adiar a 2.ª prestação", "prestacoes": [
+        {"valor": metade, "vencimento": "2026-12-10"}, {"valor": round(total - metade, 2), "vencimento": "2027-02-10"}]})
+
+
+def _documento_portal(pedir):
+    return pedir("POST", "/api/portal/educandos/1/documentos", portal=True, data={"tipo": "boletim_vacinas"},
+                 files={"ficheiro": ("boletim.pdf", PDF[1], PDF[2])})
+
+
 ESPECIAIS = {
+    "POST /api/horarios": lambda pedir: pedir("POST", "/api/horarios", json={
+        **S.EXEMPLOS[S.HorarioIn], "tempo": 2, "hora_inicio": "08:20:00", "hora_fim": "09:05:00"}),
+    "POST /api/acordos": lambda pedir: (pedir("POST", "/api/acordos/1/cancelar", json=S.EXEMPLOS[S.MotivoIn]),
+                                         pedir("POST", "/api/acordos", json=S.EXEMPLOS[S.AcordoIn]))[1],
+    "POST /api/orcamentos": lambda pedir: pedir("POST", "/api/orcamentos", json={
+        **S.EXEMPLOS[S.OrcamentoIn], "designacao": "Orçamento rectificativo 2026/2027"}),
+    "POST /api/documentos-exigidos": lambda pedir: pedir("POST", "/api/documentos-exigidos", json={
+        **S.EXEMPLOS[S.DocumentoExigidoIn], "tipo": "atestado_robustez", "nome": "Atestado de robustez física"}),
+    "POST /api/modelos-declaracao": lambda pedir: pedir("POST", "/api/modelos-declaracao", json={
+        **S.EXEMPLOS[S.ModeloDeclaracaoIn], "codigo": "abono_2"}),
+    "GET /api/portal/educandos/{aid}/horario": lambda pedir: (  # o aluno 1 passou para a turma 2 em POVOAR
+        pedir("POST", "/api/horarios", json={**S.EXEMPLOS[S.HorarioIn], "turma_id": 2, "funcionario_id": None, "sala_id": None}),
+        pedir("GET", "/api/portal/educandos/1/horario", portal=True))[1],
+    "GET /api/contactos/avisos": lambda pedir: (pedir("PATCH", "/api/encarregados/1", json={"email": None}),
+                                              pedir("GET", "/api/contactos/avisos"))[1],
+    "POST /api/pedidos/{pid}/concluir": lambda pedir: pedir(
+        "POST", f"/api/pedidos/{_pedido(pedir, tipo='financeiro', assunto='Propina de Outubro', mensagem='Já paguei.')}/concluir",
+        json=S.EXEMPLOS[S.ConcluirIn]),
+    "POST /api/portal/pedidos/{pid}/responder": lambda pedir: (
+        pedir("POST", "/api/pedidos/1/pedir-informacao", json=S.EXEMPLOS[S.MensagemPedidoIn]),
+        pedir("POST", "/api/portal/pedidos/1/responder", portal=True, json={"mensagem": "A avó vem buscá-lo às 15h."}))[1],
+    "POST /api/portal/pedidos/{pid}/anexos": lambda pedir: pedir(
+        "POST", "/api/portal/pedidos/1/anexos", portal=True, files={"ficheiro": ("atestado.pdf", PDF[1], PDF[2])}),
+    "POST /api/portal/educandos/{aid}/documentos": _documento_portal,
+    "POST /api/alunos/{aid}/documentos/{did}/validar": lambda pedir: pedir(
+        "POST", f"/api/alunos/1/documentos/{_documento_portal(pedir).json()['id']}/validar", json=S.EXEMPLOS[S.ValidarDocumentoIn]),
+    "GET /api/documentos": lambda pedir: (_documento_portal(pedir), pedir("GET", "/api/documentos"))[1],
+    "POST /api/portal/educandos/{aid}/medicacao": lambda pedir: pedir(
+        "POST", "/api/portal/educandos/1/medicacao", portal=True, files={"receita": ("receita.pdf", PDF[1], PDF[2])},
+        data={"medicamento": "Paracetamol xarope", "dose": "5 ml", "horario": "Se febre acima de 38 graus",
+              "data_inicio": "2026-11-04", "data_fim": "2026-11-08", "confirmo": "true"}),
+    "POST /api/saude/medicacao/{mid}/administracoes": lambda pedir: (
+        pedir("POST", "/api/saude/medicacao/1/decidir", json={"autorizar": True}),
+        pedir("POST", "/api/saude/medicacao/1/administracoes", json=S.EXEMPLOS[S.AdministracaoIn]))[1],
+    "POST /api/saude/medicacao/{mid}/terminar": lambda pedir: (
+        pedir("POST", "/api/saude/medicacao/1/decidir", json={"autorizar": True}),
+        pedir("POST", "/api/saude/medicacao/1/terminar"))[1],
+    "PUT /api/acordos/{aid}/prestacoes": _prestacoes,
+    "GET /api/portal/acordos": lambda pedir: (pedir("POST", "/api/acordos/1/aprovar"),
+                                              pedir("GET", "/api/portal/acordos", portal=True))[1],
     "POST /api/auth/login": lambda pedir: pedir("POST", "/api/auth/login", anonimo=True,
                                                 data={"username": "admin@clacs.ao", "password": SENHA}),
     "POST /api/anos-lectivos/{ano_id}/periodos": lambda pedir: pedir(

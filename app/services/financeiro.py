@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.common import ano_activo, dinheiro, soma_meses
 from app.models import (
-    AdesaoServico, Alerta, Aluno, AlunoEncarregado, Classe, Cobranca, Desconto, Encarregado, Matricula,
+    AcordoCobranca, AcordoPagamento, AdesaoServico, Alerta, Aluno, AlunoEncarregado, Classe, Cobranca, Desconto, Encarregado, Matricula,
     MatriculaDesconto, Mensagem, MetodoPagamento, MultaRegra, Pagamento, PagamentoAlocacao, Parametro,
     PlanoPagamento, RegraAutomacao, Servico, TabelaPreco, Turma,
 )
@@ -517,24 +517,55 @@ def mudar_estado_pagamento(db: Session, pg: Pagamento, estado: str, tratado_por:
     db.commit()
 
 
+def _cobrancas_em_acordo(db: Session, est: int) -> set[int]:
+    """Cobranças de acordos de pagamento vigentes que suspendem as multas."""
+    return set(db.scalars(select(AcordoCobranca.cobranca_id).join(AcordoPagamento, AcordoPagamento.id == AcordoCobranca.acordo_id)
+                          .where(AcordoPagamento.estabelecimento_id == est,
+                                 AcordoPagamento.estado.in_(("proposto", "activo")), AcordoPagamento.suspende_multas)))
+
+
+def calcular_multa(regra: MultaRegra, c: Cobranca, hoje: date) -> tuple[Decimal, dict] | None:
+    """Multa devida hoje segundo a regra (por escalões de dias de atraso, se definidos) e a memória de cálculo."""
+    dias = (hoje - c.vencimento).days
+    if regra.escaloes:
+        escalao = max((e for e in regra.escaloes if dias >= e["desde_dias"]), key=lambda e: e["desde_dias"], default=None)
+        if escalao is None:
+            return None
+        pct = Decimal(str(escalao["percentual"]))
+        multa, regra_txt = c.valor_base * pct / 100, f"{pct:g}% a partir de {escalao['desde_dias']} dia(s) de atraso"
+    else:
+        if dias <= regra.dias_tolerancia:
+            return None
+        pct = regra.valor if regra.tipo == "percentual" else None
+        multa = c.valor_base * regra.valor / 100 if pct is not None else regra.valor
+        regra_txt = (f"{regra.valor:g}%" if pct is not None else f"{regra.valor:g} Kz fixos") + \
+            f" depois de {regra.dias_tolerancia} dia(s) de tolerância"
+    if regra.maximo is not None:
+        multa = min(multa, regra.maximo)
+    multa = multa.quantize(CENT, ROUND_HALF_UP)
+    return multa, {"base": float(c.valor_base), "percentual": float(pct) if pct is not None else None, "regra": regra_txt,
+                   "vencimento": c.vencimento.isoformat(), "dias_atraso": dias, "calculada_em": hoje.isoformat(),
+                   "maximo": float(regra.maximo) if regra.maximo is not None else None, "valor": float(multa)}
+
+
 def aplicar_multas(db: Session, est: int, hoje: date | None = None) -> int:
+    """Aplica a multa devida a cada cobrança em atraso. Nunca baixa nem soma duas vezes (recalcular não duplica);
+    salta as isentas e as que estão num acordo de pagamento que suspende multas."""
     hoje = hoje or date.today()
     regras = db.scalars(select(MultaRegra).where(MultaRegra.estabelecimento_id == est)).all()
     if not regras:
         return 0
+    suspensas = _cobrancas_em_acordo(db, est)
     alteradas = 0
     for c in db.scalars(select(Cobranca).where(Cobranca.estabelecimento_id == est,
                                                Cobranca.estado.in_(ABERTAS), Cobranca.vencimento < hoje)):
+        if c.multa_isenta or c.id in suspensas:
+            continue
         regra = next((r for r in regras if r.servico_id == c.servico_id), None) or \
                 next((r for r in regras if r.servico_id is None), None)
-        if regra is None or (hoje - c.vencimento).days <= regra.dias_tolerancia:
-            continue
-        multa = c.valor_base * regra.valor / 100 if regra.tipo == "percentual" else regra.valor
-        if regra.maximo is not None:
-            multa = min(multa, regra.maximo)
-        multa = multa.quantize(CENT, ROUND_HALF_UP)
-        if multa > c.valor_multa:
-            c.valor_multa = multa
+        calculo = regra and calcular_multa(regra, c, hoje)
+        if calculo and calculo[0] > c.valor_multa:
+            c.valor_multa, c.multa_calculo = calculo
             alteradas += 1
     db.commit()
     return alteradas

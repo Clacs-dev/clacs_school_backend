@@ -15,7 +15,7 @@ from app.models import AuditoriaLog, Perfil, PerfilPermissao, Permissao, Utiliza
 oauth2 = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 MODULOS = ("painel", "cadastro", "academico", "propinas", "refeitorio", "pedagogico",
-           "comunicacao", "primavera", "utilizadores", "importacao", "transporte", "candidaturas")
+           "comunicacao", "primavera", "utilizadores", "importacao", "transporte", "candidaturas", "saude")
 ACCOES = ("ver", "criar", "editar", "apagar", "exportar")
 TUDO = {m: ACCOES for m in MODULOS}
 
@@ -35,9 +35,12 @@ MATRIZ: dict[str, dict[str, tuple[str, ...]]] = {
     "coordenacao": {
         "painel": ("ver",), "pedagogico": ACCOES, "cadastro": ("ver",),
         "academico": ("ver", "criar", "editar"), "comunicacao": ("ver", "criar"),
-        "candidaturas": ("ver", "criar", "editar"),
+        "candidaturas": ("ver", "criar", "editar"), "saude": ("ver", "criar"),
     },
-    "professor": {"pedagogico": ("ver", "criar", "editar"), "cadastro": ("ver",), "academico": ("ver",)},
+    "professor": {"pedagogico": ("ver", "criar", "editar"), "cadastro": ("ver",), "academico": ("ver",),
+                  "saude": ("criar",)},   # o professor regista o incidente; não consulta o histórico de saúde
+    # Responsável de saúde/enfermagem: o único perfil (além da Direcção) com acesso completo aos dados de saúde.
+    "saude": {"saude": ACCOES, "cadastro": ("ver",)},
     "encarregado": {},
 }
 

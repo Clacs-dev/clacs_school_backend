@@ -179,7 +179,7 @@ def chamada(dados: AssiduidadeIn, ctx: Contexto = Depends(criar), db: Session = 
         if r.aluno_id not in da_turma:
             raise HTTPException(422, f"O aluno {r.aluno_id} não pertence à turma")
         stmt = select(Assiduidade).where(Assiduidade.aluno_id == r.aluno_id, Assiduidade.turma_id == dados.turma_id,
-                                         Assiduidade.data == dados.data)
+                                         Assiduidade.data == dados.data, Assiduidade.horario_id.is_(None))
         stmt = stmt.where(Assiduidade.disciplina_id == dados.disciplina_id) if dados.disciplina_id \
             else stmt.where(Assiduidade.disciplina_id.is_(None))
         a = db.scalar(stmt) or Assiduidade(aluno_id=r.aluno_id, turma_id=dados.turma_id,

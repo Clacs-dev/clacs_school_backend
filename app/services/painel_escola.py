@@ -89,7 +89,7 @@ def resumo(db: Session, est: int, hoje: date, taxa_por_turma: dict[int, float]) 
         "faltas_injustificadas": injustificadas, "dias_faltas": DIAS_FALTAS,
         "ocorrencias_abertas": sum(abertas.values()), "ocorrencias_graves": graves,
         "pedidos_pendentes": db.scalar(select(func.count()).select_from(Pedido).where(
-            Pedido.estabelecimento_id == est, Pedido.estado == "pendente")) or 0,
+            Pedido.estabelecimento_id == est, Pedido.estado.in_(("pendente", "em_analise", "aguarda_informacao")))) or 0,
         "avaliacao_professores": round(float(aval), 1) if aval is not None else None,
     }
     return escola, linhas

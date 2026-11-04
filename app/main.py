@@ -12,8 +12,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from app import agendador, arranque
 from app.config import get_settings
 from app.routers import (
-    academico, auth, cadastro, candidaturas, comunicacao, documentos, financeiro, importacao, painel, pedagogico,
-    pedidos, portal, primavera, refeitorio, transporte,
+    academico, acordos, auth, cadastro, calendario, candidaturas, orcamento, comunicacao, documentos, financeiro, importacao, painel, pedagogico,
+    pedidos, portal, primavera, refeitorio, saude, secretaria, transporte,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -72,6 +72,14 @@ TAGS = [
                                           "e lista de passageiros."},
     {"name": "Pedidos do encarregado", "description": "Vaga, matrícula, transferência, declaração e justificação de "
                                                        "falta: o encarregado pede no portal, a escola aprova ou rejeita."},
+    {"name": "Secretaria", "description": "Validação e documentos em falta, documentos exigidos, modelos de "
+                                         "declaração, declarações, contactos e o painel da secretaria."},
+    {"name": "Saúde escolar", "description": "Ocorrências de saúde com registo cronológico, instruções de medicação "
+                                            "e administração. Acesso restrito; cada consulta fica na auditoria."},
+    {"name": "Orçamento e despesas", "description": "Orçamento por categoria e mês, despesas, previsão de receitas "
+                                                   "e execução (previsto versus realizado, desvios)."},
+    {"name": "Calendário e horários", "description": "Feriados e eventos, horários com histórico, substituições, "
+                                                    "aulas registadas com a chamada por tempo e assiduidade docente."},
     {"name": "Candidaturas e admissões", "description": "Pré-inscrição pelo Google Forms, coordenação (reunião, "
                                                           "avaliação, validação), Direcção, secretaria, formalização "
                                                           "pela família, matrícula e boas-vindas."},
@@ -115,8 +123,8 @@ app.add_middleware(CORSMiddleware, allow_origins=origens, allow_credentials="*" 
                    allow_methods=["*"], allow_headers=["*"], expose_headers=["Content-Disposition", "X-2FA"])
 
 
-for r in (auth, academico, cadastro, financeiro, refeitorio, comunicacao, pedagogico, painel, primavera,
-          importacao, documentos, pedidos, transporte, candidaturas, portal):
+for r in (auth, academico, calendario, cadastro, financeiro, acordos, orcamento, refeitorio, comunicacao, pedagogico, painel, primavera,
+          importacao, documentos, pedidos, secretaria, saude, transporte, candidaturas, portal):
     app.include_router(r.router)
 app.include_router(candidaturas.publico)
 app.include_router(portal.extra)

@@ -195,7 +195,8 @@ NOMES_MODULOS = {
     "painel": "Painel e alertas", "cadastro": "Alunos e encarregados", "academico": "Estrutura académica",
     "propinas": "Propinas e pagamentos", "refeitorio": "Refeitório", "pedagogico": "Pedagógico",
     "comunicacao": "Comunicação", "primavera": "Primavera", "utilizadores": "Utilizadores e permissões",
-    "importacao": "Importação de dados", "transporte": "Transporte",
+    "importacao": "Importação de dados", "transporte": "Transporte", "candidaturas": "Candidaturas",
+    "saude": "Saúde escolar (acesso restrito)",
 }
 NOMES_ACCOES = {"ver": "Ver", "criar": "Criar", "editar": "Editar", "apagar": "Apagar", "exportar": "Exportar"}
 

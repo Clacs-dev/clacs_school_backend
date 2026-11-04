@@ -277,12 +277,43 @@ class AlunoEncarregado(Base):
 
 class DocumentoAluno(Base):
     __tablename__ = "documento_aluno"
+    __table_args__ = (ck_in("estado", "recebido", "aceite", "rejeitado"),)
     id: Mapped[int] = pk()
     aluno_id: Mapped[int] = fk("aluno.id", ondelete="CASCADE")
     tipo: Mapped[str] = mapped_column(Text)
     ficheiro_url: Mapped[str] = mapped_column(Text)
     validade: Mapped[date | None] = mapped_column(Date)
+    # validação pela secretaria: recebido (por validar) → aceite ou rejeitado (com o motivo)
+    estado: Mapped[str] = mapped_column(Text, server_default="recebido")
+    observacao: Mapped[str | None] = mapped_column(Text)
+    validado_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+    validado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     criado_em: Mapped[datetime] = criado_em()
+
+
+class DocumentoExigido(Base):
+    """Documento que a escola pede a cada aluno (de todas as classes ou só de uma)."""
+    __tablename__ = "documento_exigido"
+    __table_args__ = (UniqueConstraint("estabelecimento_id", "tipo", "classe_id"),)
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    tipo: Mapped[str] = mapped_column(Text)          # código guardado em documento_aluno.tipo, ex.: cedula_bi
+    nome: Mapped[str] = mapped_column(Text)
+    classe_id: Mapped[int | None] = fk("classe.id", nullable=True)   # vazio = todas as classes
+    obrigatorio: Mapped[bool] = mapped_column(Boolean, server_default=true())
+    activo: Mapped[bool] = mapped_column(Boolean, server_default=true())
+
+
+class ModeloDeclaracao(Base):
+    """Texto de uma declaração da secretaria, com variáveis ({nome}, {classe}…) preenchidas a partir do cadastro."""
+    __tablename__ = "modelo_declaracao"
+    __table_args__ = (UniqueConstraint("estabelecimento_id", "codigo"),)
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    codigo: Mapped[str] = mapped_column(Text)
+    nome: Mapped[str] = mapped_column(Text)
+    texto: Mapped[str] = mapped_column(Text)
+    activo: Mapped[bool] = mapped_column(Boolean, server_default=true())
 
 
 class Matricula(Base):
@@ -368,7 +399,7 @@ class UtilizadorPerfil(Base):
 class AuditoriaLog(Base):
     __tablename__ = "auditoria_log"
     __table_args__ = (
-        ck_in("accao", "insert", "update", "delete", "login", "export"),
+        ck_in("accao", "insert", "update", "delete", "login", "export", "view", "notify"),
         Index("ix_auditoria_tabela", "tabela", "registo_id"),
         Index("ix_auditoria_data", text("criado_em DESC")),
     )
@@ -445,6 +476,9 @@ class MultaRegra(Base):
     tipo: Mapped[str] = mapped_column(Text)
     valor: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     maximo: Mapped[Decimal | None] = mapped_column(Money)
+    # Escalões por dias de atraso, ex.: [{"desde_dias": 1, "percentual": 5}, {"desde_dias": 11, "percentual": 10}];
+    # quando existem, substituem o valor fixo/percentual acima.
+    escaloes: Mapped[list | None] = mapped_column(JSONType)
 
 
 class Desconto(Base):
@@ -525,6 +559,10 @@ class Cobranca(Base):
     vencimento: Mapped[date] = mapped_column(Date)
     estado: Mapped[str] = mapped_column(Text, server_default="pendente")
     documento_fiscal_id: Mapped[int | None] = fk("documento_fiscal.id", nullable=True)
+    multa_calculo: Mapped[dict | None] = mapped_column(JSONType)     # base, escalão, %, dias de atraso, data, valor
+    multa_isenta: Mapped[bool] = mapped_column(Boolean, server_default=false())
+    multa_isencao_motivo: Mapped[str | None] = mapped_column(Text)
+    multa_isencao_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
     criado_em: Mapped[datetime] = criado_em()
     actualizado_em: Mapped[datetime] = actualizado_em()
 
@@ -842,7 +880,7 @@ class ResultadoFinal(Base):
 class Assiduidade(Base):
     __tablename__ = "assiduidade"
     __table_args__ = (
-        UniqueConstraint("aluno_id", "turma_id", "disciplina_id", "data"),
+        UniqueConstraint("aluno_id", "turma_id", "disciplina_id", "data", "horario_id"),
         ck_in("estado", "presente", "falta_justificada", "falta_injustificada", "atraso"),
     )
     id: Mapped[int] = pk()
@@ -850,9 +888,15 @@ class Assiduidade(Base):
     turma_id: Mapped[int] = fk("turma.id")
     disciplina_id: Mapped[int | None] = fk("disciplina.id", nullable=True)
     data: Mapped[date] = mapped_column(Date)
+    horario_id: Mapped[int | None] = fk("horario.id", nullable=True)   # a aula (tempo) em que foi registada
     estado: Mapped[str] = mapped_column(Text)
     justificacao: Mapped[str | None] = mapped_column(Text)
     registada_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+    # justificação: o registo do professor fica em estado_original; a decisão acrescenta-se ao lado
+    estado_original: Mapped[str | None] = mapped_column(Text)
+    pedido_id: Mapped[int | None] = fk("pedido.id", nullable=True)
+    justificada_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+    justificada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class TipoOcorrencia(Base):
@@ -984,7 +1028,11 @@ class AvaliacaoProfessor(Base):
     criado_em: Mapped[datetime] = criado_em()
 
 
-TIPOS_PEDIDO = ("vaga", "matricula", "transferencia", "declaracao", "justificacao_falta")
+TIPOS_PEDIDO = ("vaga", "matricula", "transferencia", "declaracao", "justificacao_falta", "saida_antecipada", "informacao",
+                "financeiro", "saude", "outro")
+# recebido (pendente) → em análise ↔ aguarda informação da família → aprovado/rejeitado → concluído (ex.: entregue)
+ESTADOS_PEDIDO = ("pendente", "em_analise", "aguarda_informacao", "aprovado", "rejeitado", "concluido", "cancelado")
+SERVICOS_PEDIDO = ("secretaria", "coordenacao", "tesouraria", "direccao", "saude")
 
 
 class Pedido(Base):
@@ -992,7 +1040,8 @@ class Pedido(Base):
     __tablename__ = "pedido"
     __table_args__ = (
         ck_in("tipo", *TIPOS_PEDIDO),
-        ck_in("estado", "pendente", "aprovado", "rejeitado", "cancelado"),
+        ck_in("estado", *ESTADOS_PEDIDO),
+        ck_in("servico", *SERVICOS_PEDIDO),
         Index("ix_pedido_estado", "estabelecimento_id", "estado"),
     )
     id: Mapped[int] = pk()
@@ -1004,6 +1053,8 @@ class Pedido(Base):
     estado: Mapped[str] = mapped_column(Text, server_default="pendente")
     resposta: Mapped[str | None] = mapped_column(Text)
     resultado: Mapped[dict | None] = mapped_column(JSONType)      # o que a aprovação fez (matrícula, turma…)
+    servico: Mapped[str] = mapped_column(Text, server_default="secretaria")   # quem trata: encaminhável
+    historico: Mapped[list | None] = mapped_column(JSONType)      # [{em, estado, por, autor, nota}]
     decidido_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
     decidido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     criado_em: Mapped[datetime] = criado_em()
@@ -1014,7 +1065,7 @@ class Alerta(Base):
     __table_args__ = (
         ck_in("tipo", "risco_incumprimento", "queda_desempenho", "padrao_faltas",
               "divergencia_primavera", "comportamento", "comprovativo_pagamento", "pedido_encarregado",
-              "candidatura"),
+              "candidatura", "saude"),
         ck_in("gravidade", "baixa", "media", "alta"),
         ck_in("estado", "novo", "visto", "tratado", "descartado"),
         Index("ix_alerta_aberto", "estabelecimento_id", "tipo",
@@ -1154,6 +1205,236 @@ class CandidaturaDocumento(Base):
     ficheiro_url: Mapped[str] = mapped_column(Text)
     criado_em: Mapped[datetime] = criado_em()
 
+
+# =====================================================================
+# 11. SAÚDE ESCOLAR (acesso restrito: módulo "saude")
+# =====================================================================
+class OcorrenciaSaude(Base):
+    """Incidente de saúde: o que se observou, o que se fez, contacto à família e desfecho. Encerrada não se altera:
+    só se acrescentam notas."""
+    __tablename__ = "ocorrencia_saude"
+    __table_args__ = (ck_in("estado", "aberta", "encerrada"),
+                      ck_in("desfecho", "ficou_na_escola", "recolhido", "encaminhado"))
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    aluno_id: Mapped[int] = fk("aluno.id", index=True)
+    data_hora: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    local: Mapped[str | None] = mapped_column(Text)
+    descricao: Mapped[str] = mapped_column(Text)                 # factual
+    sinais: Mapped[str | None] = mapped_column(Text)
+    medidas: Mapped[str | None] = mapped_column(Text)            # primeiros socorros, medicação dada…
+    encaminhamento: Mapped[str | None] = mapped_column(Text)
+    desfecho: Mapped[str | None] = mapped_column(Text)
+    partilhada: Mapped[bool] = mapped_column(Boolean, server_default=false())   # visível no portal da família
+    estado: Mapped[str] = mapped_column(Text, server_default="aberta")
+    registada_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+    encerrada_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+    encerrada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    criado_em: Mapped[datetime] = criado_em()
+
+
+class OcorrenciaSaudeNota(Base):
+    """Registo cronológico da ocorrência: notas, contactos com a família e alterações."""
+    __tablename__ = "ocorrencia_saude_nota"
+    __table_args__ = (ck_in("tipo", "nota", "contacto_familia", "alteracao"),)
+    id: Mapped[int] = pk()
+    ocorrencia_id: Mapped[int] = fk("ocorrencia_saude.id", ondelete="CASCADE", index=True)
+    tipo: Mapped[str] = mapped_column(Text)
+    texto: Mapped[str] = mapped_column(Text)
+    canal: Mapped[str | None] = mapped_column(Text)              # contacto: telefone, WhatsApp, presencial…
+    contactado: Mapped[str | None] = mapped_column(Text)
+    orientacao: Mapped[str | None] = mapped_column(Text)         # o que a família indicou
+    por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+    em: Mapped[datetime] = criado_em()
+
+
+class MedicacaoInstrucao(Base):
+    """Instrução escrita do encarregado (ou registada pela escola), com receita; só se administra depois de autorizada."""
+    __tablename__ = "medicacao_instrucao"
+    __table_args__ = (ck_in("estado", "pendente", "autorizada", "recusada", "terminada"),)
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    aluno_id: Mapped[int] = fk("aluno.id", index=True)
+    medicamento: Mapped[str] = mapped_column(Text)
+    dose: Mapped[str] = mapped_column(Text)
+    horario: Mapped[str] = mapped_column(Text)                   # ex.: "12:30" ou "se tiver febre acima de 38 graus"
+    data_inicio: Mapped[date] = mapped_column(Date)
+    data_fim: Mapped[date | None] = mapped_column(Date)
+    instrucoes: Mapped[str | None] = mapped_column(Text)
+    receita_url: Mapped[str | None] = mapped_column(Text)
+    encarregado_id: Mapped[int | None] = fk("encarregado.id", nullable=True)
+    confirmada_pela_familia: Mapped[bool] = mapped_column(Boolean, server_default=false())
+    estado: Mapped[str] = mapped_column(Text, server_default="pendente")
+    motivo: Mapped[str | None] = mapped_column(Text)
+    validada_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+    validada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    criado_em: Mapped[datetime] = criado_em()
+
+
+class MedicacaoAdministracao(Base):
+    __tablename__ = "medicacao_administracao"
+    id: Mapped[int] = pk()
+    instrucao_id: Mapped[int] = fk("medicacao_instrucao.id", ondelete="CASCADE", index=True)
+    administrada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    dose: Mapped[str] = mapped_column(Text)
+    administrada: Mapped[bool] = mapped_column(Boolean, server_default=true())   # falso = não tomou (recusou…)
+    observacao: Mapped[str | None] = mapped_column(Text)
+    por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+
+
+# =====================================================================
+# 12. ACORDOS DE PAGAMENTO
+# =====================================================================
+class AcordoModelo(Base):
+    __tablename__ = "acordo_modelo"
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    nome: Mapped[str] = mapped_column(Text)
+    num_prestacoes: Mapped[int] = mapped_column(SmallInteger)
+    intervalo_meses: Mapped[int] = mapped_column(SmallInteger, server_default="1")
+    entrada_percentual: Mapped[Decimal] = mapped_column(Numeric(5, 2), server_default="0")
+    suspende_multas: Mapped[bool] = mapped_column(Boolean, server_default=true())
+    activo: Mapped[bool] = mapped_column(Boolean, server_default=true())
+
+
+class AcordoPagamento(Base):
+    """Acordo para pagar dívidas em prestações. O que se paga às cobranças do acordo depois de criado abate as
+    prestações por ordem; uma prestação vencida e não coberta deixa o acordo em incumprimento."""
+    __tablename__ = "acordo_pagamento"
+    __table_args__ = (ck_in("estado", "proposto", "activo", "cumprido", "cancelado"),)
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    encarregado_id: Mapped[int] = fk("encarregado.id")
+    aluno_id: Mapped[int | None] = fk("aluno.id", nullable=True)
+    modelo_id: Mapped[int | None] = fk("acordo_modelo.id", nullable=True)
+    motivo: Mapped[str] = mapped_column(Text)
+    valor_total: Mapped[Decimal] = mapped_column(Money)
+    pago_inicial: Mapped[Decimal] = mapped_column(Money, server_default="0")   # já pago às cobranças antes do acordo
+    suspende_multas: Mapped[bool] = mapped_column(Boolean, server_default=true())
+    estado: Mapped[str] = mapped_column(Text, server_default="proposto")
+    criado_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+    aprovado_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+    aprovado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    historico: Mapped[list | None] = mapped_column(JSONType)
+    criado_em: Mapped[datetime] = criado_em()
+
+
+class AcordoCobranca(Base):
+    __tablename__ = "acordo_cobranca"
+    acordo_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("acordo_pagamento.id", ondelete="CASCADE"), primary_key=True)
+    cobranca_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("cobranca.id"), primary_key=True)
+
+
+class AcordoPrestacao(Base):
+    __tablename__ = "acordo_prestacao"
+    id: Mapped[int] = pk()
+    acordo_id: Mapped[int] = fk("acordo_pagamento.id", ondelete="CASCADE", index=True)
+    numero: Mapped[int] = mapped_column(SmallInteger)
+    valor: Mapped[Decimal] = mapped_column(Money)
+    vencimento: Mapped[date] = mapped_column(Date)
+
+
+# =====================================================================
+# 13. ORÇAMENTO E DESPESAS
+# =====================================================================
+class Orcamento(Base):
+    __tablename__ = "orcamento"
+    __table_args__ = (UniqueConstraint("estabelecimento_id", "ano_id", "designacao"),
+                      ck_in("estado", "rascunho", "aprovado", "fechado"))
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    ano_id: Mapped[int] = fk("ano_lectivo.id")
+    designacao: Mapped[str] = mapped_column(Text)
+    estado: Mapped[str] = mapped_column(Text, server_default="rascunho")
+    criado_em: Mapped[datetime] = criado_em()
+
+
+class OrcamentoLinha(Base):
+    __tablename__ = "orcamento_linha"
+    __table_args__ = (ck_in("tipo", "receita", "despesa"), CheckConstraint("mes BETWEEN 1 AND 12", name="mes"))
+    id: Mapped[int] = pk()
+    orcamento_id: Mapped[int] = fk("orcamento.id", ondelete="CASCADE", index=True)
+    tipo: Mapped[str] = mapped_column(Text)
+    categoria: Mapped[str] = mapped_column(Text)                 # receitas: categoria do serviço (propina…)
+    mes: Mapped[int | None] = mapped_column(SmallInteger)       # vazio = ano inteiro
+    valor: Mapped[Decimal] = mapped_column(Money)
+
+
+class Despesa(Base):
+    __tablename__ = "despesa"
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    data: Mapped[date] = mapped_column(Date)
+    categoria: Mapped[str] = mapped_column(Text)
+    descricao: Mapped[str] = mapped_column(Text)
+    valor: Mapped[Decimal] = mapped_column(Money)
+    fornecedor: Mapped[str | None] = mapped_column(Text)
+    recorrente: Mapped[bool] = mapped_column(Boolean, server_default=false())
+    registada_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+    criado_em: Mapped[datetime] = criado_em()
+
+
+# =====================================================================
+# 14. CALENDÁRIO, HORÁRIOS E AULAS
+# =====================================================================
+class EventoCalendario(Base):
+    __tablename__ = "evento_calendario"
+    __table_args__ = (ck_in("tipo", "feriado", "interrupcao", "evento", "reuniao", "prova"),)
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    tipo: Mapped[str] = mapped_column(Text)
+    titulo: Mapped[str] = mapped_column(Text)
+    data_inicio: Mapped[date] = mapped_column(Date, index=True)
+    data_fim: Mapped[date | None] = mapped_column(Date)          # vazio = um só dia
+    descricao: Mapped[str | None] = mapped_column(Text)
+    publico: Mapped[bool] = mapped_column(Boolean, server_default=true())   # aparece no portal das famílias
+
+
+class Horario(Base):
+    """Um tempo lectivo semanal da turma. Mudar o horário fecha a versão anterior (valido_ate) e cria outra."""
+    __tablename__ = "horario"
+    __table_args__ = (CheckConstraint("dia_semana BETWEEN 1 AND 6", name="dia_semana"),
+                      CheckConstraint("hora_fim > hora_inicio", name="horas"),
+                      Index("ix_horario_turma", "turma_id", "dia_semana"))
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    turma_id: Mapped[int] = fk("turma.id")
+    disciplina_id: Mapped[int] = fk("disciplina.id")
+    funcionario_id: Mapped[int | None] = fk("funcionario.id", nullable=True)
+    sala_id: Mapped[int | None] = fk("sala.id", nullable=True)
+    dia_semana: Mapped[int] = mapped_column(SmallInteger)        # 1 = segunda … 6 = sábado
+    tempo: Mapped[int] = mapped_column(SmallInteger)            # 1.º, 2.º… tempo do dia
+    hora_inicio: Mapped[time] = mapped_column(Time)
+    hora_fim: Mapped[time] = mapped_column(Time)
+    valido_desde: Mapped[date] = mapped_column(Date)
+    valido_ate: Mapped[date | None] = mapped_column(Date)
+    criado_em: Mapped[datetime] = criado_em()
+
+
+class Substituicao(Base):
+    __tablename__ = "substituicao"
+    __table_args__ = (UniqueConstraint("horario_id", "data"),)
+    id: Mapped[int] = pk()
+    horario_id: Mapped[int] = fk("horario.id", ondelete="CASCADE")
+    data: Mapped[date] = mapped_column(Date)
+    substituto_id: Mapped[int] = fk("funcionario.id")
+    motivo: Mapped[str | None] = mapped_column(Text)
+    registada_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+
+
+class Aula(Base):
+    """Aula prevista num dia: dada (pelo titular ou pelo substituto) ou falta do professor."""
+    __tablename__ = "aula"
+    __table_args__ = (UniqueConstraint("horario_id", "data"), ck_in("estado", "dada", "falta_professor"))
+    id: Mapped[int] = pk()
+    horario_id: Mapped[int] = fk("horario.id", ondelete="CASCADE")
+    data: Mapped[date] = mapped_column(Date, index=True)
+    funcionario_id: Mapped[int | None] = fk("funcionario.id", nullable=True)   # quem deu a aula
+    estado: Mapped[str] = mapped_column(Text, server_default="dada")
+    atraso_minutos: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    sumario: Mapped[str | None] = mapped_column(Text)
+    registada_por: Mapped[int | None] = fk("utilizador.id", nullable=True)
+    registada_em: Mapped[datetime] = criado_em()
 
 # =====================================================================
 # 10. IMPORTAÇÃO DE DADOS DO SOFTWARE ACTUAL

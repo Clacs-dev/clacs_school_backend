@@ -1,7 +1,7 @@
 """Ficheiros enviados (documentos, fotos, comprovativos) e documentos PDF."""
 import re
 import unicodedata
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
@@ -39,7 +39,9 @@ async def anexar_ficheiro(aid: int, tipo: str = Form(..., examples=["certidao_na
     obter(db, Aluno, aid, ctx.estabelecimento_id, "Aluno")
     chave = armazenamento.guardar(ctx.estabelecimento_id, "documentos", await ficheiro.read(),
                                   ficheiro.content_type, ficheiro.filename)
-    d = DocumentoAluno(aluno_id=aid, tipo=tipo, ficheiro_url=armazenamento.url(chave), validade=validade)
+    # Entregue à secretaria e anexado por ela: fica já aceite.
+    d = DocumentoAluno(aluno_id=aid, tipo=tipo, ficheiro_url=armazenamento.url(chave), validade=validade,
+                       estado="aceite", validado_por=ctx.id, validado_em=datetime.now(timezone.utc))
     db.add(d)
     auditar(db, ctx, "documento_aluno", aid, "insert", {"tipo": tipo, "ficheiro": chave})
     db.commit()

@@ -25,12 +25,13 @@ from app.models import (
 )
 from app.routers.academico import trimestres
 from app.security import ACCOES, MATRIZ, MODULOS, hash_senha
+from app.services import secretaria
 from app.services.financeiro import registar_pagamento
 from app.services.indicadores import garantir_padrao as garantir_indicadores
 
 PERFIS = [("admin", "Administrador"), ("direccao", "Direcção"), ("secretaria", "Secretaria"),
           ("financeiro", "Financeiro"), ("coordenacao", "Coordenação pedagógica"), ("professor", "Professor"),
-          ("encarregado", "Encarregado de educação")]
+          ("encarregado", "Encarregado de educação"), ("saude", "Saúde / enfermagem")]
 
 
 def base(db: Session) -> Estabelecimento:
@@ -70,6 +71,7 @@ def base(db: Session) -> Estabelecimento:
         db.add(Parametro(estabelecimento_id=est.id, chave="dia_vencimento", valor=10,
                          descricao="Dia do mês em que vencem as propinas"))
         db.add(Parametro(estabelecimento_id=est.id, chave="moeda", valor="AOA", descricao="Kwanza"))
+        secretaria.preparar(db, est.id)
 
     garantir_indicadores(db, est.id)
 

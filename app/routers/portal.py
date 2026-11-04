@@ -18,15 +18,17 @@ from app.database import get_db
 from app.integracoes import ErroIntegracao
 from app.integracoes.pagamentos import gateway, validar_webhook
 from app.models import (
-    Aluno, AlunoEncarregado, AlunoTransporte, AnoLectivo, AtribuicaoDocente, Avaliacao, AvaliacaoProfessor, Classe,
-    ClasseDisciplina, Cobranca, Disciplina, DispositivoPush, Encarregado, Funcionario, Matricula, Mensagem,
-    MetodoPagamento, NivelEnsino, Nota, Pagamento, ParagemTransporte, Pedido, Perfil, PeriodoLectivo,
+    AcordoPagamento, Alerta, Aluno, AlunoEncarregado, AlunoTransporte, AnoLectivo, AtribuicaoDocente, Avaliacao, AvaliacaoProfessor, Classe,
+    ClasseDisciplina, Cobranca, Disciplina, DispositivoPush, DocumentoAluno, Encarregado, EventoCalendario, Funcionario,
+    Horario, Matricula, Mensagem,
+    MedicacaoInstrucao, MetodoPagamento, ModeloDeclaracao, NivelEnsino, OcorrenciaSaude, Nota, Pagamento, ParagemTransporte, Pedido, Perfil, PeriodoLectivo,
     PreferenciaContacto, RotaTransporte, TipoAvaliacao, Turma, Utilizador, UtilizadorPerfil, Viatura,
 )
-from app.schemas import AvaliacaoProfessorIn, Canal, Entrada, PedidoIn, com_exemplo
+from app.schemas import AvaliacaoProfessorIn, Canal, Entrada, MensagemPedidoIn, PedidoIn, com_exemplo
 from app.security import Contexto, auditar, contexto_actual, exige, hash_senha
 from app.services import documentos as docs
-from app.services import pedidos
+from app.services import acordos, pedidos
+from app.services import secretaria
 from app.services.alertas import comportamento_actual
 from app.services.financeiro import avisar_comprovativo, cobrancas_detalhe, mudar_estado_pagamento, registar_pagamento
 from app.services.pedagogico import escala, media_geral, media_ponderada, periodo_actual, total_faltas
@@ -303,22 +305,163 @@ def _meu_pedido(db: Session, ee: Encarregado, pid: int) -> Pedido:
     return p
 
 
-@router.post("/pedidos/{pid}/cancelar", response_model=R.PedidoComNomes, summary="Cancela um pedido ainda pendente")
+@router.post("/pedidos/{pid}/cancelar", response_model=R.PedidoComNomes, summary="Cancela um pedido ainda em curso")
 def cancelar_pedido(pid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     p = _meu_pedido(db, ee, pid)
-    if p.estado != "pendente":
-        raise HTTPException(409, f"O pedido já está {p.estado}")
+    if p.estado not in pedidos.ABERTOS:
+        raise HTTPException(409, f"O pedido já está {pedidos.NOMES_ESTADO[p.estado]}")
     p.estado = "cancelado"
+    pedidos._historico(p, "cancelado", ee.nome_completo, "familia", "Cancelado pela família")
     db.commit()
     return pedidos.com_nomes(db, p)
 
 
-@router.get("/pedidos/{pid}/declaracao.pdf", responses=R.PDF, summary="A declaração pedida, depois de aprovada")
+@router.post("/pedidos/{pid}/responder", response_model=R.PedidoComNomes,
+             summary="Responde à informação pedida pela escola; o pedido volta à análise")
+def responder_pedido(pid: int, dados: MensagemPedidoIn, ee: Encarregado = Depends(encarregado_actual),
+                     db: Session = Depends(get_db)):
+    p = _meu_pedido(db, ee, pid)
+    pedidos.responder(db, p, ee, dados.mensagem)
+    db.commit()
+    return pedidos.com_nomes(db, p)
+
+
+@router.post("/pedidos/{pid}/anexos", response_model=R.PedidoComNomes, status_code=201,
+             summary="Anexa um documento ao pedido (ex.: atestado na justificação de falta)")
+async def anexar_ao_pedido(pid: int, ficheiro: UploadFile = File(..., description="PDF ou imagem, até 10 MB"),
+                           ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    p = _meu_pedido(db, ee, pid)
+    if p.estado not in pedidos.ABERTOS:
+        raise HTTPException(409, f"O pedido já está {pedidos.NOMES_ESTADO[p.estado]}")
+    anexos = p.dados.get("anexos", [])
+    if len(anexos) >= 5:
+        raise HTTPException(409, "Máximo de 5 anexos por pedido")
+    chave = armazenamento.guardar(ee.estabelecimento_id, "documentos", await ficheiro.read(), ficheiro.content_type,
+                                  ficheiro.filename)
+    p.dados = {**p.dados, "anexos": [*anexos, {"nome": ficheiro.filename, "url": armazenamento.url(chave)}]}
+    db.commit()
+    return pedidos.com_nomes(db, p)
+
+
+@router.get("/pedidos/{pid}/declaracao.pdf", responses=R.PDF, summary="A declaração pedida, depois de emitida")
 def declaracao_pedida(pid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
     p = _meu_pedido(db, ee, pid)
-    if p.tipo != "declaracao" or p.estado != "aprovado":
+    if p.tipo != "declaracao" or p.estado not in ("aprovado", "concluido"):
         raise HTTPException(409, "A declaração só fica disponível depois de a escola aprovar o pedido")
-    return Response(docs.declaracao(db, db.get(Matricula, p.resultado["matricula_id"])), media_type="application/pdf")
+    md = secretaria.modelo(db, ee.estabelecimento_id, p.dados.get("modelo") or "matricula")
+    pdf = secretaria.declaracao(db, db.get(Aluno, p.aluno_id), md, p.dados.get("finalidade"))
+    return Response(pdf, media_type="application/pdf")
+
+
+@router.get("/declaracoes", response_model=list[R.ModeloCurto], summary="Tipos de declaração que se podem pedir")
+def tipos_declaracao(ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    return [{"codigo": m.codigo, "nome": m.nome} for m in db.scalars(select(ModeloDeclaracao).where(
+        ModeloDeclaracao.estabelecimento_id == ee.estabelecimento_id, ModeloDeclaracao.activo).order_by(ModeloDeclaracao.id))]
+
+
+# ---------------------------------------------------------------- documentos e ficha do educando
+@router.get("/educandos/{aid}/documentos", response_model=R.DocumentosEducando,
+            summary="Documentos entregues (com o estado da validação) e os que faltam")
+def documentos_educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    s = secretaria.situacao(db, _educando(db, ee, aid))
+    return {"documentos": [as_dict(d) for d in s["documentos"]], "em_falta": s["em_falta"]}
+
+
+@router.post("/educandos/{aid}/documentos", response_model=R.DocumentoAluno, status_code=201,
+             summary="Entrega um documento; fica «recebido» até a secretaria o validar")
+async def entregar_documento(aid: int, tipo: str = Form(..., examples=["boletim_vacinas"]),
+                             ficheiro: UploadFile = File(..., description="PDF ou imagem, até 10 MB"),
+                             ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    a = _educando(db, ee, aid)
+    if tipo not in {e.tipo for e in secretaria.exigidos(db, ee.estabelecimento_id, None)} | {"outro"}:
+        raise HTTPException(422, f"Tipo de documento desconhecido: {tipo}")
+    chave = armazenamento.guardar(ee.estabelecimento_id, "documentos", await ficheiro.read(), ficheiro.content_type,
+                                  ficheiro.filename)
+    d = DocumentoAluno(aluno_id=a.id, tipo=tipo, ficheiro_url=armazenamento.url(chave), estado="recebido")
+    db.add(d)
+    db.commit()
+    return as_dict(d)
+
+
+@router.get("/educandos/{aid}/horario", response_model=list[R.HorarioComNomes],
+            summary="Horário da turma do educando, em vigor hoje")
+def horario_educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    m = _turma_actual(db, _educando(db, ee, aid).id)
+    if m is None:
+        return []
+    hoje = date.today()
+    stmt = select(Horario).where(Horario.turma_id == m.turma_id, Horario.valido_desde <= hoje,
+                                 (Horario.valido_ate.is_(None)) | (Horario.valido_ate >= hoje))
+    linhas = []
+    for h in db.scalars(stmt.order_by(Horario.dia_semana, Horario.tempo)):
+        prof = h.funcionario_id and db.get(Funcionario, h.funcionario_id)
+        linhas.append({**as_dict(h), "turma": db.get(Turma, h.turma_id).designacao,
+                       "disciplina": db.get(Disciplina, h.disciplina_id).nome, "professor": prof.nome_completo if prof else None})
+    return linhas
+
+
+@router.get("/calendario", response_model=list[R.EventoCalendario],
+            summary="Feriados, interrupções e eventos públicos da escola a partir de hoje (ou de desde)")
+def calendario_escolar(desde: date | None = None, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    d = desde or date.today()
+    return [as_dict(e) for e in db.scalars(select(EventoCalendario).where(
+        EventoCalendario.estabelecimento_id == ee.estabelecimento_id, EventoCalendario.publico,
+        (EventoCalendario.data_inicio >= d) | (EventoCalendario.data_fim >= d)).order_by(EventoCalendario.data_inicio))]
+
+
+@router.get("/acordos", response_model=list[R.AcordoDetalhe], summary="Os meus acordos de pagamento e as prestações")
+def meus_acordos(ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    linhas = [acordos.detalhe(db, a) for a in db.scalars(select(AcordoPagamento).where(
+        AcordoPagamento.encarregado_id == ee.id, AcordoPagamento.estado != "proposto").order_by(AcordoPagamento.criado_em.desc()))]
+    db.commit()
+    return linhas
+
+
+@router.get("/educandos/{aid}/saude", response_model=R.SaudeEducando,
+            summary="Ocorrências de saúde partilhadas pela escola e as instruções de medicação do educando")
+def saude_educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    a = _educando(db, ee, aid)
+    ocorrencias = db.scalars(select(OcorrenciaSaude).where(OcorrenciaSaude.aluno_id == a.id, OcorrenciaSaude.partilhada)
+                             .order_by(OcorrenciaSaude.data_hora.desc()))
+    medicacao = db.scalars(select(MedicacaoInstrucao).where(MedicacaoInstrucao.aluno_id == a.id)
+                           .order_by(MedicacaoInstrucao.criado_em.desc()))
+    return {"ocorrencias": [as_dict(o) for o in ocorrencias], "medicacao": [as_dict(m) for m in medicacao]}
+
+
+@router.post("/educandos/{aid}/medicacao", response_model=R.MedicacaoInstrucao, status_code=201,
+             summary="Instrução de medicação escrita pela família, com a receita; a escola autoriza ou recusa")
+async def instrucao_medicacao(aid: int, medicamento: str = Form(..., examples=["Paracetamol xarope"]),
+                              dose: str = Form(..., examples=["5 ml"]),
+                              horario: str = Form(..., examples=["Se febre acima de 38 graus"]),
+                              data_inicio: date = Form(..., examples=["2026-11-04"]),
+                              data_fim: date | None = Form(None, examples=["2026-11-08"]),
+                              instrucoes: str | None = Form(None, examples=["No máximo duas vezes por dia"]),
+                              confirmo: bool = Form(..., description="Confirmo que estas instruções são minhas e correctas"),
+                              receita: UploadFile | None = File(None, description="Receita ou prescrição (PDF ou imagem)"),
+                              ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    a = _educando(db, ee, aid)
+    if not confirmo:
+        raise HTTPException(422, "Confirme as instruções (confirmo=true)")
+    url = None
+    if receita is not None and receita.filename:
+        url = armazenamento.url(armazenamento.guardar(ee.estabelecimento_id, "documentos", await receita.read(),
+                                                      receita.content_type, receita.filename))
+    m = MedicacaoInstrucao(estabelecimento_id=ee.estabelecimento_id, aluno_id=a.id, medicamento=medicamento, dose=dose,
+                           horario=horario, data_inicio=data_inicio, data_fim=data_fim, instrucoes=instrucoes,
+                           receita_url=url, encarregado_id=ee.id, confirmada_pela_familia=True)
+    db.add(m)
+    db.flush()
+    db.add(Alerta(estabelecimento_id=ee.estabelecimento_id, tipo="saude", aluno_id=a.id, gravidade="media",
+                  dados={"medicacao_id": m.id},
+                  mensagem=f"Instrução de medicação de {a.nome_completo}: {medicamento} ({dose}, {horario}). Por autorizar."))
+    db.commit()
+    return as_dict(m)
+
+
+@router.get("/educandos/{aid}/ficha", response_model=R.FichaAluno,
+            summary="Dados e contactos do educando, para confirmar ou corrigir na renovação da matrícula")
+def ficha_educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_db)):
+    return secretaria.ficha(db, _educando(db, ee, aid))
 
 
 @router.get("/educandos/{aid}/boletim.pdf", responses=R.PDF)

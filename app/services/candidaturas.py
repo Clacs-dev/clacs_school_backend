@@ -207,12 +207,26 @@ def criar(db: Session, est: int, dados: dict, origem: str, por: Utilizador | Non
 def actualizar(db: Session, c: Candidatura, dados: dict) -> None:
     if c.estado in ("matriculada", "concluida", "rejeitada", "cancelada"):
         raise HTTPException(409, f"A candidatura está «{NOMES_ESTADO[c.estado]}»: já não se altera")
+    muda_classe = "classe_id" in dados and dados["classe_id"] != c.classe_id
+    muda_ano = "ano_id" in dados and dados["ano_id"] != c.ano_id
+    # Depois de validada, a classe e o ano já sustentam a decisão da coordenação e da Direcção: não se mudam.
+    if c.estado == "validada" and (muda_classe or muda_ano):
+        raise HTTPException(409, "A candidatura já foi validada: a classe e o ano lectivo não se alteram")
+    anterior = c.classe_id
     if "classe_id" in dados:
         _definir_classe(db, c, dados.pop("classe_id"))
     if "ano_id" in dados:
         _definir_ano(db, c, dados.pop("ano_id"))
     for k, v in dados.items():
         setattr(c, k, v)
+    if muda_classe:
+        classe = c.classe_id and db.get(Classe, c.classe_id)
+        antes = db.get(Classe, anterior).designacao if anterior else "classe por indicar"
+        _nota(c, f"Classe alterada de {antes} para {classe.designacao if classe else 'classe por indicar'}")
+        # A coordenação do novo nível passa a ser quem decide: recebe o aviso (o anterior fica tratado).
+        _alertar(db, c, "coordenacao", f"Candidatura de {c.nome_aluno} alterada para "
+                                        f"{classe.designacao if classe else 'classe por indicar'}: verifique a vaga e "
+                                        "convoque a família.")
 
 
 # ---------------------------------------------------------------- 3-4. coordenação

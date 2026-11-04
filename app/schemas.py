@@ -293,12 +293,135 @@ class PlanoIn(Entrada):
     dia_vencimento: int = Field(ge=1, le=31)
 
 
+class EscalaoMulta(Entrada):
+    desde_dias: int = Field(ge=1, description="A partir de quantos dias de atraso")
+    percentual: float = Field(gt=0, le=100)
+
+
 class MultaIn(Entrada):
     servico_id: int | None = None
     dias_tolerancia: int = 0
     tipo: Literal["percentual", "fixo"]
     valor: Decimal
     maximo: Decimal | None = None
+    escaloes: list[EscalaoMulta] | None = Field(None, description="Escalões por dias de atraso; substituem o valor")
+
+
+class IsencaoMultaIn(Entrada):
+    motivo: str = Field(min_length=5, description="Justificação da excepção (fica no histórico e na auditoria)")
+
+
+class AcordoIn(Entrada):
+    encarregado_id: int
+    cobranca_ids: list[int] = Field(min_length=1, description="Dívidas incluídas no acordo")
+    motivo: str = Field(min_length=5)
+    modelo_id: int | None = Field(None, description="Modelo de acordo; os campos abaixo, se indicados, prevalecem")
+    num_prestacoes: int | None = Field(None, ge=1, le=36)
+    primeiro_vencimento: date
+    intervalo_meses: int | None = Field(None, ge=1, le=12)
+    entrada_percentual: Decimal | None = Field(None, ge=0, lt=100)
+    suspende_multas: bool | None = None
+
+
+class AcordoModeloIn(Entrada):
+    nome: str = Field(min_length=3)
+    num_prestacoes: int = Field(ge=1, le=36)
+    intervalo_meses: int = Field(1, ge=1, le=12)
+    entrada_percentual: Decimal = Field(Decimal(0), ge=0, lt=100)
+    suspende_multas: bool = True
+    activo: bool = True
+
+
+class PrestacaoIn(Entrada):
+    valor: Decimal = Field(gt=0)
+    vencimento: date
+
+
+class PlanoAcordoIn(Entrada):
+    prestacoes: list[PrestacaoIn] = Field(min_length=1)
+    motivo: str = Field(min_length=5)
+
+
+class MotivoIn(Entrada):
+    motivo: str = Field(min_length=3)
+
+
+class EventoIn(Entrada):
+    tipo: Literal["feriado", "interrupcao", "evento", "reuniao", "prova"]
+    titulo: str = Field(min_length=2)
+    data_inicio: date
+    data_fim: date | None = Field(None, description="Vazio = um só dia")
+    descricao: str | None = None
+    publico: bool = Field(True, description="Aparece no portal das famílias")
+
+
+class HorarioIn(Entrada):
+    turma_id: int
+    disciplina_id: int
+    funcionario_id: int | None = Field(None, description="Professor titular")
+    sala_id: int | None = None
+    dia_semana: int = Field(ge=1, le=6, description="1 = segunda … 6 = sábado")
+    tempo: int = Field(ge=1, le=12, description="1.º, 2.º… tempo do dia")
+    hora_inicio: time
+    hora_fim: time
+    valido_desde: date | None = Field(None, description="Por omissão, hoje")
+
+
+class HorarioAlterarIn(Entrada):
+    desde: date = Field(description="Data a partir da qual vale a alteração")
+    motivo: str | None = None
+    disciplina_id: int | None = None
+    funcionario_id: int | None = None
+    sala_id: int | None = None
+    dia_semana: int | None = Field(None, ge=1, le=6)
+    tempo: int | None = Field(None, ge=1, le=12)
+    hora_inicio: time | None = None
+    hora_fim: time | None = None
+
+
+class SubstituicaoIn(Entrada):
+    horario_id: int
+    data: date
+    substituto_id: int = Field(description="Professor (funcionário) que dá a aula")
+    motivo: str | None = None
+
+
+class AulaRegistoIn(Entrada):
+    horario_id: int
+    data: date
+    sumario: str | None = None
+    atraso_minutos: int = Field(0, ge=0, le=240)
+    todos: Literal["presente", "falta_injustificada", "atraso"] | None = Field(
+        None, description="Aplica-se aos alunos da turma que não vêm em presencas")
+    presencas: list["PresencaItem"] = []   # definido mais abaixo (assiduidade)
+
+
+class FaltaProfessorIn(Entrada):
+    horario_id: int
+    data: date
+    motivo: str | None = None
+
+
+class OrcamentoIn(Entrada):
+    ano_id: int
+    designacao: str = Field(min_length=3)
+    estado: Literal["rascunho", "aprovado", "fechado"] = "rascunho"
+
+
+class OrcamentoLinhaIn(Entrada):
+    tipo: Literal["receita", "despesa"]
+    categoria: str = Field(min_length=2, description="Receitas: categoria do serviço (propina, alimentacao…); despesas: livre")
+    mes: int | None = Field(None, ge=1, le=12, description="Vazio = ano inteiro")
+    valor: Decimal = Field(gt=0)
+
+
+class DespesaIn(Entrada):
+    data: date
+    categoria: str = Field(min_length=2)
+    descricao: str = Field(min_length=2)
+    valor: Decimal = Field(gt=0)
+    fornecedor: str | None = None
+    recorrente: bool = False
 
 
 class DescontoIn(Entrada):
@@ -587,12 +710,41 @@ class InscricaoTransporteUpd(Entrada):
 
 
 # ---------------------------------------------------------------- pedidos do encarregado
-TipoPedido = Literal["vaga", "matricula", "transferencia", "declaracao", "justificacao_falta"]
+TipoPedido = Literal["vaga", "matricula", "transferencia", "declaracao", "justificacao_falta", "saida_antecipada",
+                     "informacao", "financeiro", "saude", "outro"]
 CAMPOS_PEDIDO = {  # campos obrigatórios de cada tipo
     "vaga": ("nome_aluno", "classe_id"), "matricula": ("aluno_id", "classe_id"),
     "transferencia": ("aluno_id", "escola_destino"), "declaracao": ("aluno_id", "finalidade"),
-    "justificacao_falta": ("aluno_id", "data", "motivo"),
+    "justificacao_falta": ("aluno_id", "data", "motivo"), "saida_antecipada": ("aluno_id", "data", "hora", "motivo"),
+    "informacao": ("assunto", "mensagem"), "financeiro": ("assunto", "mensagem"), "saude": ("assunto", "mensagem"),
+    "outro": ("assunto", "mensagem"),
 }
+
+
+class ContactoFichaIn(Entrada):
+    encarregado_id: int | None = Field(None, description="Contacto já ligado ao aluno; sem ele, é um contacto novo")
+    nome_completo: str | None = Field(None, min_length=2)
+    parentesco: Parentesco | None = None
+    telefone: str | None = None
+    whatsapp: str | None = None
+    email: str | None = None
+    profissao: str | None = None
+    bi_numero: str | None = None
+    nif: str | None = None
+
+
+class FichaIn(Entrada):
+    """Dados do educando e dos contactos confirmados pela família na renovação (não apaga contactos)."""
+    morada: str | None = None
+    bi_numero: str | None = None
+    alergias: str | None = None
+    necessidades_especiais: str | None = None
+    grupo_sanguineo: str | None = None
+    condicoes_saude: str | None = None
+    medicacao: str | None = None
+    contacto_emergencia: str | None = None
+    telefone_emergencia: str | None = None
+    contactos: list[ContactoFichaIn] = []
 
 
 class PedidoIn(Entrada):
@@ -611,6 +763,12 @@ class PedidoIn(Entrada):
     data: date | None = Field(None, description="Dia da falta a justificar")
     motivo: str | None = None
     observacoes: str | None = None
+    hora: time | None = Field(None, description="Saída antecipada: hora a que o aluno sai")
+    quem_recolhe: str | None = Field(None, description="Saída antecipada: quem vem buscar o aluno")
+    assunto: str | None = Field(None, description="Informação, assunto financeiro ou outro: o assunto")
+    mensagem: str | None = Field(None, description="Informação, assunto financeiro ou outro: o pedido")
+    modelo: str | None = Field(None, description="Declaração: código do modelo (por omissão, matricula)")
+    ficha: FichaIn | None = Field(None, description="Renovação (matricula): dados confirmados ou corrigidos pela família")
 
     @model_validator(mode="after")
     def campos_do_tipo(self):
@@ -630,6 +788,119 @@ class AvaliacaoProfessorIn(Entrada):
 class DecisaoIn(Entrada):
     resposta: str | None = Field(None, description="Mensagem para o encarregado (obrigatória ao rejeitar)")
     turma_id: int | None = Field(None, description="Vaga/matrícula: turma escolhida; sem ela, a 1.ª da classe com vaga")
+
+
+class MensagemPedidoIn(Entrada):
+    mensagem: str = Field(min_length=3, description="Pergunta à família (pedir informação) ou resposta da família")
+
+
+class EncaminharIn(Entrada):
+    servico: Literal["secretaria", "coordenacao", "tesouraria", "direccao", "saude"]
+    nota: str | None = None
+
+
+class ConcluirIn(Entrada):
+    resposta: str | None = Field(None, description="Resposta à família (obrigatória nos pedidos de informação)")
+
+
+class ValidarDocumentoIn(Entrada):
+    estado: Literal["aceite", "rejeitado", "recebido"]
+    observacao: str | None = Field(None, description="Motivo (obrigatório ao rejeitar)")
+
+
+class DocumentoExigidoIn(Entrada):
+    tipo: str = Field(min_length=2, pattern=r"^[a-z0-9_]+$", description="Código, ex.: cedula_bi_aluno")
+    nome: str = Field(min_length=2)
+    classe_id: int | None = Field(None, description="Só para esta classe; vazio = todas")
+    obrigatorio: bool = True
+    activo: bool = True
+
+
+class DocumentoExigidoUpd(Entrada):
+    nome: str | None = Field(None, min_length=2)
+    classe_id: int | None = None
+    obrigatorio: bool | None = None
+    activo: bool | None = None
+
+
+class ModeloDeclaracaoIn(Entrada):
+    codigo: str = Field(min_length=2, pattern=r"^[a-z0-9_]+$")
+    nome: str = Field(min_length=3)
+    texto: str = Field(min_length=10, description="Com variáveis {nome}, {processo}, {classe}, {turma}, {ano}…")
+    activo: bool = True
+
+
+class ModeloDeclaracaoUpd(Entrada):
+    nome: str | None = Field(None, min_length=3)
+    texto: str | None = Field(None, min_length=10)
+    activo: bool | None = None
+
+
+class AvisoDocumentosIn(Entrada):
+    turma_id: int | None = Field(None, description="Só os alunos desta turma")
+    aluno_ids: list[int] | None = Field(None, description="Só estes alunos")
+
+
+# ---------------------------------------------------------------- saúde escolar
+Desfecho = Literal["ficou_na_escola", "recolhido", "encaminhado"]
+
+
+class OcorrenciaSaudeIn(Entrada):
+    aluno_id: int
+    data_hora: datetime
+    local: str | None = None
+    descricao: str = Field(min_length=3, description="Descrição factual do que aconteceu")
+    sinais: str | None = Field(None, description="Sinais observados")
+    medidas: str | None = Field(None, description="Medidas tomadas (primeiros socorros…)")
+    encaminhamento: str | None = None
+    desfecho: Desfecho | None = None
+    partilhada: bool = Field(False, description="Mostrar o relatório à família no portal")
+
+
+class OcorrenciaSaudeUpd(Entrada):
+    data_hora: datetime | None = None
+    local: str | None = None
+    descricao: str | None = Field(None, min_length=3)
+    sinais: str | None = None
+    medidas: str | None = None
+    encaminhamento: str | None = None
+    desfecho: Desfecho | None = None
+    partilhada: bool | None = None
+
+
+class NotaSaudeIn(Entrada):
+    tipo: Literal["nota", "contacto_familia"] = "nota"
+    texto: str = Field(min_length=3)
+    canal: str | None = Field(None, description="Contacto: telefone, WhatsApp, presencial…")
+    contactado: str | None = Field(None, description="Contacto: com quem se falou")
+    orientacao: str | None = Field(None, description="Contacto: o que a família indicou")
+
+
+class EncerrarSaudeIn(Entrada):
+    desfecho: Desfecho
+    nota: str | None = None
+
+
+class MedicacaoIn(Entrada):
+    aluno_id: int
+    medicamento: str = Field(min_length=2)
+    dose: str = Field(min_length=1)
+    horario: str = Field(min_length=2, description="Ex.: 12:30, ou «se tiver febre acima de 38 graus»")
+    data_inicio: date
+    data_fim: date | None = None
+    instrucoes: str | None = None
+
+
+class DecisaoMedicacaoIn(Entrada):
+    autorizar: bool
+    motivo: str | None = Field(None, description="Obrigatório ao recusar")
+
+
+class AdministracaoIn(Entrada):
+    dose: str | None = Field(None, description="Por omissão, a dose da instrução")
+    administrada: bool = Field(True, description="Falso: o aluno não tomou (recusou, faltou…)")
+    observacao: str | None = None
+    administrada_em: datetime | None = None
 
 
 # ---------------------------------------------------------------- candidaturas (admissão de alunos novos)
@@ -814,6 +1085,27 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     PlanoIn: {"designacao": "10 prestações (Set a Jun)", "num_prestacoes": 10, "mes_inicio": 9,
               "dia_vencimento": 10},
     MultaIn: {"servico_id": 1, "dias_tolerancia": 15, "tipo": "percentual", "valor": 10, "maximo": 9000},
+    IsencaoMultaIn: {"motivo": "Atraso causado por erro do banco, confirmado pela tesouraria"},
+    AcordoIn: {"encarregado_id": 1, "cobranca_ids": [36], "motivo": "Desemprego temporário do encarregado",
+               "num_prestacoes": 3, "primeiro_vencimento": "2026-12-10", "intervalo_meses": 1, "suspende_multas": True},
+    AcordoModeloIn: {"nome": "Três prestações mensais", "num_prestacoes": 3, "intervalo_meses": 1,
+                     "entrada_percentual": 20, "suspende_multas": True},
+    PlanoAcordoIn: {"motivo": "Pedido do encarregado: adiar a 2.ª prestação",
+                    "prestacoes": [{"valor": 15000, "vencimento": "2026-12-10"}, {"valor": 30000, "vencimento": "2027-02-10"}]},
+    MotivoIn: {"motivo": "O encarregado pagou a dívida toda de uma vez"},
+    EventoIn: {"tipo": "feriado", "titulo": "Dia da Independência", "data_inicio": "2026-11-11", "publico": True},
+    HorarioIn: {"turma_id": 1, "disciplina_id": 1, "funcionario_id": 1, "sala_id": 1, "dia_semana": 1, "tempo": 1,
+                "hora_inicio": "07:30:00", "hora_fim": "08:15:00", "valido_desde": "2026-09-01"},
+    HorarioAlterarIn: {"desde": "2026-11-16", "motivo": "Troca com Educação Física", "tempo": 2,
+                       "hora_inicio": "08:20:00", "hora_fim": "09:05:00"},
+    SubstituicaoIn: {"horario_id": 1, "data": "2026-11-02", "substituto_id": 2, "motivo": "Professora em formação"},
+    AulaRegistoIn: {"horario_id": 1, "data": "2026-11-02", "sumario": "Leitura: o texto narrativo", "atraso_minutos": 0,
+                    "todos": "presente", "presencas": [{"aluno_id": 6, "estado": "falta_injustificada"}]},
+    FaltaProfessorIn: {"horario_id": 1, "data": "2026-11-02", "motivo": "Doença"},
+    OrcamentoIn: {"ano_id": 2, "designacao": "Orçamento 2026/2027", "estado": "rascunho"},
+    OrcamentoLinhaIn: {"tipo": "despesa", "categoria": "salarios", "mes": None, "valor": 36000000},
+    DespesaIn: {"data": "2026-11-03", "categoria": "material_escolar", "descricao": "Resmas de papel A4",
+                "valor": 85000, "fornecedor": "Papelaria Central", "recorrente": False},
     DescontoIn: {"designacao": "Desconto de irmãos", "origem": "irmaos", "tipo": "percentual", "valor": 10,
                  "servico_id": 1},
     MatriculaDescontoIn: {"desconto_id": 1, "valido_ate": "2027-07-15"},
@@ -873,6 +1165,32 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     PedidoIn: {"tipo": "vaga", "nome_aluno": "Pedro Domingos", "data_nascimento": "2020-05-02", "sexo": "M",
                "parentesco": "mae", "classe_id": 1, "observacoes": "Irmão da Ana Paula, já aluna da escola"},
     DecisaoIn: {"resposta": "Vaga aceite. Bem-vindo ao colégio!"},
+    MensagemPedidoIn: {"mensagem": "Indique, por favor, a que horas a criança será recolhida."},
+    EncaminharIn: {"servico": "tesouraria", "nota": "Assunto de propinas"},
+    ConcluirIn: {"resposta": "A propina de Novembro já está paga; o recibo está no portal."},
+    ValidarDocumentoIn: {"estado": "rejeitado", "observacao": "A fotografia da cédula está ilegível."},
+    DocumentoExigidoIn: {"tipo": "atestado_medico", "nome": "Atestado médico", "classe_id": 1, "obrigatorio": True},
+    DocumentoExigidoUpd: {"obrigatorio": False},
+    ModeloDeclaracaoIn: {"codigo": "abono", "nome": "Declaração para abono de família",
+                         "texto": "Declara-se que <b>{nome}</b>, processo n.º {processo}, frequenta a {classe} no ano "
+                                  "lectivo {ano}, sendo encarregado de educação {encarregado}."},
+    ModeloDeclaracaoUpd: {"nome": "Declaração de frequência (abono)"},
+    AvisoDocumentosIn: {"turma_id": 1},
+    OcorrenciaSaudeIn: {"aluno_id": 1, "data_hora": "2026-11-04T10:15:00+01:00", "local": "Recreio",
+                        "descricao": "Caiu no escorrega e queixou-se do joelho esquerdo.",
+                        "sinais": "Escoriação no joelho, sem inchaço", "medidas": "Limpeza e penso; gelo 10 minutos",
+                        "desfecho": "ficou_na_escola", "partilhada": True},
+    OcorrenciaSaudeUpd: {"encaminhamento": "Sem necessidade de encaminhamento"},
+    NotaSaudeIn: {"tipo": "contacto_familia", "texto": "Mãe informada da queda", "canal": "telefone",
+                  "contactado": "Isabel Domingos (mãe)", "orientacao": "Pode continuar nas aulas; vem buscá-la às 17h"},
+    EncerrarSaudeIn: {"desfecho": "ficou_na_escola", "nota": "Terminou o dia sem queixas"},
+    MedicacaoIn: {"aluno_id": 1, "medicamento": "Paracetamol xarope", "dose": "5 ml", "horario": "Se febre acima de 38 graus",
+                  "data_inicio": "2026-11-04", "data_fim": "2026-11-08", "instrucoes": "No máximo duas vezes por dia"},
+    DecisaoMedicacaoIn: {"autorizar": True},
+    AdministracaoIn: {"administrada": True, "observacao": "Febre de 38,4 graus às 11h"},
+    FichaIn: {"morada": "Kilamba, Bloco Q", "alergias": "Amendoim", "contactos": [
+        {"encarregado_id": 1, "telefone": "+244923111222", "email": "isabel.d@gmail.com"},
+        {"nome_completo": "Pedro Domingos", "parentesco": "pai", "telefone": "+244912000333"}]},
     CandidaturaIn: {"nome_aluno": "Joana Mbala", "data_nascimento": "2019-04-11", "sexo": "F",
                     "escola_anterior": "Colégio Pequenos Génios", "classe_id": 1, "nome_encarregado": "Marta Mbala",
                     "parentesco": "mae", "telefone": "+244923555111", "email": "marta.mbala@gmail.com",

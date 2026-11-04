@@ -110,6 +110,22 @@ OcorrenciaImagem = _de_tabela(m.OcorrenciaImagem, "OcorrenciaImagem")
 RegistoDiario = _de_tabela(m.RegistoDiario, "RegistoDiario")
 Alerta = _de_tabela(m.Alerta, "Alerta")
 Pedido = _de_tabela(m.Pedido, "Pedido")
+DocumentoExigido = _de_tabela(m.DocumentoExigido, "DocumentoExigido")
+ModeloDeclaracao = _de_tabela(m.ModeloDeclaracao, "ModeloDeclaracao")
+AcordoModelo = _de_tabela(m.AcordoModelo, "AcordoModelo")
+EventoCalendario = _de_tabela(m.EventoCalendario, "EventoCalendario")
+Horario = _de_tabela(m.Horario, "Horario")
+Substituicao = _de_tabela(m.Substituicao, "Substituicao")
+Aula = _de_tabela(m.Aula, "Aula")
+Orcamento = _de_tabela(m.Orcamento, "Orcamento")
+OrcamentoLinha = _de_tabela(m.OrcamentoLinha, "OrcamentoLinha")
+Despesa = _de_tabela(m.Despesa, "Despesa")
+AcordoPagamento = _de_tabela(m.AcordoPagamento, "AcordoPagamento")
+AcordoPrestacao = _de_tabela(m.AcordoPrestacao, "AcordoPrestacao")
+OcorrenciaSaude = _de_tabela(m.OcorrenciaSaude, "OcorrenciaSaude")
+OcorrenciaSaudeNota = _de_tabela(m.OcorrenciaSaudeNota, "OcorrenciaSaudeNota")
+MedicacaoInstrucao = _de_tabela(m.MedicacaoInstrucao, "MedicacaoInstrucao")
+MedicacaoAdministracao = _de_tabela(m.MedicacaoAdministracao, "MedicacaoAdministracao")
 Candidatura = _de_tabela(m.Candidatura, "Candidatura", excluir=("token",))
 CandidaturaDocumento = _de_tabela(m.CandidaturaDocumento, "CandidaturaDocumento")
 AvaliacaoProfessor = _de_tabela(m.AvaliacaoProfessor, "AvaliacaoProfessor")
@@ -183,6 +199,247 @@ class ResumoAvaliacaoProfessor(Saida):
 class PedidoComNomes(Pedido):
     aluno: str | None = Field(description="Educando (na vaga, o nome pedido)")
     encarregado: str
+    estado_nome: str = Field(description="Estado em linguagem corrente, ex.: «a aguardar informação»")
+    prazo: date = Field(description="Data limite de resposta (parâmetro prazo_pedidos_dias, em dias úteis)")
+    fora_do_prazo: bool = Field(description="Ainda em aberto depois do prazo")
+
+
+class DocumentoComAluno(DocumentoAluno):
+    aluno: str
+    nome_tipo: str = Field(description="Nome do documento, ex.: «Cédula ou BI do aluno»")
+
+
+class DocumentoEmFalta(Saida):
+    tipo: str
+    nome: str
+    obrigatorio: bool
+
+
+class SituacaoDocumentos(Saida):
+    aluno_id: int
+    aluno: str
+    numero_processo: str
+    turma: str | None
+    em_falta: list[DocumentoEmFalta] = Field(description="Exigidos e nunca entregues (ou só rejeitados)")
+    por_validar: int = Field(description="Documentos recebidos à espera da secretaria")
+
+
+class AvisoDocumentos(Saida):
+    alunos: int = Field(description="Alunos com documentos obrigatórios em falta")
+    avisados: int = Field(description="Encarregados avisados")
+
+
+class VariavelModelo(Saida):
+    variavel: str
+    descricao: str
+
+
+class ContactoFicha(Saida):
+    encarregado_id: int
+    parentesco: str
+    principal: bool
+    responsavel_financeiro: bool
+    nome_completo: str
+    telefone: str | None
+    whatsapp: str | None
+    email: str | None
+    profissao: str | None
+    bi_numero: str | None
+    nif: str | None
+
+
+class FichaAluno(Saida):
+    aluno_id: int
+    nome_completo: str
+    morada: str | None
+    bi_numero: str | None
+    alergias: str | None
+    necessidades_especiais: str | None
+    grupo_sanguineo: str | None
+    condicoes_saude: str | None
+    medicacao: str | None
+    contacto_emergencia: str | None
+    telefone_emergencia: str | None
+    contactos: list[ContactoFicha] = Field(description="Pai, mãe, encarregado e outros contactos ligados")
+    avisos: list[str] = Field(description="Contactos em falta, inválidos ou repetidos")
+
+
+class AvisoContactos(Saida):
+    aluno_id: int
+    aluno: str
+    avisos: list[str]
+
+
+class PainelSecretaria(Saida):
+    documentos_por_validar: int
+    alunos_com_documentos_em_falta: int
+    pedidos_abertos: int
+    pedidos_por_servico: dict[str, int] = Field(description="Pedidos em aberto por serviço responsável")
+    aguardam_familia: int = Field(description="Pedidos a aguardar informação da família")
+    declaracoes_por_emitir: int
+    declaracoes_por_entregar: int
+    renovacoes_pendentes: int
+    transferencias_pendentes: int
+    candidaturas_em_curso: int
+    alunos_com_avisos_de_contacto: int
+
+
+class DocumentosEducando(Saida):
+    documentos: list[DocumentoAluno]
+    em_falta: list[DocumentoEmFalta]
+
+
+class OcorrenciaSaudeResumo(OcorrenciaSaude):
+    aluno: str
+
+
+class NotaSaude(OcorrenciaSaudeNota):
+    por_nome: str | None
+
+
+class OcorrenciaSaudeDetalhe(OcorrenciaSaudeResumo):
+    registada_por_nome: str | None
+    notas: list[NotaSaude] = Field(description="Registo cronológico: notas, contactos com a família, alterações")
+
+
+class Administracao(MedicacaoAdministracao):
+    por_nome: str | None
+
+
+class MedicacaoDetalhe(MedicacaoInstrucao):
+    aluno: str
+    administracoes: list[Administracao]
+
+
+class PainelSaude(Saida):
+    ocorrencias_abertas: int
+    ocorrencias_hoje: int
+    medicacao_por_autorizar: int
+    medicacao_activa: int
+    medicacao_por_dar_hoje: int
+    alunos_com_alergias: int
+
+
+class SaudeEducando(Saida):
+    ocorrencias: list[OcorrenciaSaude] = Field(description="Só as que a escola partilhou com a família")
+    medicacao: list[MedicacaoInstrucao]
+
+
+class PrestacaoSituacao(AcordoPrestacao):
+    pago: float
+    estado: Literal["paga", "parcial", "pendente", "atrasada"]
+
+
+class CobrancaAcordo(Saida):
+    id: int
+    descricao: str | None
+    vencimento: date
+    valor_em_aberto: float
+
+
+class AcordoDetalhe(AcordoPagamento):
+    encarregado: str
+    pago: float = Field(description="Pago às cobranças do acordo desde que foi criado")
+    saldo: float
+    incumprimento: bool = Field(description="Activo com prestações vencidas por pagar")
+    prestacoes_atrasadas: int
+    prestacoes: list[PrestacaoSituacao]
+    cobrancas: list[CobrancaAcordo]
+
+
+class PrevisaoReceita(Saida):
+    categoria: str
+    alunos: int = Field(description="Alunos (matrículas ou adesões) com preço definido")
+    valor: float
+
+
+class ExecucaoCategoria(Saida):
+    tipo: Literal["receita", "despesa"]
+    categoria: str
+    previsto: float
+    realizado: float
+    desvio: float = Field(description="Realizado menos previsto")
+    execucao: float | None = Field(description="Realizado em % do previsto")
+
+
+class ExecucaoMes(Saida):
+    ano: int
+    mes: int
+    previsto_receita: float
+    realizado_receita: float
+    previsto_despesa: float
+    realizado_despesa: float
+
+
+class ExecucaoOrcamento(Saida):
+    orcamento: Orcamento
+    categorias: list[ExecucaoCategoria]
+    meses: list[ExecucaoMes] = Field(description="Tendência mês a mês")
+    receita_prevista: float
+    receita_realizada: float
+    despesa_prevista: float
+    despesa_realizada: float
+
+
+class TotalCategoria(Saida):
+    categoria: str
+    total: float
+    registos: int
+
+
+class HorarioComNomes(Horario):
+    turma: str
+    disciplina: str
+    professor: str | None
+
+
+class AulaRegistada(Aula):
+    presencas: int = Field(description="Registos de presença gravados nesta aula")
+
+
+class AulaPrevista(Saida):
+    horario_id: int
+    data: date
+    turma_id: int
+    turma: str
+    disciplina_id: int
+    disciplina: str
+    tempo: int
+    hora_inicio: time
+    hora_fim: time
+    professor_id: int | None = Field(description="Quem dá a aula nesse dia (o substituto, se houver)")
+    professor: str | None
+    substituicao: bool
+    registada: bool
+    estado: str | None = Field(description="dada ou falta_professor, depois de registada")
+    sumario: str | None
+
+
+class AssiduidadeProfessor(Saida):
+    funcionario_id: int
+    professor: str
+    previstas: int
+    dadas: int
+    faltas: int
+    por_registar: int
+    substituicoes_feitas: int
+    minutos_atraso: int
+
+
+class AssiduidadeResumo(Saida):
+    aluno_id: int
+    aluno: str
+    disciplina_id: int | None
+    disciplina: str | None
+    presente: int
+    atraso: int
+    falta_justificada: int
+    falta_injustificada: int
+
+
+class ModeloCurto(Saida):
+    codigo: str
+    nome: str
 
 
 class CandidaturaResumo(Candidatura):
