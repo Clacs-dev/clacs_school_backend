@@ -925,6 +925,30 @@ class CandidaturaIn(Entrada):
         return self
 
 
+class PreInscricaoIn(Entrada):
+    """Pré-inscrição feita pela família no site (sem conta)."""
+    nome_aluno: str = Field(min_length=2, max_length=120)
+    data_nascimento: date | None = None
+    sexo: Literal["F", "M"] | None = None
+    escola_anterior: str | None = Field(None, max_length=200)
+    classe_id: int
+    nome_encarregado: str = Field(min_length=2, max_length=120)
+    parentesco: Parentesco = "mae"
+    telefone: str | None = Field(None, max_length=30)
+    email: str | None = Field(None, max_length=120)
+    observacoes: str | None = Field(None, max_length=1000)
+    aceito: bool = Field(description="Autoriza a escola a tratar estes dados para a candidatura")
+    site: str | None = Field(None, description="Campo escondido no formulário: tem de vir vazio (anti-spam)")
+
+    @model_validator(mode="after")
+    def validar(self):
+        if not self.telefone and not self.email:
+            raise ValueError("indique o telefone ou o e-mail da família")
+        if not self.aceito:
+            raise ValueError("é preciso autorizar o tratamento dos dados (aceito)")
+        return self
+
+
 class CandidaturaUpd(Entrada):
     nome_aluno: str | None = Field(None, min_length=2)
     data_nascimento: date | None = None
@@ -1195,6 +1219,9 @@ EXEMPLOS: dict[type[Entrada], dict] = {
                     "escola_anterior": "Colégio Pequenos Génios", "classe_id": 1, "nome_encarregado": "Marta Mbala",
                     "parentesco": "mae", "telefone": "+244923555111", "email": "marta.mbala@gmail.com",
                     "observacoes": "Tem um irmão na 4.ª classe"},
+    PreInscricaoIn: {"nome_aluno": "Joana Mbala", "data_nascimento": "2019-04-11", "sexo": "F", "classe_id": 1,
+                     "escola_anterior": "Colégio Pequenos Génios", "nome_encarregado": "Marta Mbala", "parentesco": "mae",
+                     "telefone": "+244923555111", "email": "marta.mbala@gmail.com", "aceito": True},
     CandidaturaUpd: {"classe_id": 2, "observacoes": "A família prefere o turno da manhã"},
     ReuniaoIn: {"reuniao_em": "2026-11-10T09:30:00+01:00", "reuniao_local": "Gabinete da coordenação",
                 "mensagem": "Traga o último boletim e a cédula da criança."},

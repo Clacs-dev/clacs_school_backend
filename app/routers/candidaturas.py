@@ -13,14 +13,15 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Reque
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app import limite_login
 from app import respostas as R
 from app.common import as_dict, obter
 from app.config import get_settings
 from app.database import get_db
-from app.models import Candidatura, NivelEnsino
+from app.models import Candidatura, Classe, NivelEnsino
 from app.schemas import (
     AvaliacaoCandidaturaIn, BoasVindasIn, CandidaturaIn, CandidaturaUpd, ComunicarVagaIn, CorreccaoIn, FormalizacaoIn,
-    GoogleFormsIn, MatricularCandidaturaIn, ParecerIn, ReuniaoIn,
+    GoogleFormsIn, MatricularCandidaturaIn, ParecerIn, PreInscricaoIn, ReuniaoIn,
 )
 from app.security import Contexto, auditar, exige
 from app.services import candidaturas as svc
@@ -251,6 +252,41 @@ def receber_google_forms(dados: GoogleFormsIn, x_clacs_segredo: str = Header("")
                                                   dados.id_resposta)
     db.commit()
     return {"candidatura_id": c.id, "estado": c.estado, "duplicada": duplicada, "avisos": avisos}
+
+
+@publico.get("/classes", response_model=list[R.ClassePublica], summary="Classes a que se pode candidatar (formulário do site)")
+def classes_publicas(db: Session = Depends(get_db)):
+    est = get_settings().google_forms_estabelecimento_id
+    rows = db.execute(select(Classe, NivelEnsino.nome).join(NivelEnsino, NivelEnsino.id == Classe.nivel_id)
+                      .where(NivelEnsino.estabelecimento_id == est).order_by(NivelEnsino.ordem, Classe.ordem))
+    return [{"id": c.id, "designacao": c.designacao, "nivel": n} for c, n in rows]
+
+
+@publico.post("", response_model=R.PreInscricaoRecebida, status_code=201,
+              summary="Pré-inscrição pela família no site, sem conta (segue para a coordenação do nível)")
+def pre_inscricao(dados: PreInscricaoIn, request: Request, db: Session = Depends(get_db)):
+    chave = f"ip:pre-inscricao:{request.client.host if request.client else '-'}"
+    if limite_login.bloqueado(chave):
+        raise HTTPException(429, "Demasiadas pré-inscrições seguidas. Tente de novo mais tarde.")
+    limite_login.registar_falha(chave)   # conta envios, não falhas: no máximo 20 por IP a cada 15 minutos
+    if dados.site:   # campo escondido preenchido: robô
+        raise HTTPException(422, "Pedido inválido")
+    est = get_settings().google_forms_estabelecimento_id
+    classe = db.get(Classe, dados.classe_id)
+    nivel = classe and db.get(NivelEnsino, classe.nivel_id)
+    if nivel is None or nivel.estabelecimento_id != est:
+        raise HTTPException(422, f"A classe {dados.classe_id} não existe")
+    email = (dados.email or "").lower() or None
+    repetida = svc.em_curso_igual(db, est, dados.nome_aluno, email, dados.telefone)
+    if repetida:
+        return {"referencia": repetida.id, "duplicada": True,
+                "mensagem": "Já recebemos uma pré-inscrição desta criança com este contacto. A escola vai contactá-lo."}
+    corpo = dados.model_dump(exclude={"aceito", "site"})
+    corpo["email"] = email
+    c = svc.criar(db, est, corpo, "site")
+    db.commit()
+    return {"referencia": c.id, "duplicada": False,
+            "mensagem": "Pré-inscrição recebida. A coordenação vai analisar e contactar a família para a reunião."}
 
 
 @publico.get("/{token}", response_model=R.CandidaturaPublica,

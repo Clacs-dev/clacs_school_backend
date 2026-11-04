@@ -192,8 +192,9 @@ def criar(db: Session, est: int, dados: dict, origem: str, por: Utilizador | Non
     _definir_ano(db, c, ano_id)
     db.add(c)
     db.flush()
-    _registar(c, "submetida", por, {"google_forms": "Recebida pelo Google Forms", "importacao": "Importada do CSV das "
-                                    "respostas do formulário"}.get(origem, "Registada pela secretaria"))
+    _registar(c, "submetida", por, {"google_forms": "Recebida pelo Google Forms", "site": "Pré-inscrição feita no site",
+                                    "importacao": "Importada do CSV das respostas do formulário"}.get(origem,
+                                                                                                      "Registada pela secretaria"))
     nivel = c.nivel_id and db.get(NivelEnsino, c.nivel_id)
     coordenador = nivel and nivel.coordenador_id and db.get(Utilizador, nivel.coordenador_id)
     destino = f" ({coordenador.nome})" if coordenador else ""
@@ -579,6 +580,16 @@ def ler_respostas(db: Session, est: int, respostas: dict) -> tuple[dict, list[st
     return {k: v for k, v in dados.items() if v is not None}, avisos
 
 
+def em_curso_igual(db: Session, est: int, nome_aluno: str, email: str | None, telefone: str | None) -> Candidatura | None:
+    """A mesma criança com o mesmo contacto, ainda em curso: é a mesma pré-inscrição (2.º envio, CSV depois do script…)."""
+    nome = normalizar(nome_aluno)
+    for c in db.scalars(select(Candidatura).where(Candidatura.estabelecimento_id == est,
+                                                  Candidatura.estado.not_in(("rejeitada", "cancelada")))):
+        if ((email and c.email == email) or (telefone and c.telefone == telefone)) and normalizar(c.nome_aluno) == nome:
+            return c
+    return None
+
+
 def receber_formulario(db: Session, est: int, respostas: dict, id_externo: str | None,
                        origem: str = "google_forms") -> tuple[Candidatura, bool, list[str]]:
     """Cria a candidatura de uma resposta do formulário. Reenviar a mesma resposta não a duplica."""
@@ -588,14 +599,9 @@ def receber_formulario(db: Session, est: int, respostas: dict, id_externo: str |
         if existente:
             return existente, True, []
     dados, avisos = ler_respostas(db, est, respostas)
-    # A mesma criança com o mesmo contacto, ainda em curso: é a mesma pré-inscrição (CSV depois do script, 2.º envio…)
-    nome = normalizar(dados["nome_aluno"])
-    for c in db.scalars(select(Candidatura).where(Candidatura.estabelecimento_id == est,
-                                                  Candidatura.estado.not_in(("rejeitada", "cancelada")))):
-        mesmo_contacto = (dados.get("email") and c.email == dados["email"]) or \
-            (dados.get("telefone") and c.telefone == dados["telefone"])
-        if mesmo_contacto and normalizar(c.nome_aluno) == nome:
-            return c, True, []
+    repetida = em_curso_igual(db, est, dados["nome_aluno"], dados.get("email"), dados.get("telefone"))
+    if repetida:
+        return repetida, True, []
     c = criar(db, est, dados, origem, id_externo=id_externo, respostas={k: _texto(v) for k, v in respostas.items()})
     for aviso in avisos:
         _nota(c, aviso)

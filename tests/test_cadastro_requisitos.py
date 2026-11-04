@@ -286,3 +286,17 @@ def test_horarios_aulas_substituicoes_e_feriados(client, admin):
     assert any(e["titulo"] == "Feriado de teste" for e in client.get("/api/portal/calendario", headers=ee,
                                                                     params={"desde": segunda.isoformat()}).json())
     _ok(client.get(f"/api/portal/educandos/{_educando(client, ee)}/horario", headers=ee))
+
+
+# ---------------------------------------------------------------- pré-inscrição pública no site
+def test_pre_inscricao_publica_sem_conta(client, admin):
+    classes = _ok(client.get("/api/publico/candidaturas/classes"))   # sem sessão
+    corpo = {"nome_aluno": "Tomás Site", "classe_id": classes[0]["id"], "nome_encarregado": "Rita Site",
+             "telefone": "+244923000777", "aceito": True}
+    assert client.post("/api/publico/candidaturas", json={**corpo, "aceito": False}).status_code == 422
+    assert client.post("/api/publico/candidaturas", json={**corpo, "site": "http://spam"}).status_code == 422
+    r = _ok(client.post("/api/publico/candidaturas", json=corpo), 201)
+    assert r["duplicada"] is False
+    assert _ok(client.post("/api/publico/candidaturas", json=corpo), 201)["duplicada"] is True
+    c = _ok(client.get(f"/api/candidaturas/{r['referencia']}", headers=admin))
+    assert (c["origem"], c["estado"], c["classe_id"]) == ("site", "submetida", classes[0]["id"])

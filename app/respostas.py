@@ -496,6 +496,18 @@ class ImportacaoCandidaturas(Saida):
     erros: list[ErroLinha]
 
 
+class PreInscricaoRecebida(Saida):
+    referencia: int = Field(description="N.º da candidatura, para a família indicar se contactar a escola")
+    duplicada: bool = Field(description="Já havia uma pré-inscrição em curso desta criança com o mesmo contacto")
+    mensagem: str
+
+
+class ClassePublica(Saida):
+    id: int
+    designacao: str
+    nivel: str
+
+
 class GoogleFormsConfig(Saida):
     endpoint: str = Field(description="Caminho do endpoint a que o Apps Script envia as respostas")
     estabelecimento_id: int

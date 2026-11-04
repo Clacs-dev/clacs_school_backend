@@ -1150,7 +1150,7 @@ class Candidatura(Base):
     __tablename__ = "candidatura"
     __table_args__ = (
         ck_in("estado", *ESTADOS_CANDIDATURA),
-        ck_in("origem", "google_forms", "secretaria", "importacao"),
+        ck_in("origem", "google_forms", "secretaria", "importacao", "site"),
         CheckConstraint("sexo IN ('F','M')", name="sexo"),
         UniqueConstraint("estabelecimento_id", "id_externo"),
         Index("ix_candidatura_estado", "estabelecimento_id", "estado"),
