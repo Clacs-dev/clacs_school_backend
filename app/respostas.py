@@ -110,6 +110,8 @@ OcorrenciaImagem = _de_tabela(m.OcorrenciaImagem, "OcorrenciaImagem")
 RegistoDiario = _de_tabela(m.RegistoDiario, "RegistoDiario")
 Alerta = _de_tabela(m.Alerta, "Alerta")
 Pedido = _de_tabela(m.Pedido, "Pedido")
+Candidatura = _de_tabela(m.Candidatura, "Candidatura", excluir=("token",))
+CandidaturaDocumento = _de_tabela(m.CandidaturaDocumento, "CandidaturaDocumento")
 AvaliacaoProfessor = _de_tabela(m.AvaliacaoProfessor, "AvaliacaoProfessor")
 Viatura = _de_tabela(m.Viatura, "Viatura")
 RotaTransporte = _de_tabela(m.RotaTransporte, "RotaTransporte")
@@ -181,6 +183,97 @@ class ResumoAvaliacaoProfessor(Saida):
 class PedidoComNomes(Pedido):
     aluno: str | None = Field(description="Educando (na vaga, o nome pedido)")
     encarregado: str
+
+
+class CandidaturaResumo(Candidatura):
+    classe: str | None
+    nivel: str | None
+    ano: str | None
+    turma: str | None = Field(description="Turma atribuída na matrícula")
+    estado_nome: str = Field(description="Etapa em linguagem corrente, ex.: «Reunião marcada»")
+    documentos: int = Field(description="Documentos carregados pela família")
+    link_formalizacao: str | None = Field(description="Link enviado à família para preencher os dados e os documentos")
+
+
+class VagasClasse(Saida):
+    capacidade: int
+    ocupados: int
+    livres: int
+    turmas: list["TurmaVagas"]
+
+
+class DocumentoPedido(Saida):
+    tipo: str
+    nome: str
+    obrigatorio: bool
+
+
+class CandidaturaDetalhe(CandidaturaResumo):
+    lista_documentos: list[CandidaturaDocumento]
+    vagas: VagasClasse = Field(description="Vagas da classe pretendida no ano da candidatura")
+    coordenador: str | None = Field(description="Coordenador do nível que recebe a candidatura")
+    em_falta: list[str] = Field(description="Dados e documentos obrigatórios que a família ainda não entregou")
+    documentos_pedidos: list[DocumentoPedido]
+
+
+class ResumoCandidaturas(Saida):
+    total: int
+    por_estado: dict[str, int] = Field(description="Candidaturas em cada etapa")
+
+
+class RespostaFormulario(Saida):
+    candidatura_id: int
+    estado: str
+    duplicada: bool = Field(description="A resposta já tinha sido recebida (reenvio): nada foi criado")
+    avisos: list[str] = Field(description="Respostas que não foi possível interpretar (ex.: classe desconhecida)")
+
+
+class ErroLinha(Saida):
+    linha: int
+    mensagem: str
+
+
+class ImportacaoCandidaturas(Saida):
+    criadas: int
+    duplicadas: int
+    erros: list[ErroLinha]
+
+
+class GoogleFormsConfig(Saida):
+    endpoint: str = Field(description="Caminho do endpoint a que o Apps Script envia as respostas")
+    estabelecimento_id: int
+    segredo_configurado: bool = Field(description="GOOGLE_FORMS_SEGREDO definido no servidor")
+    perguntas: list[str] = Field(description="Títulos de perguntas reconhecidos automaticamente")
+    script: str = Field(description="Apps Script pronto a colar no editor de scripts do formulário")
+
+
+class DocumentoFamilia(Saida):
+    id: int
+    tipo: str
+    nome: str | None
+    criado_em: datetime
+
+
+class CandidaturaPublica(Saida):
+    escola: str
+    nome_aluno: str
+    data_nascimento: date | None
+    sexo: str | None
+    nome_encarregado: str
+    telefone: str | None
+    email: str | None
+    classe: str | None
+    ano: str | None
+    estado: str
+    estado_nome: str
+    pode_editar: bool = Field(description="A família ainda pode alterar os dados e os documentos")
+    correccao: str | None = Field(description="O que a secretaria pediu para corrigir")
+    dados: dict[str, Any] = Field(description="Dados da matrícula já preenchidos")
+    documentos: list[DocumentoFamilia]
+    documentos_pedidos: list[DocumentoPedido]
+    em_falta: list[str]
+
+
 Indicador = _de_tabela(m.Indicador, "Indicador")
 RelatorioAgendado = _de_tabela(m.RelatorioAgendado, "RelatorioAgendado")
 RelatorioExecucao = _de_tabela(m.RelatorioExecucao, "RelatorioExecucao")
@@ -1061,3 +1154,7 @@ Financeiro360.model_rebuild()
 Aluno360.model_rebuild()
 ResultadoGeracao.model_rebuild()
 AlunoDetalhe.model_rebuild()
+
+
+VagasClasse.model_rebuild()
+CandidaturaDetalhe.model_rebuild()

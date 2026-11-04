@@ -45,6 +45,12 @@ Para usar o PostgreSQL local em vez de SQLite, crie a base (`createdb clacs`) e 
 - **Autenticação e utilizadores**: login JWT com bloqueio após tentativas falhadas, verificação em dois passos (TOTP: Google Authenticator, Microsoft Authenticator…), recuperação de senha por e-mail, perfis (`admin`, `direccao`, `secretaria`, `financeiro`, `coordenacao`, `professor`, `encarregado`) e permissões por módulo/acção guardadas em `perfil_permissao`. Todas as consultas ficam limitadas ao estabelecimento do utilizador; o professor só vê as turmas onde lecciona ou é director de turma.
 - **Académico**: anos lectivos (com trimestres automáticos e um único ano activo), níveis, classes, plano curricular, salas, disciplinas, funcionários, turmas com ocupação e vagas, atribuição de professores, **fecho do ano** (média final, aprovado/reprovado, exclusão por faltas; simulação antes de gravar) e **passagem** dos alunos para o ano seguinte, com os serviços.
 - **Cadastro**: alunos (número de processo automático), encarregados, ligação aluno–encarregado (principal / responsável financeiro), documentos, matrículas, mudança de turma com histórico, **visão 360°**.
+- **Candidaturas e admissões** (`/api/candidaturas`, `/api/publico/candidaturas`): pré-inscrição pelo **Google Forms**
+  (Apps Script em `scripts/google_forms_apps_script.js`, com `GOOGLE_FORMS_SEGREDO`; ou importação do CSV das respostas)
+  → coordenação do nível (reunião obrigatória, entrevista/avaliação, validar ou rejeitar) → Direcção autoriza →
+  secretaria comunica a vaga com um link → a família preenche os dados e carrega os documentos (sem conta) → a secretaria
+  matricula (aluno, encarregado, documentos e matrícula de uma vez) → boas-vindas e welcome kit. Cada etapa só é aceite
+  no estado certo e pelo perfil certo, fica no histórico e avisa a etapa seguinte por alerta.
 - **Propinas e cobranças**: serviços, tabela de preços por ano/classe, planos, multas, descontos, métodos de pagamento; geração mensal idempotente; pagamentos parciais e por encarregado (salda as mais antigas primeiro); confirmar/rejeitar comprovativos; devedores; exportação Excel/CSV.
 - **Refeitório**: adesões (alimentação vs. só utilização), ementas, registo diário de refeições.
 - **Comunicação e regras**: modelos de mensagem com variáveis, regras sem programação (antes/depois do vencimento, dívida acima de X dias → alerta à Direcção, ocorrências), fila de mensagens sem repetições, comunicados por escola/classe/turma.

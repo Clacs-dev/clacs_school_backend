@@ -11,6 +11,10 @@ os.environ["ADMIN_PASSWORD"] = "senha-de-teste-123"
 os.environ["JWT_SECRET"] = "segredo-de-testes-com-mais-de-32-bytes"
 os.environ["UPLOAD_DIR"] = str(_tmp.parent / "uploads")
 os.environ["PAGAMENTOS_WEBHOOK_SEGREDO"] = "segredo-webhook-testes"
+os.environ["GOOGLE_FORMS_SEGREDO"] = "segredo-formulario-testes"
+# Integrações sempre simuladas nos testes, mesmo que o .env local tenha credenciais reais (não enviar a ninguém).
+for _var in ("SMTP_HOST", "EVOLUTION_URL", "ZAPI_INSTANCE_ID", "WHATSAPP_TOKEN", "TWILIO_ACCOUNT_SID"):
+    os.environ[_var] = ""
 os.environ["AGENDADOR_ACTIVO"] = "false"
 os.environ["CLACS_TESTES"] = "1"  # respostas validadas em modo estrito contra app/respostas.py
 os.environ["AUTO_MIGRAR"] = "false"  # os testes preparam a base eles próprios

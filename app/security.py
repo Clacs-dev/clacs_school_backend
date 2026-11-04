@@ -15,7 +15,7 @@ from app.models import AuditoriaLog, Perfil, PerfilPermissao, Permissao, Utiliza
 oauth2 = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 MODULOS = ("painel", "cadastro", "academico", "propinas", "refeitorio", "pedagogico",
-           "comunicacao", "primavera", "utilizadores", "importacao", "transporte")
+           "comunicacao", "primavera", "utilizadores", "importacao", "transporte", "candidaturas")
 ACCOES = ("ver", "criar", "editar", "apagar", "exportar")
 TUDO = {m: ACCOES for m in MODULOS}
 
@@ -26,7 +26,7 @@ MATRIZ: dict[str, dict[str, tuple[str, ...]]] = {
     "secretaria": {
         "painel": ("ver",), "cadastro": ACCOES, "academico": ACCOES, "refeitorio": ACCOES,
         "propinas": ("ver", "criar", "exportar"), "comunicacao": ("ver", "criar"), "importacao": ACCOES,
-        "transporte": ACCOES,
+        "transporte": ACCOES, "candidaturas": ("ver", "criar", "editar", "exportar"),
     },
     "financeiro": {
         "painel": ("ver",), "propinas": ACCOES, "refeitorio": ("ver", "exportar"), "cadastro": ("ver",),
@@ -35,6 +35,7 @@ MATRIZ: dict[str, dict[str, tuple[str, ...]]] = {
     "coordenacao": {
         "painel": ("ver",), "pedagogico": ACCOES, "cadastro": ("ver",),
         "academico": ("ver", "criar", "editar"), "comunicacao": ("ver", "criar"),
+        "candidaturas": ("ver", "criar", "editar"),
     },
     "professor": {"pedagogico": ("ver", "criar", "editar"), "cadastro": ("ver",), "academico": ("ver",)},
     "encarregado": {},

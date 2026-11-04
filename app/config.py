@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     pagamentos_webhook_segredo: str = ""
     pagamentos_entidade: str = "00000"
 
+    # Pré-inscrições pelo Google Forms: segredo partilhado com o Apps Script do formulário (cabeçalho
+    # X-Clacs-Segredo). Sem ele, o endpoint do formulário recusa tudo.
+    google_forms_segredo: str = ""
+    google_forms_estabelecimento_id: int = 1
+
     # Assistente com IA (API da Claude). Sem chave, o assistente responde por regras fixas.
     anthropic_api_key: str = ""
     assistente_modelo: str = "claude-opus-5-5"

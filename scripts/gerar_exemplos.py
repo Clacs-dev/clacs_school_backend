@@ -24,7 +24,9 @@ _tmp = Path(tempfile.mkdtemp())
 BASE, MODELO = _tmp / "exemplos.db", _tmp / "modelo.db"
 os.environ.update(DATABASE_URL=f"sqlite:///{BASE.as_posix()}", ADMIN_PASSWORD=SENHA,
                   JWT_SECRET="segredo-so-para-gerar-exemplos-123456", UPLOAD_DIR=str(_tmp / "uploads"),
-                  AGENDADOR_ACTIVO="false", AUTO_MIGRAR="false", PAGAMENTOS_WEBHOOK_SEGREDO="segredo-exemplos")
+                  AGENDADOR_ACTIVO="false", AUTO_MIGRAR="false", PAGAMENTOS_WEBHOOK_SEGREDO="segredo-exemplos",
+                  GOOGLE_FORMS_SEGREDO="segredo-formulario-exemplos",
+                  SMTP_HOST="", EVOLUTION_URL="", ZAPI_INSTANCE_ID="", WHATSAPP_TOKEN="", TWILIO_ACCOUNT_SID="")
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
@@ -59,7 +61,7 @@ POVOAR = [("POST", "/api/comunicados", S.ComunicadoIn), ("POST", "/api/alunos/1/
           ("POST", "/api/avaliacoes", S.AvaliacaoIn), ("PUT", "/api/turmas/2/atribuicoes", S.AtribuicaoIn),
           ("POST", "/api/portal/avaliacoes-professores", S.AvaliacaoProfessorIn),
           ("POST", "/api/transporte/viaturas", S.ViaturaIn), ("POST", "/api/transporte/rotas", S.RotaIn),
-          ("POST", "/api/transporte/inscricoes", S.InscricaoTransporteIn)]
+          ("POST", "/api/transporte/inscricoes", S.InscricaoTransporteIn), ("POST", "/api/candidaturas", S.CandidaturaIn)]
 
 PDF = ("comprovativo.pdf", b"%PDF-1.4\n%exemplo\n", "application/pdf")
 CSV_ALUNOS = ("nome_completo;numero_processo;data_nascimento;sexo;bi_numero;turma;encarregado_nif;encarregado_nome;"
@@ -106,6 +108,53 @@ def _webhook(pedir):
 def _importar(pedir):
     return pedir("POST", "/api/importacao/aluno", data={"origem": "Software anterior (2025)"},
                  files={"ficheiro": ("alunos.csv", CSV_ALUNOS, "text/csv")})
+
+
+PASSOS_CANDIDATURA = [("reuniao", S.ReuniaoIn), ("avaliacao", S.AvaliacaoCandidaturaIn), ("validar", S.ParecerIn),
+                      ("autorizar", S.ParecerIn), ("comunicar", S.ComunicarVagaIn)]
+
+
+def _candidatura(pedir, ate: str | None = None, entregar=False):
+    """Leva a candidatura 1 (criada em POVOAR) até ao passo indicado; devolve o token do link da família."""
+    token = None
+    for passo, esquema in PASSOS_CANDIDATURA:
+        if passo == ate:
+            break
+        r = pedir("POST", f"/api/candidaturas/1/{passo}", json=S.EXEMPLOS[esquema]).json()
+        token = (r.get("link_formalizacao") or "").rsplit("/", 1)[-1] or None
+    if entregar:
+        _preencher(pedir, token)
+        pedir("POST", f"/api/publico/candidaturas/{token}/submeter", anonimo=True)
+    return token
+
+
+def _preencher(pedir, token):
+    pub = f"/api/publico/candidaturas/{token}"
+    pedir("PUT", pub, anonimo=True, json=S.EXEMPLOS[S.FormalizacaoIn])
+    for tipo in ("cedula_bi_aluno", "fotografia", "bi_encarregado"):
+        pedir("POST", f"{pub}/documentos", anonimo=True, data={"tipo": tipo}, files={"ficheiro": PDF})
+
+
+def _submeter(pedir):
+    token = _candidatura(pedir)
+    _preencher(pedir, token)
+    return pedir("POST", f"/api/publico/candidaturas/{token}/submeter", anonimo=True)
+
+
+def _apagar_documento(pedir):
+    pub = f"/api/publico/candidaturas/{_candidatura(pedir)}"
+    _preencher(pedir, pub.rsplit("/", 1)[1])
+    doc = pedir("POST", f"{pub}/documentos", anonimo=True, data={"tipo": "outro"}, files={"ficheiro": PDF}).json()
+    return pedir("DELETE", f"{pub}/documentos/{doc['documentos'][-1]['id']}", anonimo=True)
+
+
+def _publico(metodo, sufixo="", **kw):
+    return lambda pedir: pedir(metodo, f"/api/publico/candidaturas/{_candidatura(pedir)}{sufixo}", anonimo=True, **kw)
+
+
+CSV_FORMS = ("Carimbo de data/hora,Nome completo do aluno,Data de nascimento,Classe pretendida,"
+             "Nome do encarregado de educação,Telefone / WhatsApp\n"
+             "2026/11/01 09:00,Beatriz Lunda,02/05/2019,1.ª Classe,Rosa Lunda,+244922000111\n").encode()
 
 
 # Rotas que precisam de preparação ou de outros dados além do pedido de exemplo e do id 1.
@@ -156,6 +205,32 @@ ESPECIAIS = {
         "POST", "/api/alunos/1/foto", files={"ficheiro": ("foto.png", b"\x89PNG\r\n\x1a\nexemplo", "image/png")}),
     "POST /api/pagamentos/{pid}/comprovativo": lambda pedir: pedir(
         "POST", "/api/pagamentos/1/comprovativo", files={"ficheiro": PDF}),
+    "POST /api/candidaturas/{cid}/avaliacao": lambda pedir: (_candidatura(pedir, "avaliacao"), pedir(
+        "POST", "/api/candidaturas/1/avaliacao", json=S.EXEMPLOS[S.AvaliacaoCandidaturaIn]))[1],
+    "POST /api/candidaturas/{cid}/validar": lambda pedir: (_candidatura(pedir, "validar"), pedir(
+        "POST", "/api/candidaturas/1/validar", json=S.EXEMPLOS[S.ParecerIn]))[1],
+    "POST /api/candidaturas/{cid}/autorizar": lambda pedir: (_candidatura(pedir, "autorizar"), pedir(
+        "POST", "/api/candidaturas/1/autorizar", json=S.EXEMPLOS[S.ParecerIn]))[1],
+    "POST /api/candidaturas/{cid}/comunicar": lambda pedir: (_candidatura(pedir, "comunicar"), pedir(
+        "POST", "/api/candidaturas/1/comunicar", json=S.EXEMPLOS[S.ComunicarVagaIn]))[1],
+    "POST /api/candidaturas/{cid}/correccao": lambda pedir: (_candidatura(pedir, entregar=True), pedir(
+        "POST", "/api/candidaturas/1/correccao", json=S.EXEMPLOS[S.CorreccaoIn]))[1],
+    "POST /api/candidaturas/{cid}/matricular": lambda pedir: (_candidatura(pedir, entregar=True), pedir(
+        "POST", "/api/candidaturas/1/matricular", json=S.EXEMPLOS[S.MatricularCandidaturaIn]))[1],
+    "POST /api/candidaturas/{cid}/boas-vindas": lambda pedir: (
+        _candidatura(pedir, entregar=True), pedir("POST", "/api/candidaturas/1/matricular", json={}),
+        pedir("POST", "/api/candidaturas/1/boas-vindas", json=S.EXEMPLOS[S.BoasVindasIn]))[2],
+    "POST /api/candidaturas/importar": lambda pedir: pedir(
+        "POST", "/api/candidaturas/importar", files={"ficheiro": ("respostas.csv", CSV_FORMS, "text/csv")}),
+    "POST /api/publico/candidaturas/google-forms": lambda pedir: pedir(
+        "POST", "/api/publico/candidaturas/google-forms", anonimo=True, json=S.EXEMPLOS[S.GoogleFormsIn],
+        headers={"X-Clacs-Segredo": "segredo-formulario-exemplos"}),
+    "GET /api/publico/candidaturas/{token}": _publico("GET"),
+    "PUT /api/publico/candidaturas/{token}": _publico("PUT", json=S.EXEMPLOS[S.FormalizacaoIn]),
+    "POST /api/publico/candidaturas/{token}/documentos": _publico(
+        "POST", "/documentos", data={"tipo": "cedula_bi_aluno"}, files={"ficheiro": PDF}),
+    "DELETE /api/publico/candidaturas/{token}/documentos/{did}": _apagar_documento,
+    "POST /api/publico/candidaturas/{token}/submeter": _submeter,
     "POST /api/portal/pagamentos/comprovativo": lambda pedir: pedir(
         "POST", "/api/portal/pagamentos/comprovativo", portal=True, data={"cobranca_ids": "36", "referencia": "TRF-0045821"},
         files={"ficheiro": PDF}),

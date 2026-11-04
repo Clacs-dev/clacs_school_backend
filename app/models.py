@@ -123,6 +123,8 @@ class NivelEnsino(Base):
     estabelecimento_id: Mapped[int] = estab_fk()
     nome: Mapped[str] = mapped_column(Text)
     ordem: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    # Coordenação do nível: recebe as candidaturas das suas classes.
+    coordenador_id: Mapped[int | None] = fk("utilizador.id", nullable=True)
 
 
 class Classe(Base):
@@ -1011,7 +1013,8 @@ class Alerta(Base):
     __tablename__ = "alerta"
     __table_args__ = (
         ck_in("tipo", "risco_incumprimento", "queda_desempenho", "padrao_faltas",
-              "divergencia_primavera", "comportamento", "comprovativo_pagamento", "pedido_encarregado"),
+              "divergencia_primavera", "comportamento", "comprovativo_pagamento", "pedido_encarregado",
+              "candidatura"),
         ck_in("gravidade", "baixa", "media", "alta"),
         ck_in("estado", "novo", "visto", "tratado", "descartado"),
         Index("ix_alerta_aberto", "estabelecimento_id", "tipo",
@@ -1072,6 +1075,83 @@ class IaConsultaLog(Base):
     pergunta: Mapped[str] = mapped_column(Text)
     consulta_gerada: Mapped[str | None] = mapped_column(Text)
     resposta: Mapped[str | None] = mapped_column(Text)
+    criado_em: Mapped[datetime] = criado_em()
+
+
+# Etapas da admissão de um aluno novo, pela ordem do procedimento do colégio.
+ESTADOS_CANDIDATURA = (
+    "submetida",             # 1-2. pré-inscrição recebida (Google Forms, secretaria ou CSV), na coordenação do nível
+    "reuniao_marcada",       # 3. coordenação verificou a vaga e convocou a família (reunião obrigatória)
+    "reuniao_realizada",     # 3. reunião feita; entrevista/avaliação do aluno registada, se houve
+    "validada",              # 4. coordenação validou: aguarda a Direcção
+    "autorizada",            # 5. Direcção decidiu e informou os serviços administrativos
+    "vaga_comunicada",       # 6. secretaria enviou à família a vaga e o link para formalizar a matrícula
+    "documentos_entregues",  # 7. família preencheu os dados e carregou os documentos
+    "matriculada",           # 8-9. secretaria validou: aluno, encarregado e matrícula criados, turma atribuída
+    "concluida",             # 10. boas-vindas, documentação e welcome kit entregues
+    "rejeitada", "cancelada",
+)
+
+
+class Candidatura(Base):
+    """Pré-inscrição de um aluno novo e o seu percurso até à matrícula (pré-inscrição → coordenação → Direcção →
+    secretaria → família → matrícula → boas-vindas)."""
+    __tablename__ = "candidatura"
+    __table_args__ = (
+        ck_in("estado", *ESTADOS_CANDIDATURA),
+        ck_in("origem", "google_forms", "secretaria", "importacao"),
+        CheckConstraint("sexo IN ('F','M')", name="sexo"),
+        UniqueConstraint("estabelecimento_id", "id_externo"),
+        Index("ix_candidatura_estado", "estabelecimento_id", "estado"),
+    )
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    origem: Mapped[str] = mapped_column(Text, server_default="secretaria")
+    id_externo: Mapped[str | None] = mapped_column(Text)            # id da resposta no Google Forms (sem duplicados)
+    estado: Mapped[str] = mapped_column(Text, server_default="submetida")
+    ano_id: Mapped[int | None] = fk("ano_lectivo.id", nullable=True)
+    classe_id: Mapped[int | None] = fk("classe.id", nullable=True)
+    nivel_id: Mapped[int | None] = fk("nivel_ensino.id", nullable=True)
+    # aluno
+    nome_aluno: Mapped[str] = mapped_column(Text)
+    data_nascimento: Mapped[date | None] = mapped_column(Date)
+    sexo: Mapped[str | None] = mapped_column(String(1))
+    escola_anterior: Mapped[str | None] = mapped_column(Text)
+    # família
+    nome_encarregado: Mapped[str] = mapped_column(Text)
+    parentesco: Mapped[str] = mapped_column(Text, server_default="mae")
+    telefone: Mapped[str | None] = mapped_column(Text)
+    email: Mapped[str | None] = mapped_column(Text)
+    observacoes: Mapped[str | None] = mapped_column(Text)
+    respostas: Mapped[dict | None] = mapped_column(JSONType)         # respostas originais do formulário
+    # 3-4. coordenação
+    reuniao_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reuniao_local: Mapped[str | None] = mapped_column(Text)
+    avaliacao: Mapped[str | None] = mapped_column(Text)               # notas da reunião, entrevista ou avaliação
+    parecer: Mapped[str | None] = mapped_column(Text)                 # parecer da coordenação (ou motivo da rejeição)
+    # 6-7. formalização pela família (link com token, sem conta)
+    token: Mapped[str | None] = mapped_column(Text, unique=True)
+    dados_matricula: Mapped[dict | None] = mapped_column(JSONType)    # dados preenchidos pela família
+    correccao: Mapped[str | None] = mapped_column(Text)               # o que a secretaria pediu para corrigir
+    # 8-10. matrícula e integração
+    turma_id: Mapped[int | None] = fk("turma.id", nullable=True)
+    aluno_id: Mapped[int | None] = fk("aluno.id", nullable=True)
+    encarregado_id: Mapped[int | None] = fk("encarregado.id", nullable=True)
+    matricula_id: Mapped[int | None] = fk("matricula.id", nullable=True)
+    integracao: Mapped[dict | None] = mapped_column(JSONType)         # boas-vindas: kit, documentação, reunião…
+    historico: Mapped[list] = mapped_column(JSONType)                 # [{em, estado, por, nota}]
+    criado_em: Mapped[datetime] = criado_em()
+    actualizado_em: Mapped[datetime] = actualizado_em()
+
+
+class CandidaturaDocumento(Base):
+    """Documento carregado pela família na formalização; passa para os documentos do aluno na matrícula."""
+    __tablename__ = "candidatura_documento"
+    id: Mapped[int] = pk()
+    candidatura_id: Mapped[int] = fk("candidatura.id", ondelete="CASCADE", index=True)
+    tipo: Mapped[str] = mapped_column(Text)
+    nome: Mapped[str | None] = mapped_column(Text)
+    ficheiro_url: Mapped[str] = mapped_column(Text)
     criado_em: Mapped[datetime] = criado_em()
 
 

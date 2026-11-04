@@ -12,8 +12,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from app import agendador, arranque
 from app.config import get_settings
 from app.routers import (
-    academico, auth, cadastro, comunicacao, documentos, financeiro, importacao, painel, pedagogico, pedidos, portal,
-    primavera, refeitorio, transporte,
+    academico, auth, cadastro, candidaturas, comunicacao, documentos, financeiro, importacao, painel, pedagogico,
+    pedidos, portal, primavera, refeitorio, transporte,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -72,6 +72,9 @@ TAGS = [
                                           "e lista de passageiros."},
     {"name": "Pedidos do encarregado", "description": "Vaga, matrícula, transferência, declaração e justificação de "
                                                        "falta: o encarregado pede no portal, a escola aprova ou rejeita."},
+    {"name": "Candidaturas e admissões", "description": "Pré-inscrição pelo Google Forms, coordenação (reunião, "
+                                                          "avaliação, validação), Direcção, secretaria, formalização "
+                                                          "pela família, matrícula e boas-vindas."},
     {"name": "Portal do encarregado", "description": "Tudo o que a conta de um encarregado pode ver e fazer."},
     {"name": "Sistema", "description": "Verificação de saúde da API e da base de dados."},
 ]
@@ -113,8 +116,9 @@ app.add_middleware(CORSMiddleware, allow_origins=origens, allow_credentials="*" 
 
 
 for r in (auth, academico, cadastro, financeiro, refeitorio, comunicacao, pedagogico, painel, primavera,
-          importacao, documentos, pedidos, transporte, portal):
+          importacao, documentos, pedidos, transporte, candidaturas, portal):
     app.include_router(r.router)
+app.include_router(candidaturas.publico)
 app.include_router(portal.extra)
 
 # Respostas reais (dados de demonstração) como exemplo no /api/docs; gerado por scripts/gerar_exemplos.py.

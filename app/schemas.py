@@ -1,5 +1,5 @@
 """Esquemas Pydantic de entrada. As respostas são dicionários com as colunas das tabelas."""
-from datetime import date, time
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Literal
 
@@ -101,6 +101,7 @@ class PeriodoIn(Entrada):
 class NivelIn(Entrada):
     nome: str
     ordem: int = 0
+    coordenador_id: int | None = Field(None, description="Utilizador da coordenação que recebe as candidaturas do nível")
 
 
 class ClasseIn(Entrada):
@@ -631,6 +632,106 @@ class DecisaoIn(Entrada):
     turma_id: int | None = Field(None, description="Vaga/matrícula: turma escolhida; sem ela, a 1.ª da classe com vaga")
 
 
+# ---------------------------------------------------------------- candidaturas (admissão de alunos novos)
+class CandidaturaIn(Entrada):
+    """Pré-inscrição registada pela secretaria (as do Google Forms chegam por /api/publico/candidaturas/google-forms)."""
+    nome_aluno: str = Field(min_length=2)
+    data_nascimento: date | None = None
+    sexo: Literal["F", "M"] | None = None
+    escola_anterior: str | None = None
+    classe_id: int | None = Field(None, description="Classe pretendida (define a coordenação que recebe a candidatura)")
+    ano_id: int | None = Field(None, description="Ano lectivo pretendido; sem ele, o ano activo")
+    nome_encarregado: str = Field(min_length=2)
+    parentesco: Parentesco = "mae"
+    telefone: str | None = None
+    email: str | None = None
+    observacoes: str | None = None
+
+    @model_validator(mode="after")
+    def contacto(self):
+        if not self.telefone and not self.email:
+            raise ValueError("indique o telefone ou o e-mail da família")
+        return self
+
+
+class CandidaturaUpd(Entrada):
+    nome_aluno: str | None = Field(None, min_length=2)
+    data_nascimento: date | None = None
+    sexo: Literal["F", "M"] | None = None
+    escola_anterior: str | None = None
+    classe_id: int | None = None
+    ano_id: int | None = None
+    nome_encarregado: str | None = Field(None, min_length=2)
+    parentesco: Parentesco | None = None
+    telefone: str | None = None
+    email: str | None = None
+    observacoes: str | None = None
+
+
+class ReuniaoIn(Entrada):
+    reuniao_em: datetime = Field(description="Data e hora da reunião com a família (obrigatória)")
+    reuniao_local: str | None = Field(None, description="Sala ou local; por omissão, a secretaria do colégio")
+    mensagem: str | None = Field(None, description="Texto a juntar à convocatória (ex.: trazer o último boletim)")
+
+
+class AvaliacaoCandidaturaIn(Entrada):
+    avaliacao: str = Field(min_length=3, description="Notas da reunião e, se houve, da entrevista ou avaliação do aluno")
+
+
+class ParecerIn(Entrada):
+    parecer: str | None = Field(None, description="Parecer ou nota (obrigatório ao rejeitar)")
+
+
+class ComunicarVagaIn(Entrada):
+    mensagem: str | None = Field(None, description="Texto a juntar à comunicação (ex.: prazo, valor da matrícula)")
+
+
+class CorreccaoIn(Entrada):
+    correccao: str = Field(min_length=3, description="O que a família tem de corrigir ou entregar")
+
+
+class MatricularCandidaturaIn(Entrada):
+    turma_id: int | None = Field(None, description="Turma; sem ela, a 1.ª turma da classe com vaga")
+
+
+class BoasVindasIn(Entrada):
+    kit_entregue: bool = Field(False, description="Welcome kit entregue")
+    documentacao_entregue: bool = Field(False, description="Regulamento, calendário e lista de material entregues")
+    reuniao_integracao: datetime | None = Field(None, description="Reunião ou dia de integração (se houver)")
+    mensagem: str | None = Field(None, description="Texto a juntar à mensagem de boas-vindas")
+
+
+class GoogleFormsIn(Entrada):
+    """Enviado pelo Apps Script do formulário (scripts/google_forms_apps_script.js) a cada resposta."""
+    id_resposta: str | None = Field(None, description="Id da resposta no Google Forms: reenviar não duplica")
+    respostas: dict[str, str | list[str] | None] = Field(description="Título da pergunta → resposta")
+
+
+class FormalizacaoIn(Entrada):
+    """Dados da matrícula preenchidos pela família no link recebido (sem conta)."""
+    nome_aluno: str | None = Field(None, min_length=2)
+    data_nascimento: date | None = None
+    sexo: Literal["F", "M"] | None = None
+    nacionalidade: str | None = None
+    bi_numero: str | None = Field(None, description="BI ou cédula do aluno")
+    morada: str | None = None
+    alergias: str | None = None
+    necessidades_especiais: str | None = None
+    grupo_sanguineo: str | None = None
+    condicoes_saude: str | None = None
+    medicacao: str | None = None
+    contacto_emergencia: str | None = None
+    telefone_emergencia: str | None = None
+    nome_encarregado: str | None = Field(None, min_length=2)
+    bi_encarregado: str | None = None
+    nif: str | None = None
+    profissao: str | None = None
+    telefone: str | None = None
+    whatsapp: str | None = None
+    email: str | None = None
+    morada_encarregado: str | None = None
+
+
 # ---------------------------------------------------------------- outros
 class EstadoIn(Entrada):
     """Estado de um alerta: visto (aberto mas lido), tratado ou descartado; novo volta a abri-lo."""
@@ -772,6 +873,28 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     PedidoIn: {"tipo": "vaga", "nome_aluno": "Pedro Domingos", "data_nascimento": "2020-05-02", "sexo": "M",
                "parentesco": "mae", "classe_id": 1, "observacoes": "Irmão da Ana Paula, já aluna da escola"},
     DecisaoIn: {"resposta": "Vaga aceite. Bem-vindo ao colégio!"},
+    CandidaturaIn: {"nome_aluno": "Joana Mbala", "data_nascimento": "2019-04-11", "sexo": "F",
+                    "escola_anterior": "Colégio Pequenos Génios", "classe_id": 1, "nome_encarregado": "Marta Mbala",
+                    "parentesco": "mae", "telefone": "+244923555111", "email": "marta.mbala@gmail.com",
+                    "observacoes": "Tem um irmão na 4.ª classe"},
+    CandidaturaUpd: {"classe_id": 2, "observacoes": "A família prefere o turno da manhã"},
+    ReuniaoIn: {"reuniao_em": "2026-11-10T09:30:00+01:00", "reuniao_local": "Gabinete da coordenação",
+                "mensagem": "Traga o último boletim e a cédula da criança."},
+    AvaliacaoCandidaturaIn: {"avaliacao": "Reunião com a mãe. Avaliação diagnóstica: lê com fluência, boa motricidade."},
+    ParecerIn: {"parecer": "Perfil adequado à 1.ª classe; há vaga na turma A."},
+    ComunicarVagaIn: {"mensagem": "Formalize até 20 de Novembro. Matrícula: 45 000 Kz."},
+    CorreccaoIn: {"correccao": "A cédula está ilegível: carregue uma fotografia mais nítida."},
+    MatricularCandidaturaIn: {"turma_id": 1},
+    BoasVindasIn: {"kit_entregue": True, "documentacao_entregue": True, "reuniao_integracao": "2026-12-01T08:00:00+01:00",
+                   "mensagem": "O primeiro dia de aulas é segunda-feira às 7h30."},
+    GoogleFormsIn: {"id_resposta": "2_ABaOnudj1", "respostas": {
+        "Nome completo do aluno": "Joana Mbala", "Data de nascimento": "2019-04-11", "Sexo": "Feminino",
+        "Classe pretendida": "1.ª Classe", "Nome do encarregado de educação": "Marta Mbala", "Parentesco": "Mãe",
+        "Telefone / WhatsApp": "+244923555111", "E-mail": "marta.mbala@gmail.com"}},
+    FormalizacaoIn: {"data_nascimento": "2019-04-11", "sexo": "F", "nacionalidade": "Angolana",
+                     "bi_numero": "007654321LA045", "morada": "Talatona, Rua 12, Casa 4", "alergias": "Nenhuma",
+                     "contacto_emergencia": "Marta Mbala (mãe)", "telefone_emergencia": "+244923555111",
+                     "bi_encarregado": "004561237LA033", "profissao": "Engenheira", "whatsapp": "+244923555111"},
     AvaliacaoProfessorIn: {"funcionario_id": 1, "aluno_id": 1, "nota": 5,
                            "comentario": "Muito atenciosa e explica bem os trabalhos de casa."},
     EstadoIn: {"estado": "tratado"},
