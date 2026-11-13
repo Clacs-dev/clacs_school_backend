@@ -5,6 +5,7 @@
                                       (também activado com a variável SEED_DEMO=true)
 """
 import argparse
+import logging
 import os
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
@@ -16,7 +17,7 @@ from app.common import soma_meses
 from app.config import get_settings
 from app.database import SessionLocal
 from app.models import (
-    AdesaoServico, Aluno, AlunoEncarregado, AnoLectivo, Assiduidade, AtribuicaoDocente, Avaliacao, Classe,
+    AdesaoServico, Aluno, AuditoriaLog, AlunoEncarregado, AnoLectivo, Assiduidade, AtribuicaoDocente, Avaliacao, Classe,
     ClasseDisciplina, Cobranca, Desconto, Disciplina, Encarregado, Estabelecimento, Funcionario, IntegracaoConfig,
     IntegracaoDivergencia, IntegracaoSyncLog, Matricula, MetodoPagamento, ModeloMensagem, MultaRegra,
     NivelEnsino, Nota, Parametro, Perfil, PerfilPermissao, PeriodoLectivo, Permissao, PlanoPagamento,
@@ -82,6 +83,15 @@ def base(db: Session) -> Estabelecimento:
         db.add(admin)
         db.flush()
         db.add(UtilizadorPerfil(utilizador_id=admin.id, perfil_id=perfis["admin"].id, estabelecimento_id=est.id))
+    elif s.admin_repor_senha:
+        # recuperação de acesso: ADMIN_REPOR_SENHA=true repõe a senha a partir de ADMIN_PASSWORD
+        admin.senha_hash = hash_senha(s.admin_password)
+        admin.activo = True
+        if not db.get(UtilizadorPerfil, (admin.id, perfis["admin"].id, est.id)):
+            db.add(UtilizadorPerfil(utilizador_id=admin.id, perfil_id=perfis["admin"].id, estabelecimento_id=est.id))
+        db.add(AuditoriaLog(estabelecimento_id=est.id, utilizador_id=None, tabela="utilizador", registo_id=admin.id,
+                            accao="update", dados_depois={"senha": "reposta no arranque (ADMIN_REPOR_SENHA)"}))
+        logging.getLogger("clacs").warning("Senha do administrador %s reposta (ADMIN_REPOR_SENHA).", admin.email)
     db.commit()
     return est
 

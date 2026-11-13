@@ -83,6 +83,8 @@ Para usar o PostgreSQL local em vez de SQLite, crie a base (`createdb clacs`) e 
    Depois do primeiro deploy, confirme que `VITE_API_URL` (frontend) tem o endereço real da API e ponha em `CORS_ORIGINS` (API) o endereço do frontend.
 3. Em cada arranque o serviço corre `alembic upgrade head` e o seed (idempotentes), e depois a API.
 4. A senha inicial do administrador é gerada pelo Render: veja `ADMIN_PASSWORD` em *Environment* e altere-a após o primeiro login (`POST /api/auth/senha`).
+   - **Administrador:** é a conta `ADMIN_EMAIL`, criada no arranque se ainda não existir. Mudar `ADMIN_EMAIL` cria uma conta admin nova; a anterior continua activa até ser desactivada em Utilizadores.
+   - **Recuperar o acesso:** defina `ADMIN_REPOR_SENHA=true` e a senha pretendida em `ADMIN_PASSWORD`, e reinicie o serviço. A senha do `ADMIN_EMAIL` é reposta (fica registado na auditoria). Depois de entrar, volte a pôr `ADMIN_REPOR_SENHA=false`, senão a senha é reposta em cada arranque.
 5. Para carregar os dados de demonstração, defina `SEED_DEMO=true` antes do primeiro arranque.
 
 ### Migrar dados de uma base local para o Render

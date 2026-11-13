@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     jwt_expira_minutos: int = 60 * 12
     admin_email: str = "admin@clacs.ao"
     admin_password: str = "admin123"
+    # true = no arranque repõe a senha do ADMIN_EMAIL com o valor de ADMIN_PASSWORD (recuperação de acesso).
+    # Voltar a pôr false depois de entrar, senão a senha é reposta em cada arranque.
+    admin_repor_senha: bool = False
     cors_origins: str = "*"
     # Endereço público do frontend (links nos e-mails de recuperação de senha).
     frontend_url: str = "http://localhost:5173"
