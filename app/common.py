@@ -1,3 +1,4 @@
+from contextvars import ContextVar
 from datetime import date
 from decimal import Decimal
 from typing import TypeVar
@@ -25,7 +26,18 @@ def obter(db: Session, model: type[M], id_: int, estabelecimento_id: int | None 
     return obj
 
 
+# Ano lectivo escolhido no topo da aplicação (cabeçalho X-Ano-Lectivo, ver app.main). Tal como a empresa no
+# Primavera, define o ano em que se trabalha: as consultas e os registos que por omissão usam o ano activo passam
+# a usar este. Sem cabeçalho (ou com um ano de outro estabelecimento), vale o ano activo.
+ANO_ESCOLHIDO: ContextVar[int | None] = ContextVar("ano_escolhido", default=None)
+
+
 def ano_activo(db: Session, estabelecimento_id: int, obrigatorio: bool = True) -> AnoLectivo | None:
+    escolhido = ANO_ESCOLHIDO.get()
+    if escolhido:
+        ano = db.get(AnoLectivo, escolhido)
+        if ano is not None and ano.estabelecimento_id == estabelecimento_id:
+            return ano
     ano = db.scalar(select(AnoLectivo).where(AnoLectivo.estabelecimento_id == estabelecimento_id,
                                              AnoLectivo.estado == "activo"))
     if ano is None and obrigatorio:

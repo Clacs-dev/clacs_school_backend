@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from app import agendador, arranque
+from app.common import ANO_ESCOLHIDO
 from app.config import get_settings
 from app.routers import (
     academico, acordos, auth, cadastro, calendario, candidaturas, orcamento, comunicacao, documentos, financeiro, importacao, painel, pedagogico,
@@ -101,11 +102,15 @@ async def registo_e_cabecalhos(request: Request, call_next):
     """Identificador por pedido, tempo de resposta no registo, cabeçalhos de segurança e erros sem fugas."""
     pid = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:12]
     inicio = time.perf_counter()
+    ano = request.headers.get("X-Ano-Lectivo", "")
+    marca = ANO_ESCOLHIDO.set(int(ano) if ano.isdigit() else None)
     try:
         resposta = await call_next(request)
     except Exception:
         log.exception("Erro não tratado [%s] %s %s", pid, request.method, request.url.path)
         resposta = JSONResponse({"detail": f"Erro interno. Referência: {pid}"}, status_code=500)
+    finally:
+        ANO_ESCOLHIDO.reset(marca)
     ms = (time.perf_counter() - inicio) * 1000
     if request.url.path.startswith("/api") and request.url.path != "/api/health":
         log.info("[%s] %s %s -> %s (%.0f ms)", pid, request.method, request.url.path, resposta.status_code, ms)

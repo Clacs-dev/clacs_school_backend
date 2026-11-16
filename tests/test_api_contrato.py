@@ -115,6 +115,20 @@ def test_academico(client, admin):
     assert ok(client.get(f"/api/turmas/{turma['id']}/atribuicoes", headers=admin))[0]["professor"] == "Prof. Contrato"
 
 
+def test_ano_escolhido_no_cabecalho(client, admin):
+    """O ano escolhido no topo (X-Ano-Lectivo) substitui o ano activo onde este é usado por omissão."""
+    anos = ok(client.get("/api/anos-lectivos", headers=admin))
+    activo = next(a for a in anos if a["estado"] == "activo")
+    outro = next(a for a in anos if a["id"] != activo["id"])
+    por_omissao = {t["id"] for t in ok(client.get("/api/turmas", headers=admin))}
+    assert por_omissao == {t["id"] for t in ok(client.get("/api/turmas", headers=admin, params={"ano_id": activo["id"]}))}
+    escolhido = {t["id"] for t in ok(client.get("/api/turmas", headers={**admin, "X-Ano-Lectivo": str(outro["id"])}))}
+    assert escolhido == {t["id"] for t in ok(client.get("/api/turmas", headers=admin, params={"ano_id": outro["id"]}))}
+    assert escolhido != por_omissao
+    # Um ano que não existe (ou de outra escola) é ignorado: vale o ano activo.
+    assert {t["id"] for t in ok(client.get("/api/turmas", headers={**admin, "X-Ano-Lectivo": "999999"}))} == por_omissao
+
+
 def test_cadastro_e_financeiro(client, admin):
     com_vagas = [t for t in ok(client.get("/api/turmas", headers=admin)) if not t["cheia"]]
     a, b = com_vagas[0], com_vagas[1]
