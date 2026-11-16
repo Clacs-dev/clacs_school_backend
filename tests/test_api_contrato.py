@@ -95,6 +95,15 @@ def test_academico(client, admin):
     disc = ok(client.post("/api/disciplinas", headers=admin, json={"nome": "Filosofia", "sigla": "FIL"}))
     ok(client.post(f"/api/classes/{classe['id']}/disciplinas", headers=admin, json={"disciplina_id": disc["id"], "carga_horaria": 2}))
     assert ok(client.get(f"/api/classes/{classe['id']}/disciplinas", headers=admin))[0]["carga_horaria"] == 2
+    unidade = ok(client.post("/api/programas", headers=admin, json={
+        "classe_id": classe["id"], "disciplina_id": disc["id"], "ordem": 1, "titulo": "Introdução à Filosofia",
+        "conteudos": "O que é a filosofia; as grandes perguntas.", "trimestre": 1, "tempos_previstos": 6}))
+    ok(client.patch(f"/api/programas/{unidade['id']}", headers=admin, json={"tempos_previstos": 8}))
+    lista = ok(client.get("/api/programas", headers=admin, params={"classe_id": classe["id"], "disciplina_id": disc["id"]}))
+    assert [u["tempos_previstos"] for u in lista] == [8]
+    assert ok(client.get(f"/api/programas/{unidade['id']}", headers=admin))["titulo"] == "Introdução à Filosofia"
+    ok(client.delete(f"/api/programas/{unidade['id']}", headers=admin))
+    assert ok(client.get("/api/programas", headers=admin, params={"classe_id": classe["id"]})) == []
     sala = ok(client.post("/api/salas", headers=admin, json={"designacao": "Laboratório", "capacidade": 20}))
     prof = ok(client.post("/api/funcionarios", headers=admin, json={"nome_completo": "Prof. Contrato", "cargo": "professor"}))
     ok(client.patch(f"/api/funcionarios/{prof['id']}", headers=admin, json={"telefone": "+244 923 111 222"}))

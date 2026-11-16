@@ -168,6 +168,23 @@ class ClasseDisciplina(Base):
     carga_horaria: Mapped[int | None] = mapped_column(SmallInteger)
 
 
+class ProgramaUnidade(Base):
+    """Unidade temática do programa de uma disciplina numa classe: objectivos, conteúdos e tempos previstos."""
+    __tablename__ = "programa_unidade"
+    __table_args__ = (CheckConstraint("trimestre BETWEEN 1 AND 3", name="trimestre"),
+                      Index("ix_programa_unidade_classe_disciplina", "classe_id", "disciplina_id"))
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    classe_id: Mapped[int] = fk("classe.id")
+    disciplina_id: Mapped[int] = fk("disciplina.id")
+    ordem: Mapped[int] = mapped_column(SmallInteger, server_default="1")
+    titulo: Mapped[str] = mapped_column(Text)
+    objectivos: Mapped[str | None] = mapped_column(Text)
+    conteudos: Mapped[str | None] = mapped_column(Text)
+    trimestre: Mapped[int | None] = mapped_column(SmallInteger)          # 1.º, 2.º ou 3.º trimestre
+    tempos_previstos: Mapped[int | None] = mapped_column(SmallInteger)   # n.º de tempos lectivos
+
+
 class Funcionario(Base):
     __tablename__ = "funcionario"
     __table_args__ = (ck_in("cargo", "professor", "coordenador", "director", "secretaria", "financeiro", "outro"),)

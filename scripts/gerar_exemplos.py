@@ -69,7 +69,8 @@ POVOAR = [("POST", "/api/comunicados", S.ComunicadoIn), ("POST", "/api/alunos/1/
           ("POST", "/api/orcamentos", S.OrcamentoIn), ("POST", "/api/orcamentos/1/linhas", S.OrcamentoLinhaIn),
           ("POST", "/api/despesas", S.DespesaIn), ("POST", "/api/eventos", S.EventoIn), ("POST", "/api/horarios", S.HorarioIn),
           ("POST", "/api/substituicoes", S.SubstituicaoIn), ("POST", "/api/aulas/registar", S.AulaRegistoIn),
-          ("POST", "/api/modelos-declaracao", S.ModeloDeclaracaoIn), ("POST", "/api/documentos-exigidos", S.DocumentoExigidoIn)]
+          ("POST", "/api/modelos-declaracao", S.ModeloDeclaracaoIn), ("POST", "/api/documentos-exigidos", S.DocumentoExigidoIn),
+          ("POST", "/api/programas", S.ProgramaUnidadeIn)]
 
 PDF = ("comprovativo.pdf", b"%PDF-1.4\n%exemplo\n", "application/pdf")
 CSV_ALUNOS = ("nome_completo;numero_processo;data_nascimento;sexo;bi_numero;turma;encarregado_nif;encarregado_nome;"

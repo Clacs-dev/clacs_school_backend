@@ -128,6 +128,17 @@ class DisciplinaIn(Entrada):
     sigla: str | None = None
 
 
+class ProgramaUnidadeIn(Entrada):
+    classe_id: int
+    disciplina_id: int
+    ordem: int = Field(1, ge=1, description="Posição da unidade no programa")
+    titulo: str = Field(min_length=2, description="Unidade temática")
+    objectivos: str | None = None
+    conteudos: str | None = None
+    trimestre: int | None = Field(None, ge=1, le=3)
+    tempos_previstos: int | None = Field(None, ge=1, description="N.º de tempos lectivos previstos")
+
+
 class ClasseDisciplinaIn(Entrada):
     disciplina_id: int
     carga_horaria: int | None = None
@@ -1080,6 +1091,10 @@ EXEMPLOS: dict[type[Entrada], dict] = {
              "localizacao": "Bloco B, ao lado da biblioteca", "observacoes": "Com lavatórios e bancadas"},
     DisciplinaIn: {"nome": "Educação Musical", "sigla": "EM"},
     ClasseDisciplinaIn: {"disciplina_id": 8, "carga_horaria": 2},
+    ProgramaUnidadeIn: {"classe_id": 1, "disciplina_id": 1, "ordem": 1, "titulo": "Números naturais",
+                        "objectivos": "Ler, escrever e comparar números até 1000.",
+                        "conteudos": "Leitura e escrita de números; ordem e comparação; valor posicional.",
+                        "trimestre": 1, "tempos_previstos": 12},
     FuncionarioIn: {"nome_completo": "João Manuel Sebastião", "cargo": "professor", "ano_contratacao": 2021,
                     "telefone": "+244912345678",
                     "email": "joao.sebastiao@clacs.ao"},

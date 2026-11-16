@@ -11,11 +11,11 @@ from app.common import ano_activo, aplicar, as_dict, obter
 from app.database import get_db
 from app.models import (
     Aluno, AnoLectivo, AtribuicaoDocente, Classe, ClasseDisciplina, Disciplina, Estabelecimento, Funcionario,
-    Matricula, NivelEnsino, Parametro, PeriodoLectivo, ResultadoFinal, Sala, Turma,
+    Matricula, NivelEnsino, Parametro, PeriodoLectivo, ProgramaUnidade, ResultadoFinal, Sala, Turma,
 )
 from app.schemas import (
     AnoIn, AtribuicaoIn, ClasseDisciplinaIn, ClasseIn, DisciplinaIn, Entrada, com_exemplo, EstabelecimentoUpd, FuncionarioIn,
-    FuncionarioUpd, NivelIn, ParametroIn, PeriodoIn, SalaIn, TurmaIn, TurmaUpd,
+    FuncionarioUpd, NivelIn, ParametroIn, PeriodoIn, ProgramaUnidadeIn, SalaIn, TurmaIn, TurmaUpd,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas
 from app.services import fecho_ano
@@ -187,6 +187,27 @@ def disciplinas(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
 @router.post("/disciplinas", response_model=R.Disciplina, status_code=201)
 def criar_disciplina(dados: DisciplinaIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     return gravar(db, Disciplina(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()), "Esta disciplina já existe")
+
+
+# ---------------------------------------------------------------- programas das disciplinas
+@router.get("/programas", response_model=list[R.ProgramaUnidade],
+            summary="Programa das disciplinas: unidades temáticas por classe e disciplina")
+def programas(classe_id: int | None = None, disciplina_id: int | None = None, ctx: Contexto = Depends(ver),
+              db: Session = Depends(get_db)):
+    stmt = select(ProgramaUnidade).where(ProgramaUnidade.estabelecimento_id == ctx.estabelecimento_id)
+    if classe_id:
+        stmt = stmt.where(ProgramaUnidade.classe_id == classe_id)
+    if disciplina_id:
+        stmt = stmt.where(ProgramaUnidade.disciplina_id == disciplina_id)
+    return [as_dict(u) for u in db.scalars(stmt.order_by(ProgramaUnidade.classe_id, ProgramaUnidade.disciplina_id,
+                                                         ProgramaUnidade.ordem, ProgramaUnidade.id))]
+
+
+@router.post("/programas", response_model=R.ProgramaUnidade, status_code=201, summary="Nova unidade do programa")
+def criar_programa(dados: ProgramaUnidadeIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
+    _classe(db, dados.classe_id, ctx.estabelecimento_id)
+    obter(db, Disciplina, dados.disciplina_id, ctx.estabelecimento_id, "Disciplina")
+    return gravar(db, ProgramaUnidade(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()))
 
 
 # ---------------------------------------------------------------- funcionários
@@ -375,6 +396,8 @@ crud.registar(router, "/periodos", PeriodoLectivo, nome="Período", modulo="acad
 crud.registar(router, "/niveis", NivelEnsino, nome="Nível de ensino", modulo="academico", resposta=R.NivelEnsino,
               entrada=NivelIn)
 crud.registar(router, "/classes", Classe, nome="Classe", modulo="academico", resposta=R.Classe, entrada=ClasseIn)
+crud.registar(router, "/programas", ProgramaUnidade, nome="Unidade do programa", modulo="academico",
+              resposta=R.ProgramaUnidade, entrada=ProgramaUnidadeIn)
 crud.registar(router, "/salas", Sala, nome="Sala", modulo="academico", resposta=R.Sala, entrada=SalaIn)
 crud.registar(router, "/disciplinas", Disciplina, nome="Disciplina", modulo="academico", resposta=R.Disciplina,
               entrada=DisciplinaIn)

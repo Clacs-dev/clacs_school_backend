@@ -3403,6 +3403,32 @@
    "professor": "Marta Silva"
   }
  ],
+ "GET /api/programas": [
+  {
+   "classe_id": 1,
+   "conteudos": "Leitura e escrita de números; ordem e comparação; valor posicional.",
+   "disciplina_id": 1,
+   "estabelecimento_id": 1,
+   "id": 1,
+   "objectivos": "Ler, escrever e comparar números até 1000.",
+   "ordem": 1,
+   "tempos_previstos": 12,
+   "titulo": "Números naturais",
+   "trimestre": 1
+  }
+ ],
+ "GET /api/programas/{id_}": {
+  "classe_id": 1,
+  "conteudos": "Leitura e escrita de números; ordem e comparação; valor posicional.",
+  "disciplina_id": 1,
+  "estabelecimento_id": 1,
+  "id": 1,
+  "objectivos": "Ler, escrever e comparar números até 1000.",
+  "ordem": 1,
+  "tempos_previstos": 12,
+  "titulo": "Números naturais",
+  "trimestre": 1
+ },
  "GET /api/publico/candidaturas/classes": [
   {
    "designacao": "5.ª Classe",
@@ -4466,6 +4492,18 @@
   "id": 1,
   "servico_id": 1,
   "valor": 45000.0
+ },
+ "PATCH /api/programas/{id_}": {
+  "classe_id": 1,
+  "conteudos": "Leitura e escrita de números; ordem e comparação; valor posicional.",
+  "disciplina_id": 1,
+  "estabelecimento_id": 1,
+  "id": 1,
+  "objectivos": "Ler, escrever e comparar números até 1000.",
+  "ordem": 1,
+  "tempos_previstos": 12,
+  "titulo": "Números naturais",
+  "trimestre": 1
  },
  "PATCH /api/refeitorio/adesoes/{adid}": {
   "data_fim": "2026-12-31",
@@ -7098,6 +7136,18 @@
   "terminado_em": "2026-11-04T13:31:38.457635Z",
   "total_erros": 0,
   "total_registos": 0
+ },
+ "POST /api/programas": {
+  "classe_id": 1,
+  "conteudos": "Leitura e escrita de números; ordem e comparação; valor posicional.",
+  "disciplina_id": 1,
+  "estabelecimento_id": 1,
+  "id": 2,
+  "objectivos": "Ler, escrever e comparar números até 1000.",
+  "ordem": 1,
+  "tempos_previstos": 12,
+  "titulo": "Números naturais",
+  "trimestre": 1
  },
  "POST /api/publico/candidaturas": {
   "duplicada": true,
