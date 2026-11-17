@@ -54,15 +54,47 @@ def horarios_validos(db: Session, est: int, dia: date, turma_id: int | None = No
     return lista
 
 
+DIAS = ("", "segunda", "terça", "quarta", "quinta", "sexta", "sábado")
+
+
+def _hm(t) -> str:
+    return t.strftime("%H:%M")
+
+
+def _descrever(db: Session, h: Horario) -> str:
+    """Ex.: "Língua Portuguesa na 5.ª A, segunda das 08:10 às 09:00"."""
+    return (f"{db.get(Disciplina, h.disciplina_id).nome} na {db.get(Turma, h.turma_id).designacao}, "
+            f"{DIAS[h.dia_semana]} das {_hm(h.hora_inicio)} às {_hm(h.hora_fim)}")
+
+
 def conflitos(db: Session, h: Horario, desde: date) -> None:
-    """Turma, professor ou sala já ocupados nesse dia e hora (versões em vigor a partir de desde)."""
-    base = select(Horario).where(Horario.estabelecimento_id == h.estabelecimento_id, Horario.dia_semana == h.dia_semana,
-                                 Horario.id != (h.id or 0), or_(Horario.valido_ate.is_(None), Horario.valido_ate >= desde),
-                                 Horario.hora_inicio < h.hora_fim, Horario.hora_fim > h.hora_inicio)
-    for coluna, valor, nome in ((Horario.turma_id, h.turma_id, "a turma"), (Horario.funcionario_id, h.funcionario_id, "o professor"),
-                                (Horario.sala_id, h.sala_id, "a sala")):
-        if valor and db.scalar(base.where(coluna == valor).limit(1)):
-            raise HTTPException(409, f"Conflito: {nome} já tem aula nesse dia e hora")
+    """Recusa (409) o tempo lectivo se, no mesmo dia da semana e com horas sobrepostas, a turma, o professor ou a sala
+    já estiverem ocupados noutra versão em vigor a partir de `desde`. Só conta o mesmo ciclo (ano lectivo) da turma:
+    horários de anos anteriores nunca bloqueiam. Outro professor (mesmo da mesma disciplina) pode dar aula à mesma
+    hora noutra turma."""
+    ano_id = db.get(Turma, h.turma_id).ano_id
+    base = (select(Horario).join(Turma, Turma.id == Horario.turma_id)
+            .where(Horario.estabelecimento_id == h.estabelecimento_id, Turma.ano_id == ano_id,
+                   Horario.dia_semana == h.dia_semana, Horario.id != (h.id or 0),
+                   or_(Horario.valido_ate.is_(None), Horario.valido_ate >= desde),
+                   Horario.hora_inicio < h.hora_fim, Horario.hora_fim > h.hora_inicio))
+    if h.funcionario_id and (outro := db.scalar(base.where(Horario.funcionario_id == h.funcionario_id).limit(1))):
+        prof = db.get(Funcionario, h.funcionario_id).nome_completo
+        raise HTTPException(409, f"Conflito: o professor {prof} já dá {_descrever(db, outro)}. "
+                                 "Escolha outro tempo ou outro professor.")
+    if outro := db.scalar(base.where(Horario.turma_id == h.turma_id).limit(1)):
+        raise HTTPException(409, f"Conflito: a turma já tem {_descrever(db, outro)}. Escolha outro tempo.")
+    if h.sala_id and (outro := db.scalar(base.where(Horario.sala_id == h.sala_id).limit(1))):
+        raise HTTPException(409, f"Conflito: a sala já está ocupada com {_descrever(db, outro)}. Escolha outra sala ou outro tempo.")
+
+
+def professor_livre(db: Session, est: int, funcionario_id: int, dia: date, h: Horario) -> None:
+    """Recusa (409) um substituto que nesse dia, a essa hora, já dá uma aula (dele ou como substituto)."""
+    for outro in horarios_validos(db, est, dia, funcionario_id=funcionario_id):
+        if outro.id != h.id and outro.hora_inicio < h.hora_fim and outro.hora_fim > h.hora_inicio:
+            prof = db.get(Funcionario, funcionario_id).nome_completo
+            raise HTTPException(409, f"Conflito: o professor {prof} já dá {_descrever(db, outro)} nesse dia. "
+                                     "Escolha outro substituto.")
 
 
 def aulas_do_dia(db: Session, est: int, dia: date, turma_id: int | None = None, funcionario_id: int | None = None) -> list[dict]:

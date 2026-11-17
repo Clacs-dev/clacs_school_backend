@@ -288,6 +288,43 @@ def test_horarios_aulas_substituicoes_e_feriados(client, admin):
     _ok(client.get(f"/api/portal/educandos/{_educando(client, ee)}/horario", headers=ee))
 
 
+def test_professor_nao_da_duas_aulas_ao_mesmo_tempo(client, admin):
+    """5.ª A e 5.ª B: o mesmo professor não pode estar nas duas à mesma hora; outro professor (mesmo da mesma
+    disciplina) pode. Vale também para o professor substituto."""
+    classe = client.get("/api/classes", headers=admin).json()[0]
+    a = _ok(client.post("/api/turmas", headers=admin, json={"designacao": "5.ª A (conflitos)", "classe_id": classe["id"]}), 201)
+    b = _ok(client.post("/api/turmas", headers=admin, json={"designacao": "5.ª B (conflitos)", "classe_id": classe["id"]}), 201)
+    lp = _ok(client.post("/api/disciplinas", headers=admin, json={"nome": "Língua Portuguesa (conflitos)", "sigla": "LPC"}), 201)
+    x, y, z = (_ok(client.post("/api/funcionarios", headers=admin, json={"nome_completo": n, "cargo": "professor"}), 201)
+               for n in ("Prof. Xavier", "Prof. Yolanda", "Prof. Zeferino"))
+    seg = {"disciplina_id": lp["id"], "dia_semana": 1, "tempo": 2, "hora_inicio": "08:10:00", "hora_fim": "09:00:00"}
+
+    na_a = _ok(client.post("/api/horarios", headers=admin, json={**seg, "turma_id": a["id"], "funcionario_id": x["id"]}), 201)
+    r = client.post("/api/horarios", headers=admin, json={**seg, "turma_id": b["id"], "funcionario_id": x["id"]})
+    assert r.status_code == 409 and "Prof. Xavier já dá Língua Portuguesa (conflitos) na 5.ª A (conflitos)" in r.json()["detail"]
+    # horas só em parte sobrepostas também não
+    assert client.post("/api/horarios", headers=admin, json={
+        **seg, "turma_id": b["id"], "funcionario_id": x["id"], "hora_inicio": "08:30:00", "hora_fim": "09:20:00"}).status_code == 409
+    # outro professor da mesma disciplina, à mesma hora, na 5.ª B: pode
+    _ok(client.post("/api/horarios", headers=admin, json={**seg, "turma_id": b["id"], "funcionario_id": y["id"]}), 201)
+    # o mesmo professor noutro tempo (logo a seguir) ou noutro dia: pode
+    _ok(client.post("/api/horarios", headers=admin, json={
+        **seg, "turma_id": b["id"], "funcionario_id": x["id"], "tempo": 3, "hora_inicio": "09:00:00", "hora_fim": "09:50:00"}), 201)
+    _ok(client.post("/api/horarios", headers=admin, json={**seg, "turma_id": b["id"], "funcionario_id": x["id"], "dia_semana": 2}), 201)
+    # alterar um tempo para cima de outra aula do mesmo professor também é recusado
+    amanha = (date.today() + timedelta(days=1)).isoformat()
+    assert client.post(f"/api/horarios/{na_a['id']}/alterar", headers=admin, json={
+        "desde": amanha, "hora_inicio": "09:10:00", "hora_fim": "09:40:00"}).status_code == 409
+
+    # substituto: a Yolanda já está na 5.ª B à mesma hora, não pode substituir o Xavier na 5.ª A; o Zeferino pode
+    segunda = date.today() + timedelta(days=7 - date.today().weekday())
+    r = client.post("/api/substituicoes", headers=admin, json={"horario_id": na_a["id"], "data": segunda.isoformat(),
+                                                               "substituto_id": y["id"]})
+    assert r.status_code == 409 and "Prof. Yolanda já dá" in r.json()["detail"]
+    _ok(client.post("/api/substituicoes", headers=admin, json={"horario_id": na_a["id"], "data": segunda.isoformat(),
+                                                              "substituto_id": z["id"]}), 201)
+
+
 # ---------------------------------------------------------------- pré-inscrição pública no site
 def test_pre_inscricao_publica_sem_conta(client, admin):
     classes = _ok(client.get("/api/publico/candidaturas/classes"))   # sem sessão

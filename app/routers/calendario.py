@@ -135,6 +135,7 @@ def substituir(dados: SubstituicaoIn, ctx: Contexto = Depends(editar_acad), db: 
     obter(db, Funcionario, dados.substituto_id, ctx.estabelecimento_id, "Professor")
     if h not in svc.horarios_validos(db, ctx.estabelecimento_id, dados.data):
         raise HTTPException(422, "Esse tempo lectivo não tem aula nessa data")
+    svc.professor_livre(db, ctx.estabelecimento_id, dados.substituto_id, dados.data, h)
     s = db.scalar(select(Substituicao).where(Substituicao.horario_id == h.id, Substituicao.data == dados.data)) or \
         Substituicao(horario_id=h.id, data=dados.data)
     s.substituto_id, s.motivo, s.registada_por = dados.substituto_id, dados.motivo, ctx.id
