@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,7 @@ from app.common import ano_activo, aplicar, as_dict, numero_processo, obter
 from app.database import get_db
 from app.models import (
     AdesaoServico, Aluno, AlunoEncarregado, AnoLectivo, AtribuicaoDocente, Classe, ClasseDisciplina, Desconto, Disciplina,
-    Funcionario, DocumentoAluno, Encarregado, Matricula,
+    Funcionario, DocumentoAluno, Encarregado, Horario, Matricula,
     MatriculaDesconto, MatriculaHistorico, Ocorrencia, PeriodoLectivo, PreferenciaContacto, Servico, Turma,
 )
 from app.schemas import (
@@ -61,7 +61,16 @@ def disciplinas_do_aluno(db: Session, aluno_id: int, est: int) -> list[dict]:
                    & (AtribuicaoDocente.turma_id == t.id))
         .outerjoin(Funcionario, Funcionario.id == AtribuicaoDocente.funcionario_id)
         .where(ClasseDisciplina.classe_id == t.classe_id).order_by(Disciplina.nome))
-    return [{**as_dict(d), "carga_horaria": ch, "professor_id": pid, "professor": prof} for d, ch, pid, prof in rows]
+    # Carga horária = tempos lectivos da disciplina no horário em vigor da turma (o valor escrito à mão no plano
+    # curricular só se usa enquanto a turma não tiver horário).
+    hoje = date.today()
+    tempos = dict(db.execute(
+        select(Horario.disciplina_id, func.count()).where(
+            Horario.turma_id == t.id, Horario.valido_desde <= hoje,
+            or_(Horario.valido_ate.is_(None), Horario.valido_ate >= hoje))
+        .group_by(Horario.disciplina_id)).tuples().all())
+    return [{**as_dict(d), "carga_horaria": tempos.get(d.id, ch if not tempos else None), "professor_id": pid,
+             "professor": prof} for d, ch, pid, prof in rows]
 
 
 # ---------------------------------------------------------------- alunos
