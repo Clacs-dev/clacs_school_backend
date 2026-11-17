@@ -129,6 +129,44 @@ def test_ano_escolhido_no_cabecalho(client, admin):
     assert {t["id"] for t in ok(client.get("/api/turmas", headers={**admin, "X-Ano-Lectivo": "999999"}))} == por_omissao
 
 
+def test_multi_tenant_por_ciclo(client, admin):
+    """Com um ciclo escolhido, todas as áreas mostram só os dados desse ciclo; o encerrado é só de consulta."""
+    anos = ok(client.get("/api/anos-lectivos", headers=admin))
+    activo = next(a for a in anos if a["estado"] == "activo")
+    fechado = next(a for a in anos if a["estado"] == "encerrado")
+    no = lambda a: {**admin, "X-Ano-Lectivo": str(a["id"])}  # noqa: E731
+
+    # matrículas e turmas do ciclo
+    mats = ok(client.get("/api/matriculas", headers=no(activo)))
+    assert mats and {m["ano_id"] for m in mats} == {activo["id"]}
+    assert all(m["ano_id"] == fechado["id"] for m in ok(client.get("/api/matriculas", headers=no(fechado))))
+    assert all(t["ano_id"] == fechado["id"] for t in ok(client.get("/api/turmas", headers=no(fechado))))
+    # cobranças: cada ciclo vê só as das suas matrículas, e os dois juntos dão o total
+    total = ok(client.get("/api/cobrancas", headers=admin))["linhas"]
+    por_ciclo = [ok(client.get("/api/cobrancas", headers=no(a)))["linhas"] for a in anos]
+    assert sum(len(l) for l in por_ciclo) == len(total)
+    alunos_activo = {m["aluno_id"] for m in ok(client.get("/api/matriculas", headers=no(activo)))}
+    linhas_activo = ok(client.get("/api/cobrancas", headers=no(activo)))["linhas"]
+    assert linhas_activo and all(l["aluno_id"] in alunos_activo for l in linhas_activo)
+    # pagamentos: com data no ciclo ou a saldar cobranças do ciclo
+    for p in ok(client.get("/api/pagamentos", headers=no(activo))):
+        assert activo["data_inicio"] <= p["data_pagamento"] <= activo["data_fim"] or p["alocacoes"]
+
+    # ciclo encerrado: consulta sim, alterações não (excepto a gestão dos ciclos e a cobrança das dívidas)
+    r = client.post("/api/disciplinas", headers=no(fechado), json={"nome": "Não deve gravar", "sigla": "NDG"})
+    assert r.status_code == 409 and "só consulta" in r.json()["detail"]
+    assert client.post("/api/cobrancas/gerar", headers=no(fechado), json={}).status_code == 409
+    # pagamentos e acordos passam o bloqueio (aqui recusados só por o corpo vir vazio)
+    assert client.post("/api/pagamentos", headers=no(fechado), json={}).status_code == 422
+    assert client.post("/api/acordos", headers=no(fechado), json={}).status_code == 422
+    ok(client.get(f"/api/anos-lectivos/{fechado['id']}/resultados", headers=no(fechado)))
+    # rotas de um ano explícito ignoram o ciclo escolhido
+    assert ok(client.get(f"/api/anos-lectivos/{fechado['id']}/resultados", headers=no(activo))) == \
+        ok(client.get(f"/api/anos-lectivos/{fechado['id']}/resultados", headers=admin))
+    assert ok(client.get("/api/turmas", headers=no(activo), params={"ano_id": fechado["id"]})) == \
+        ok(client.get("/api/turmas", headers=admin, params={"ano_id": fechado["id"]}))
+
+
 def test_cadastro_e_financeiro(client, admin):
     com_vagas = [t for t in ok(client.get("/api/turmas", headers=admin)) if not t["cheia"]]
     a, b = com_vagas[0], com_vagas[1]

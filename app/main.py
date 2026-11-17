@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -9,9 +10,21 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from app import agendador, arranque
+from app import agendador, arranque, ciclo
 from app.common import ANO_ESCOLHIDO
 from app.config import get_settings
+from app.database import SessionLocal
+
+# Num ciclo encerrado só se consulta. Continuam a aceitar alterações: a sessão, a gestão dos ciclos e a cobrança
+# das dívidas desse ciclo (pagamentos, anulações, multas, lembretes e acordos de pagamento). Gerar novas
+# cobranças ou mexer na configuração financeira continua bloqueado.
+CICLO_LIVRE = ("/api/auth/", "/api/anos-lectivos", "/api/periodos")
+CICLO_LIVRE_PAGAMENTOS = re.compile(
+    r"^/api/(pagamentos(/.*)?|acordos(/.*)?|cobrancas/(\d+/(anular|isentar-multa)|aplicar-multas|lembretes))$")
+
+
+def livre_no_ciclo_encerrado(caminho: str) -> bool:
+    return caminho.startswith(CICLO_LIVRE) or bool(CICLO_LIVRE_PAGAMENTOS.match(caminho))
 from app.routers import (
     academico, acordos, auth, cadastro, calendario, candidaturas, orcamento, comunicacao, documentos, financeiro, importacao, painel, pedagogico,
     pedidos, portal, primavera, refeitorio, saude, secretaria, transporte,
@@ -102,15 +115,29 @@ async def registo_e_cabecalhos(request: Request, call_next):
     """Identificador por pedido, tempo de resposta no registo, cabeçalhos de segurança e erros sem fugas."""
     pid = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:12]
     inicio = time.perf_counter()
-    ano = request.headers.get("X-Ano-Lectivo", "")
-    marca = ANO_ESCOLHIDO.set(int(ano) if ano.isdigit() else None)
+    # Ciclo académico escolhido no topo da aplicação (ver app.ciclo).
+    cabecalho = request.headers.get("X-Ano-Lectivo", "")
+    escolhido = None
+    if cabecalho.isdigit():
+        with SessionLocal() as db:
+            escolhido = ciclo.carregar(db, int(cabecalho))
+    marca_ano = ANO_ESCOLHIDO.set(escolhido.id if escolhido else None)
+    marca_ciclo = ciclo.CICLO.set(escolhido)
     try:
-        resposta = await call_next(request)
+        if (escolhido and escolhido.estado == "encerrado" and request.method not in ("GET", "HEAD", "OPTIONS")
+                and not livre_no_ciclo_encerrado(request.url.path)):
+            resposta = JSONResponse({"detail": f"O ciclo {escolhido.designacao} está encerrado: só consulta (e "
+                                               "pagamentos das dívidas desse ciclo). Escolha outro ciclo no topo "
+                                               "para registar ou alterar dados."},
+                                    status_code=409)
+        else:
+            resposta = await call_next(request)
     except Exception:
         log.exception("Erro não tratado [%s] %s %s", pid, request.method, request.url.path)
         resposta = JSONResponse({"detail": f"Erro interno. Referência: {pid}"}, status_code=500)
     finally:
-        ANO_ESCOLHIDO.reset(marca)
+        ciclo.CICLO.reset(marca_ciclo)
+        ANO_ESCOLHIDO.reset(marca_ano)
     ms = (time.perf_counter() - inicio) * 1000
     if request.url.path.startswith("/api") and request.url.path != "/api/health":
         log.info("[%s] %s %s -> %s (%.0f ms)", pid, request.method, request.url.path, resposta.status_code, ms)

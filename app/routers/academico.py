@@ -18,6 +18,7 @@ from app.schemas import (
     FuncionarioUpd, NivelIn, ParametroIn, PeriodoIn, ProgramaUnidadeIn, SalaIn, TurmaIn, TurmaUpd,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas
+from app.ciclo import livre_de_ciclo, todos_os_ciclos
 from app.services import fecho_ano
 from app.services import turmas as ocupacao_turmas
 
@@ -253,6 +254,13 @@ def turmas_com_ocupacao(db: Session, est: int, ano_id: int | None) -> list[dict]
 
 @router.get("/turmas", response_model=list[R.TurmaComOcupacao])
 def turmas(ano_id: int | None = None, ctx: Contexto = Depends(exige("cadastro")), db: Session = Depends(get_db)):
+    if ano_id is not None:  # ano pedido explicitamente (ex.: transição): não se limita ao ciclo escolhido
+        with todos_os_ciclos():
+            return _turmas(ano_id, ctx, db)
+    return _turmas(ano_id, ctx, db)
+
+
+def _turmas(ano_id: int | None, ctx: Contexto, db: Session) -> list[dict]:
     if ano_id is None:
         ano = ano_activo(db, ctx.estabelecimento_id, obrigatorio=False)
         ano_id = ano.id if ano else None
@@ -352,6 +360,7 @@ class TransitarIn(Entrada):
 
 
 @router.post("/anos-lectivos/{ano_id}/fechar", response_model=R.ResultadoFecho, summary="Fecha o ano: média final e situação de cada aluno")
+@livre_de_ciclo
 def fechar_ano(ano_id: int, simular: bool = True, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     """Com simular=true (por omissão) mostra o resultado sem gravar. Parâmetros: nota_minima (10), faltas_maximas."""
     ano = obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo")
@@ -365,6 +374,7 @@ def fechar_ano(ano_id: int, simular: bool = True, ctx: Contexto = Depends(editar
 
 
 @router.get("/anos-lectivos/{ano_id}/resultados", response_model=list[R.ResultadoComNomes], summary="Resultados finais gravados do ano")
+@livre_de_ciclo
 def resultados(ano_id: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo")
     rows = db.execute(select(ResultadoFinal, Aluno.nome_completo, Turma.designacao)
@@ -375,6 +385,7 @@ def resultados(ano_id: int, ctx: Contexto = Depends(ver), db: Session = Depends(
 
 
 @router.post("/anos-lectivos/{ano_id}/transitar", response_model=R.ResultadoTransicao, summary="Matricula no novo ano os alunos do ano anterior")
+@livre_de_ciclo
 def transitar(ano_id: int, dados: TransitarIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     para = obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo")
     de = obter(db, AnoLectivo, dados.de_ano_id, ctx.estabelecimento_id, "Ano lectivo")
