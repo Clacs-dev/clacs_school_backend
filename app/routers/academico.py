@@ -11,7 +11,7 @@ from app.common import ano_activo, aplicar, as_dict, obter
 from app.database import get_db
 from app.models import (
     Aluno, AnoLectivo, AtribuicaoDocente, Classe, ClasseDisciplina, Disciplina, Estabelecimento, Funcionario,
-    Matricula, NivelEnsino, Parametro, PeriodoLectivo, ProgramaUnidade, ResultadoFinal, Sala, Turma,
+    Matricula, NivelEnsino, Parametro, PeriodoLectivo, ProgramaUnidade, ResultadoFinal, Sala, TempoLectivo, Turma,
 )
 from app.schemas import (
     AnoIn, AtribuicaoIn, ClasseDisciplinaIn, ClasseIn, DisciplinaIn, Entrada, com_exemplo, EstabelecimentoUpd, FuncionarioIn,
@@ -249,6 +249,8 @@ def programas(classe_id: int | None = None, disciplina_id: int | None = None, ct
 def criar_programa(dados: ProgramaUnidadeIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     _classe(db, dados.classe_id, ctx.estabelecimento_id)
     obter(db, Disciplina, dados.disciplina_id, ctx.estabelecimento_id, "Disciplina")
+    if dados.tempo_lectivo_id:
+        obter(db, TempoLectivo, dados.tempo_lectivo_id, ctx.estabelecimento_id, "Tempo lectivo")
     irmaos = _unidades_de(dados.classe_id, dados.disciplina_id)
     ordem = ordens.ao_criar(db, ProgramaUnidade, irmaos, dados.ordem, "uma unidade neste programa", lambda u: u.titulo)
     return gravar(db, ProgramaUnidade(estabelecimento_id=ctx.estabelecimento_id, **{**dados.model_dump(), "ordem": ordem}))

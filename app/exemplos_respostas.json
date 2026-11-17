@@ -3412,6 +3412,7 @@
    "id": 1,
    "objectivos": "Ler, escrever e comparar números até 1000.",
    "ordem": 1,
+   "tempo_lectivo_id": null,
    "tempos_previstos": 12,
    "titulo": "Números naturais",
    "trimestre": 1
@@ -3425,6 +3426,7 @@
   "id": 1,
   "objectivos": "Ler, escrever e comparar números até 1000.",
   "ordem": 1,
+  "tempo_lectivo_id": null,
   "tempos_previstos": 12,
   "titulo": "Números naturais",
   "trimestre": 1
@@ -4517,6 +4519,7 @@
   "id": 1,
   "objectivos": "Ler, escrever e comparar números até 1000.",
   "ordem": 1,
+  "tempo_lectivo_id": null,
   "tempos_previstos": 12,
   "titulo": "Números naturais",
   "trimestre": 1
@@ -7185,7 +7188,8 @@
   "estabelecimento_id": 1,
   "id": 2,
   "objectivos": "Ler, escrever e comparar números até 1000.",
-  "ordem": 1,
+  "ordem": 2,
+  "tempo_lectivo_id": null,
   "tempos_previstos": 12,
   "titulo": "Números naturais",
   "trimestre": 1

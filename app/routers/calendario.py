@@ -131,6 +131,9 @@ def _validar(db: Session, ctx: Contexto, dados) -> None:
 @router.post("/horarios", response_model=R.HorarioComNomes, status_code=201,
              summary="Novo tempo lectivo (recusa conflitos de turma, professor ou sala)")
 def criar_horario(dados: HorarioIn, ctx: Contexto = Depends(editar_acad), db: Session = Depends(get_db)):
+    if dados.sala_id is None:  # a aula é na sala da turma, salvo indicação em contrário
+        turma = obter(db, Turma, dados.turma_id, ctx.estabelecimento_id, "Turma")
+        dados.sala_id = turma.sala_id
     if dados.hora_fim is None:
         dados.hora_fim = _fim_do_tempo(db, ctx.estabelecimento_id, dados.tempo, dados.hora_inicio)
     _validar(db, ctx, dados)

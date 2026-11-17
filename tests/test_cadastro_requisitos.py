@@ -378,3 +378,25 @@ def test_tempos_lectivos_fim_automatico_e_editar_horario(client, admin):
     # editar para cima de outra aula da turma é recusado
     r = client.post(f"/api/horarios/{novo['id']}/editar", headers=admin, json={"hora_inicio": "08:30", "hora_fim": "09:00"})
     assert r.status_code == 409 and "a turma já tem" in r.json()["detail"]
+
+def test_programa_com_tempo_e_horario_na_sala_da_turma(client, admin):
+    """A unidade do programa escolhe um tempo registado; o horário sem sala fica na sala da turma."""
+    tempo = _ok(client.post("/api/tempos-lectivos", headers=admin, json={"duracao_minutos": 45}), 201)
+    classe = client.get("/api/classes", headers=admin).json()[0]
+    disc = _ok(client.post("/api/disciplinas", headers=admin, json={"nome": "Ciências da Natureza (sala)", "sigla": "CNS"}), 201)
+    u = _ok(client.post("/api/programas", headers=admin, json={"classe_id": classe["id"], "disciplina_id": disc["id"],
+                                                              "titulo": "Os seres vivos", "tempo_lectivo_id": tempo["id"]}), 201)
+    assert u["tempo_lectivo_id"] == tempo["id"]
+    assert client.post("/api/programas", headers=admin, json={"classe_id": classe["id"], "disciplina_id": disc["id"],
+                                                             "titulo": "Outra", "tempo_lectivo_id": 999999}).status_code == 404
+
+    sala = _ok(client.post("/api/salas", headers=admin, json={"designacao": "Sala da turma CN", "capacidade": 30}), 201)
+    turma = _ok(client.post("/api/turmas", headers=admin, json={"designacao": "Turma da sala CN", "classe_id": classe["id"],
+                                                               "sala_id": sala["id"]}), 201)
+    prof = _ok(client.post("/api/funcionarios", headers=admin, json={"nome_completo": "Prof. de CN", "cargo": "professor"}), 201)
+    # o professor de CN dá aula à segunda e à quarta (uma aula por dia)
+    for dia in (1, 3):
+        h = _ok(client.post("/api/horarios", headers=admin, json={
+            "turma_id": turma["id"], "disciplina_id": disc["id"], "funcionario_id": prof["id"], "dia_semana": dia,
+            "tempo": tempo["ordem"], "hora_inicio": "13:00"}), 201)
+        assert h["sala_id"] == sala["id"]

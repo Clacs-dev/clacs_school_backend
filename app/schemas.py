@@ -137,6 +137,7 @@ class ProgramaUnidadeIn(Entrada):
     conteudos: str | None = None
     trimestre: int | None = Field(None, ge=1, le=3)
     tempos_previstos: int | None = Field(None, ge=1, description="N.º de tempos lectivos previstos")
+    tempo_lectivo_id: int | None = Field(None, description="Tempo lectivo registado (Registo académico → Tempos lectivos)")
 
 
 class ClasseDisciplinaIn(Entrada):
@@ -376,7 +377,7 @@ class HorarioIn(Entrada):
     turma_id: int
     disciplina_id: int
     funcionario_id: int | None = Field(None, description="Professor titular")
-    sala_id: int | None = None
+    sala_id: int | None = Field(None, description="Em branco: a sala da turma")
     dia_semana: int = Field(ge=1, le=6, description="1 = segunda … 6 = sábado")
     tempo: int = Field(ge=1, le=12, description="1.º, 2.º… tempo do dia")
     hora_inicio: time
@@ -1111,7 +1112,7 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     ClasseDisciplinaIn: {"disciplina_id": 8, "carga_horaria": 2},
     TempoLectivoIn: {"designacao": "1.º tempo", "duracao_minutos": 45},
     HorarioEditarIn: {"funcionario_id": 2, "tempo": 3, "hora_inicio": "09:00", "hora_fim": "09:45"},
-    ProgramaUnidadeIn: {"classe_id": 1, "disciplina_id": 1, "ordem": 1, "titulo": "Números naturais",
+    ProgramaUnidadeIn: {"classe_id": 1, "disciplina_id": 1, "titulo": "Números naturais",
                         "objectivos": "Ler, escrever e comparar números até 1000.",
                         "conteudos": "Leitura e escrita de números; ordem e comparação; valor posicional.",
                         "trimestre": 1, "tempos_previstos": 12},

@@ -194,7 +194,8 @@ class ProgramaUnidade(Base):
     objectivos: Mapped[str | None] = mapped_column(Text)
     conteudos: Mapped[str | None] = mapped_column(Text)
     trimestre: Mapped[int | None] = mapped_column(SmallInteger)          # 1.º, 2.º ou 3.º trimestre
-    tempos_previstos: Mapped[int | None] = mapped_column(SmallInteger)   # n.º de tempos lectivos
+    tempos_previstos: Mapped[int | None] = mapped_column(SmallInteger)   # n.º de tempos lectivos (antigo)
+    tempo_lectivo_id: Mapped[int | None] = fk("tempo_lectivo.id", nullable=True)   # tempo registado (1.º, 2.º…)
 
 
 class Funcionario(Base):
