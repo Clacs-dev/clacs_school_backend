@@ -6187,6 +6187,20 @@
   "nivel_id": 2,
   "ordem": 3
  },
+ "POST /api/classes/reordenar": [
+  {
+   "designacao": "5.ª Classe",
+   "id": 1,
+   "nivel_id": 1,
+   "ordem": 1
+  },
+  {
+   "designacao": "6.ª Classe",
+   "id": 2,
+   "nivel_id": 1,
+   "ordem": 2
+  }
+ ],
  "POST /api/classes/{classe_id}/disciplinas": {
   "carga_horaria": 2,
   "classe_id": 1,
@@ -6568,6 +6582,22 @@
   "nome": "Ensino Primário",
   "ordem": 2
  },
+ "POST /api/niveis/reordenar": [
+  {
+   "coordenador_id": null,
+   "estabelecimento_id": 1,
+   "id": 1,
+   "nome": "Ensino Primário",
+   "ordem": 1
+  },
+  {
+   "coordenador_id": null,
+   "estabelecimento_id": 1,
+   "id": 2,
+   "nome": "I Ciclo do Ensino Secundário",
+   "ordem": 2
+  }
+ ],
  "POST /api/ocorrencias": {
   "accao_tomada": "Conversa com a coordenação",
   "aluno_id": 1,
@@ -7194,6 +7224,21 @@
   "titulo": "Números naturais",
   "trimestre": 1
  },
+ "POST /api/programas/reordenar": [
+  {
+   "classe_id": 1,
+   "conteudos": "Leitura e escrita de números; ordem e comparação; valor posicional.",
+   "disciplina_id": 1,
+   "estabelecimento_id": 1,
+   "id": 1,
+   "objectivos": "Ler, escrever e comparar números até 1000.",
+   "ordem": 1,
+   "tempo_lectivo_id": null,
+   "tempos_previstos": 12,
+   "titulo": "Números naturais",
+   "trimestre": 1
+  }
+ ],
  "POST /api/publico/candidaturas": {
   "duplicada": true,
   "mensagem": "Já recebemos uma pré-inscrição desta criança com este contacto. A escola vai contactá-lo.",
@@ -7597,6 +7642,15 @@
   "id": 2,
   "ordem": 2
  },
+ "POST /api/tempos-lectivos/reordenar": [
+  {
+   "designacao": "1.º tempo",
+   "duracao_minutos": 45,
+   "estabelecimento_id": 1,
+   "id": 1,
+   "ordem": 1
+  }
+ ],
  "POST /api/tipos-avaliacao": {
   "designacao": "Prova trimestral",
   "estabelecimento_id": 1,

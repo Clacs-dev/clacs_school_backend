@@ -43,3 +43,17 @@ def ao_editar(db: Session, obj, irmaos: Select, mudancas: dict) -> None:
     if outro := _ocupante(db, type(obj), irmaos, nova, obj.id):
         outro.ordem = obj.ordem
     obj.ordem = nova
+
+
+def reordenar(db: Session, modelo, irmaos: Select, ids: list[int]) -> list:
+    """Põe os registos pela ordem dos ids (1, 2, 3…); os do grupo que não vierem na lista ficam a seguir, pela ordem
+    em que estavam. Corrige também ordens repetidas antigas. Usado por «Subir» e «Descer»."""
+    todos = list(db.scalars(irmaos.order_by(modelo.ordem, modelo.id)))
+    por_id = {o.id: o for o in todos}
+    if len(set(ids)) != len(ids) or any(i not in por_id for i in ids):
+        raise HTTPException(422, "A lista tem registos repetidos ou que não pertencem a este grupo")
+    nova = [por_id[i] for i in ids] + [o for o in todos if o.id not in set(ids)]
+    for n, o in enumerate(nova, start=1):
+        o.ordem = n
+    db.commit()
+    return nova

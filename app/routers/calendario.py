@@ -17,8 +17,8 @@ from app.models import (
 )
 from app import ordem as ordens
 from app.schemas import (
-    AulaRegistoIn, EventoIn, FaltaProfessorIn, HorarioAlterarIn, HorarioEditarIn, HorarioIn, SubstituicaoIn,
-    TempoLectivoIn,
+    AulaRegistoIn, EventoIn, FaltaProfessorIn, HorarioAlterarIn, HorarioEditarIn, HorarioIn, ReordenarIn,
+    SubstituicaoIn, TempoLectivoIn,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas, verificar_turma
 from app.services import calendario as svc
@@ -74,6 +74,13 @@ def criar_tempo_lectivo(dados: TempoLectivoIn, ctx: Contexto = Depends(editar_ac
     db.add(t)
     db.commit()
     return as_dict(t)
+
+
+@router.post("/tempos-lectivos/reordenar", response_model=list[R.TempoLectivo],
+             summary="Põe os tempos lectivos pela ordem indicada (1.º, 2.º…)")
+def reordenar_tempos(dados: ReordenarIn, ctx: Contexto = Depends(editar_acad), db: Session = Depends(get_db)):
+    """Atenção: a ordem é o número do tempo usado nos horários; reordenar não altera os horários já criados."""
+    return [as_dict(t) for t in ordens.reordenar(db, TempoLectivo, _tempos_de(ctx.estabelecimento_id), dados.ids)]
 
 
 def _editar_tempo(db: Session, ctx: Contexto, obj: TempoLectivo, mudancas: dict) -> None:

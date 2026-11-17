@@ -14,7 +14,7 @@ from app.models import (
     Matricula, NivelEnsino, Parametro, PeriodoLectivo, ProgramaUnidade, ResultadoFinal, Sala, TempoLectivo, Turma,
 )
 from app.schemas import (
-    AnoIn, AtribuicaoIn, ClasseDisciplinaIn, ClasseIn, DisciplinaIn, Entrada, com_exemplo, EstabelecimentoUpd, FuncionarioIn,
+    AnoIn, AtribuicaoIn, ReordenarIn, ClasseDisciplinaIn, ClasseIn, DisciplinaIn, Entrada, com_exemplo, EstabelecimentoUpd, FuncionarioIn,
     FuncionarioUpd, NivelIn, ParametroIn, PeriodoIn, ProgramaUnidadeIn, SalaIn, TurmaIn, TurmaUpd,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas
@@ -155,6 +155,11 @@ def criar_nivel(dados: NivelIn, ctx: Contexto = Depends(criar), db: Session = De
     return gravar(db, NivelEnsino(estabelecimento_id=ctx.estabelecimento_id, **{**dados.model_dump(), "ordem": ordem}))
 
 
+@router.post("/niveis/reordenar", response_model=list[R.NivelEnsino], summary="Põe os níveis pela ordem indicada (1, 2, 3…)")
+def reordenar_niveis(dados: ReordenarIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
+    return [as_dict(n) for n in ordens.reordenar(db, NivelEnsino, _niveis_de(ctx.estabelecimento_id), dados.ids)]
+
+
 def _editar_nivel(db: Session, ctx: Contexto, obj: NivelEnsino, mudancas: dict) -> None:
     irmaos = _niveis_de(ctx.estabelecimento_id)
     _nome_unico(db, irmaos, NivelEnsino.nome, mudancas.get("nome"), obj.id, f"Já existe o nível «{mudancas.get('nome', '').strip()}»")
@@ -177,6 +182,11 @@ def criar_classe(dados: ClasseIn, ctx: Contexto = Depends(criar), db: Session = 
     _nome_unico(db, irmaos, Classe.designacao, dados.designacao, None, f"Já existe a classe «{dados.designacao.strip()}»")
     ordem = ordens.ao_criar(db, Classe, irmaos, dados.ordem, "uma classe", lambda c: c.designacao)
     return gravar(db, Classe(**{**dados.model_dump(), "ordem": ordem}))
+
+
+@router.post("/classes/reordenar", response_model=list[R.Classe], summary="Põe as classes pela ordem indicada (1, 2, 3…)")
+def reordenar_classes(dados: ReordenarIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
+    return [as_dict(c) for c in ordens.reordenar(db, Classe, _classes_de(ctx.estabelecimento_id), dados.ids)]
 
 
 def _editar_classe(db: Session, ctx: Contexto, obj: Classe, mudancas: dict) -> None:
@@ -258,6 +268,15 @@ def criar_programa(dados: ProgramaUnidadeIn, ctx: Contexto = Depends(criar), db:
 
 def _unidades_de(classe_id: int, disciplina_id: int):
     return select(ProgramaUnidade).where(ProgramaUnidade.classe_id == classe_id, ProgramaUnidade.disciplina_id == disciplina_id)
+
+
+@router.post("/programas/reordenar", response_model=list[R.ProgramaUnidade],
+             summary="Põe as unidades de um programa (mesma classe e disciplina) pela ordem indicada")
+def reordenar_unidades(dados: ReordenarIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
+    primeira = obter(db, ProgramaUnidade, dados.ids[0], ctx.estabelecimento_id, "Unidade do programa")
+    irmaos = _unidades_de(primeira.classe_id, primeira.disciplina_id).where(
+        ProgramaUnidade.estabelecimento_id == ctx.estabelecimento_id)
+    return [as_dict(u) for u in ordens.reordenar(db, ProgramaUnidade, irmaos, dados.ids)]
 
 
 def _editar_unidade(db: Session, ctx: Contexto, obj: ProgramaUnidade, mudancas: dict) -> None:

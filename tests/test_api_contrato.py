@@ -346,3 +346,24 @@ def test_erros_levam_cabecalhos_cors(client, admin):
         assert r.headers.get("access-control-allow-origin")
     finally:
         app.router.routes[:] = [rt for rt in app.router.routes if getattr(rt, "path", "") != "/api/_teste_erro_cors"]
+
+
+def test_reordenar_subir_descer_e_corrigir_repetidas(client, admin):
+    """Subir/Descer mandam a lista pela nova ordem; tudo fica numerado 1, 2, 3… (corrige ordens repetidas antigas)."""
+    from app.database import SessionLocal
+    from app.models import Classe
+    nivel = ok(client.post("/api/niveis", headers=admin, json={"nome": "Nível para reordenar"}))
+    a = ok(client.post("/api/classes", headers=admin, json={"nivel_id": nivel["id"], "designacao": "Classe R-A"}))
+    b = ok(client.post("/api/classes", headers=admin, json={"nivel_id": nivel["id"], "designacao": "Classe R-B"}))
+    with SessionLocal() as db:            # dados antigos: duas classes com a mesma ordem
+        db.get(Classe, b["id"]).ordem = a["ordem"]
+        db.commit()
+    ids = [c["id"] for c in ok(client.get("/api/classes", headers=admin))]
+    i, j = ids.index(a["id"]), ids.index(b["id"])
+    ids[i], ids[j] = ids[j], ids[i]       # "Descer" a A (fica depois da B)
+    novas = ok(client.post("/api/classes/reordenar", headers=admin, json={"ids": ids}))
+    ordens = {c["id"]: c["ordem"] for c in novas}
+    assert sorted(ordens.values()) == list(range(1, len(ordens) + 1))    # 1..n, sem repetidos
+    assert ordens[b["id"]] < ordens[a["id"]]
+    assert client.post("/api/classes/reordenar", headers=admin, json={"ids": [a["id"], a["id"]]}).status_code == 422
+    assert client.post("/api/classes/reordenar", headers=admin, json={"ids": [999999]}).status_code == 422
