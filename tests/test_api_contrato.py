@@ -115,6 +115,38 @@ def test_academico(client, admin):
     assert ok(client.get(f"/api/turmas/{turma['id']}/atribuicoes", headers=admin))[0]["professor"] == "Prof. Contrato"
 
 
+def test_ordem_automatica_sem_repetidos(client, admin):
+    """Níveis, classes e unidades do programa: ordem seguinte automática, sem repetidos, troca ao editar."""
+    nivel = ok(client.post("/api/niveis", headers=admin, json={"nome": "Nível da ordem"}))
+    niveis = ok(client.get("/api/niveis", headers=admin))
+    assert nivel["ordem"] == max(n["ordem"] for n in niveis)                     # ficou no fim
+    assert client.post("/api/niveis", headers=admin, json={"nome": "nível da ORDEM "}).status_code == 409  # nome repetido
+
+    classes = ok(client.get("/api/classes", headers=admin))
+    topo = max(c["ordem"] for c in classes)
+    quarta = ok(client.post("/api/classes", headers=admin, json={"nivel_id": nivel["id"], "designacao": "4.ª Ordem"}))
+    quinta = ok(client.post("/api/classes", headers=admin, json={"nivel_id": nivel["id"], "designacao": "5.ª Ordem"}))
+    assert (quarta["ordem"], quinta["ordem"]) == (topo + 1, topo + 2)
+    r = client.post("/api/classes", headers=admin, json={"nivel_id": nivel["id"], "designacao": "6.ª Ordem", "ordem": quinta["ordem"]})
+    assert r.status_code == 409 and "5.ª Ordem" in r.json()["detail"]             # ordem já usada: diz quem a tem
+    assert client.post("/api/classes", headers=admin, json={"nivel_id": nivel["id"], "designacao": "5.ª ordem"}).status_code == 409
+    # editar para uma ordem ocupada troca as duas
+    ok(client.patch(f"/api/classes/{quarta['id']}", headers=admin, json={"ordem": quinta["ordem"]}))
+    por_id = {c["id"]: c["ordem"] for c in ok(client.get("/api/classes", headers=admin))}
+    assert (por_id[quarta["id"]], por_id[quinta["id"]]) == (topo + 2, topo + 1)
+    assert client.patch(f"/api/classes/{quarta['id']}", headers=admin, json={"designacao": "5.ª Ordem"}).status_code == 409
+
+    disc = ok(client.post("/api/disciplinas", headers=admin, json={"nome": "Disciplina da ordem", "sigla": "DOR"}))
+    base = {"classe_id": quarta["id"], "disciplina_id": disc["id"]}
+    u1 = ok(client.post("/api/programas", headers=admin, json={**base, "titulo": "Primeira"}))
+    u2 = ok(client.post("/api/programas", headers=admin, json={**base, "titulo": "Segunda"}))
+    assert (u1["ordem"], u2["ordem"]) == (1, 2)
+    assert client.post("/api/programas", headers=admin, json={**base, "titulo": "Outra", "ordem": 2}).status_code == 409
+    ok(client.patch(f"/api/programas/{u2['id']}", headers=admin, json={"ordem": 1}))
+    lista = ok(client.get("/api/programas", headers=admin, params=base))
+    assert [u["titulo"] for u in lista] == ["Segunda", "Primeira"]
+
+
 def test_ano_escolhido_no_cabecalho(client, admin):
     """O ano escolhido no topo (X-Ano-Lectivo) substitui o ano activo onde este é usado por omissão."""
     anos = ok(client.get("/api/anos-lectivos", headers=admin))

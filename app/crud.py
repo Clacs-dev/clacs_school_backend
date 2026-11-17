@@ -75,7 +75,8 @@ def modelo_de_edicao(entrada: type[Entrada], nome: str, excluir: tuple[str, ...]
 
 def registar(router: APIRouter, caminho: str, modelo: type, *, nome: str, modulo: str, resposta: type,
              entrada: type[Entrada] | None = None, excluir: tuple[str, ...] = (), ops: tuple[str, ...] = ("ver", "editar", "apagar"),
-             verificar: Callable[[Session, Contexto, Any], None] | None = None) -> None:
+             verificar: Callable[[Session, Contexto, Any], None] | None = None,
+             ao_editar: Callable[[Session, Contexto, Any, dict], None] | None = None) -> None:
     """Acrescenta ao router as rotas que faltam: "ver" (GET), "editar" (PATCH) e/ou "apagar" (DELETE)."""
     rota = f"{caminho}/{{id_}}"
     tag = router.tags[0] if router.tags else None
@@ -100,6 +101,8 @@ def registar(router: APIRouter, caminho: str, modelo: type, *, nome: str, modulo
                    db: Session = Depends(get_db)):
             obj = carregar(db, ctx, id_)
             mudancas = {k: v for k, v in dados.model_dump(exclude_unset=True).items() if k in colunas}
+            if ao_editar:  # regras próprias (ex.: ordem sem repetidos, nomes únicos); pode retirar campos já tratados
+                ao_editar(db, ctx, obj, mudancas)
             _validar_referencias(db, modelo, mudancas, ctx.estabelecimento_id)
             aplicar(obj, mudancas)
             try:

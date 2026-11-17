@@ -18,6 +18,7 @@ from app.schemas import (
     FuncionarioUpd, NivelIn, ParametroIn, PeriodoIn, ProgramaUnidadeIn, SalaIn, TurmaIn, TurmaUpd,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas
+from app import ordem as ordens
 from app.ciclo import livre_de_ciclo, todos_os_ciclos
 from app.services import fecho_ano
 from app.services import turmas as ocupacao_turmas
@@ -121,28 +122,68 @@ def criar_periodo(ano_id: int, dados: PeriodoIn, ctx: Contexto = Depends(criar),
 
 
 # ---------------------------------------------------------------- níveis, classes, salas, disciplinas
+# Ordem (posição na lista) automática e sem repetidos; nomes únicos. Ver app/ordem.py.
+def _niveis_de(est: int):
+    return select(NivelEnsino).where(NivelEnsino.estabelecimento_id == est)
+
+
+def _classes_de(est: int):
+    """Todas as classes da escola: a ordem é a sequência 1.ª, 2.ª… (única na escola, não só no nível)."""
+    return select(Classe).join(NivelEnsino, NivelEnsino.id == Classe.nivel_id).where(NivelEnsino.estabelecimento_id == est)
+
+
+def _nome_unico(db: Session, stmt, coluna, valor: str | None, excepto: int | None, msg: str) -> None:
+    if not valor:
+        return
+    stmt = stmt.where(func.lower(func.trim(coluna)) == valor.strip().lower())
+    if excepto:
+        stmt = stmt.where(coluna.class_.id != excepto)
+    if db.scalars(stmt.limit(1)).first():
+        raise HTTPException(409, msg)
+
+
 @router.get("/niveis", response_model=list[R.NivelEnsino])
 def niveis(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
-    return [as_dict(n) for n in db.scalars(select(NivelEnsino).where(NivelEnsino.estabelecimento_id == ctx.estabelecimento_id)
-                                           .order_by(NivelEnsino.ordem))]
+    return [as_dict(n) for n in db.scalars(_niveis_de(ctx.estabelecimento_id).order_by(NivelEnsino.ordem, NivelEnsino.id))]
 
 
 @router.post("/niveis", response_model=R.NivelEnsino, status_code=201)
 def criar_nivel(dados: NivelIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
-    return gravar(db, NivelEnsino(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()))
+    irmaos = _niveis_de(ctx.estabelecimento_id)
+    _nome_unico(db, irmaos, NivelEnsino.nome, dados.nome, None, f"Já existe o nível «{dados.nome.strip()}»")
+    ordem = ordens.ao_criar(db, NivelEnsino, irmaos, dados.ordem, "um nível", lambda n: n.nome)
+    return gravar(db, NivelEnsino(estabelecimento_id=ctx.estabelecimento_id, **{**dados.model_dump(), "ordem": ordem}))
+
+
+def _editar_nivel(db: Session, ctx: Contexto, obj: NivelEnsino, mudancas: dict) -> None:
+    irmaos = _niveis_de(ctx.estabelecimento_id)
+    _nome_unico(db, irmaos, NivelEnsino.nome, mudancas.get("nome"), obj.id, f"Já existe o nível «{mudancas.get('nome', '').strip()}»")
+    ordens.ao_editar(db, obj, irmaos, mudancas)
 
 
 @router.get("/classes", response_model=list[R.ClasseComNivel])
 def classes(ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     rows = db.execute(select(Classe, NivelEnsino.nome).join(NivelEnsino, NivelEnsino.id == Classe.nivel_id)
-                      .where(NivelEnsino.estabelecimento_id == ctx.estabelecimento_id).order_by(Classe.ordem))
+                      .where(NivelEnsino.estabelecimento_id == ctx.estabelecimento_id)
+                      .order_by(NivelEnsino.ordem, Classe.ordem, Classe.id))
     return [{**as_dict(c), "nivel": n} for c, n in rows]
 
 
 @router.post("/classes", response_model=R.Classe, status_code=201)
 def criar_classe(dados: ClasseIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
-    obter(db, NivelEnsino, dados.nivel_id, ctx.estabelecimento_id, "Nível de ensino")
-    return gravar(db, Classe(**dados.model_dump()))
+    est = ctx.estabelecimento_id
+    obter(db, NivelEnsino, dados.nivel_id, est, "Nível de ensino")
+    irmaos = _classes_de(est)
+    _nome_unico(db, irmaos, Classe.designacao, dados.designacao, None, f"Já existe a classe «{dados.designacao.strip()}»")
+    ordem = ordens.ao_criar(db, Classe, irmaos, dados.ordem, "uma classe", lambda c: c.designacao)
+    return gravar(db, Classe(**{**dados.model_dump(), "ordem": ordem}))
+
+
+def _editar_classe(db: Session, ctx: Contexto, obj: Classe, mudancas: dict) -> None:
+    irmaos = _classes_de(ctx.estabelecimento_id)
+    _nome_unico(db, irmaos, Classe.designacao, mudancas.get("designacao"), obj.id,
+                f"Já existe a classe «{mudancas.get('designacao', '').strip()}»")
+    ordens.ao_editar(db, obj, irmaos, mudancas)
 
 
 def _classe(db: Session, classe_id: int, est: int) -> Classe:
@@ -208,7 +249,23 @@ def programas(classe_id: int | None = None, disciplina_id: int | None = None, ct
 def criar_programa(dados: ProgramaUnidadeIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     _classe(db, dados.classe_id, ctx.estabelecimento_id)
     obter(db, Disciplina, dados.disciplina_id, ctx.estabelecimento_id, "Disciplina")
-    return gravar(db, ProgramaUnidade(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump()))
+    irmaos = _unidades_de(dados.classe_id, dados.disciplina_id)
+    ordem = ordens.ao_criar(db, ProgramaUnidade, irmaos, dados.ordem, "uma unidade neste programa", lambda u: u.titulo)
+    return gravar(db, ProgramaUnidade(estabelecimento_id=ctx.estabelecimento_id, **{**dados.model_dump(), "ordem": ordem}))
+
+
+def _unidades_de(classe_id: int, disciplina_id: int):
+    return select(ProgramaUnidade).where(ProgramaUnidade.classe_id == classe_id, ProgramaUnidade.disciplina_id == disciplina_id)
+
+
+def _editar_unidade(db: Session, ctx: Contexto, obj: ProgramaUnidade, mudancas: dict) -> None:
+    """A ordem conta dentro do programa (classe e disciplina) onde a unidade fica depois da edição."""
+    classe_id = mudancas.get("classe_id") or obj.classe_id
+    disciplina_id = mudancas.get("disciplina_id") or obj.disciplina_id
+    if (classe_id, disciplina_id) != (obj.classe_id, obj.disciplina_id) and "ordem" not in mudancas:
+        mudancas["ordem"] = ordens.proxima(db, _unidades_de(classe_id, disciplina_id))  # muda de programa: fica no fim
+        obj.classe_id, obj.disciplina_id = classe_id, disciplina_id
+    ordens.ao_editar(db, obj, _unidades_de(classe_id, disciplina_id), mudancas)
 
 
 # ---------------------------------------------------------------- funcionários
@@ -405,10 +462,11 @@ crud.registar(router, "/anos-lectivos", AnoLectivo, nome="Ano lectivo", modulo="
 crud.registar(router, "/periodos", PeriodoLectivo, nome="Período", modulo="academico", resposta=R.PeriodoLectivo,
               entrada=PeriodoIn)
 crud.registar(router, "/niveis", NivelEnsino, nome="Nível de ensino", modulo="academico", resposta=R.NivelEnsino,
-              entrada=NivelIn)
-crud.registar(router, "/classes", Classe, nome="Classe", modulo="academico", resposta=R.Classe, entrada=ClasseIn)
+              entrada=NivelIn, ao_editar=_editar_nivel)
+crud.registar(router, "/classes", Classe, nome="Classe", modulo="academico", resposta=R.Classe, entrada=ClasseIn,
+              ao_editar=_editar_classe)
 crud.registar(router, "/programas", ProgramaUnidade, nome="Unidade do programa", modulo="academico",
-              resposta=R.ProgramaUnidade, entrada=ProgramaUnidadeIn)
+              resposta=R.ProgramaUnidade, entrada=ProgramaUnidadeIn, ao_editar=_editar_unidade)
 crud.registar(router, "/salas", Sala, nome="Sala", modulo="academico", resposta=R.Sala, entrada=SalaIn)
 crud.registar(router, "/disciplinas", Disciplina, nome="Disciplina", modulo="academico", resposta=R.Disciplina,
               entrada=DisciplinaIn)

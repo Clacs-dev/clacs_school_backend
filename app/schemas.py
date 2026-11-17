@@ -99,15 +99,15 @@ class PeriodoIn(Entrada):
 
 
 class NivelIn(Entrada):
-    nome: str
-    ordem: int = 0
+    nome: str = Field(min_length=2)
+    ordem: int | None = Field(None, ge=1, description="Posição na lista; em branco, a seguinte")
     coordenador_id: int | None = Field(None, description="Utilizador da coordenação que recebe as candidaturas do nível")
 
 
 class ClasseIn(Entrada):
     nivel_id: int
-    designacao: str
-    ordem: int
+    designacao: str = Field(min_length=2)
+    ordem: int | None = Field(None, ge=1, description="Posição na sequência das classes; em branco, a seguinte")
 
 
 TipoSala = Literal["sala_aula", "laboratorio", "informatica", "biblioteca", "ginasio", "auditorio", "refeitorio", "outro"]
@@ -131,7 +131,7 @@ class DisciplinaIn(Entrada):
 class ProgramaUnidadeIn(Entrada):
     classe_id: int
     disciplina_id: int
-    ordem: int = Field(1, ge=1, description="Posição da unidade no programa")
+    ordem: int | None = Field(None, ge=1, description="Posição da unidade no programa; em branco, a seguinte")
     titulo: str = Field(min_length=2, description="Unidade temática")
     objectivos: str | None = None
     conteudos: str | None = None
