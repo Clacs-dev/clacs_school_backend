@@ -10,7 +10,17 @@ def make_engine(url: str):
     kwargs = {"pool_pre_ping": True}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
+    elif url.startswith("postgresql"):
+        # Não ficar pendurado se a base não responder; e o PostgreSQL fecha transacções esquecidas (abertas e
+        # paradas) ao fim de 2 minutos, para não prenderem tabelas (ex.: às migrações de um novo deploy).
+        kwargs["connect_args"] = {"connect_timeout": 10}
     engine = create_engine(url, **kwargs)
+    if url.startswith("postgresql"):
+        @event.listens_for(engine, "connect")
+        def _sem_transaccoes_esquecidas(dbapi_conn, _):
+            with dbapi_conn.cursor() as cur:
+                cur.execute("SET idle_in_transaction_session_timeout = 120000")
+            dbapi_conn.commit()
     if url.startswith("sqlite"):
         @event.listens_for(engine, "connect")
         def _fk_on(dbapi_conn, _):
