@@ -81,9 +81,9 @@ def transitar(db: Session, est: int, de: AnoLectivo, para: AnoLectivo, mapa: dic
         if ocupacao.get(alvo, 0) >= destino[alvo].capacidade:
             ignoradas.append({"aluno": nome, "motivo": f"turma {destino[alvo].designacao} cheia"})
             continue
+        nota = {"aprovado": None, "transita": "transita por decisão do conselho de turma"}.get(situacao, "repetente")
         nova = Matricula(estabelecimento_id=est, aluno_id=m.aluno_id, ano_id=para.id, turma_id=alvo,
-                         tipo="renovacao", registado_por=registado_por,
-                         observacoes="repetente" if situacao != "aprovado" else None)
+                         tipo="renovacao", registado_por=registado_por, observacoes=nota)
         db.add(nova)
         db.flush()
         ocupacao[alvo] = ocupacao.get(alvo, 0) + 1

@@ -5028,6 +5028,14 @@
   "id": 7,
   "ordem": 1
  },
+ "POST /api/anos-lectivos/{ano_id}/resultados/{matricula_id}/situacao": {
+  "aluno": "Ana Cota",
+  "fechada_em": "2027-07-20T00:00:00",
+  "matricula_id": 1,
+  "media_final": 8.0,
+  "situacao": "transita",
+  "turma": "6.ª B"
+ },
  "POST /api/anos-lectivos/{ano_id}/transitar": {
   "criadas": 3,
   "ignoradas": [

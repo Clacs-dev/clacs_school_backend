@@ -263,7 +263,17 @@ def test_fecho_do_ano_e_passagem(client, admin):
                 client.post(f"/api/matriculas/{l['matricula_id']}/anular", headers=admin)
     r = client.post(f"/api/anos-lectivos/{ano['id']}/fechar", headers=admin, params={"simular": False})
     assert r.status_code == 200 and not r.json()["simulado"]
-    assert client.get(f"/api/anos-lectivos/{ano['id']}/resultados", headers=admin).json()
+    resultados = client.get(f"/api/anos-lectivos/{ano['id']}/resultados", headers=admin).json()
+    assert resultados
+
+    # decisão do conselho de turma: um reprovado (ou outro qualquer) passa a "transita", com motivo e auditoria
+    alvo = next((x for x in resultados if x["situacao"] == "reprovado"), resultados[0])
+    url = f"/api/anos-lectivos/{ano['id']}/resultados/{alvo['matricula_id']}/situacao"
+    assert client.post(url, headers=admin, json={"situacao": "transita"}).status_code == 422          # sem motivo
+    mud = client.post(url, headers=admin, json={"situacao": "transita", "motivo": "Conselho de turma de 20/07"})
+    assert mud.status_code == 200 and mud.json()["situacao"] == "transita"
+    assert client.post(f"/api/anos-lectivos/{ano['id']}/resultados/999999/situacao", headers=admin,
+                       json={"situacao": "aprovado", "motivo": "teste"}).status_code == 404
 
     novo = client.post("/api/anos-lectivos", headers=admin,
                        json={"designacao": "2099/2100", "data_inicio": "2099-09-01", "data_fim": "2100-07-15"}).json()
@@ -278,3 +288,8 @@ def test_fecho_do_ano_e_passagem(client, admin):
     res = client.post(f"/api/anos-lectivos/{novo['id']}/transitar", headers=admin,
                       json={"de_ano_id": ano["id"], "turmas": pares, "repetentes": pares}).json()
     assert res["criadas"] > 0
+    # quem «transita» por decisão do conselho não fica marcado como repetente
+    mats = client.get("/api/matriculas", headers=admin, params={"ano_id": novo["id"]}).json()
+    m_alvo = next((m for m in mats if m["aluno"] == alvo["aluno"]), None)
+    if m_alvo:
+        assert m_alvo["observacoes"] == "transita por decisão do conselho de turma"

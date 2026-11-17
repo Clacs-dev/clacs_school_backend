@@ -14,7 +14,7 @@ from app.models import (
     Matricula, NivelEnsino, Parametro, PeriodoLectivo, ProgramaUnidade, ResultadoFinal, Sala, TempoLectivo, Turma,
 )
 from app.schemas import (
-    AnoIn, AtribuicaoIn, ReordenarIn, ClasseDisciplinaIn, ClasseIn, DisciplinaIn, Entrada, com_exemplo, EstabelecimentoUpd, FuncionarioIn,
+    AnoIn, AtribuicaoIn, ReordenarIn, SituacaoIn, ClasseDisciplinaIn, ClasseIn, DisciplinaIn, Entrada, com_exemplo, EstabelecimentoUpd, FuncionarioIn,
     FuncionarioUpd, NivelIn, ParametroIn, PeriodoIn, ProgramaUnidadeIn, SalaIn, TurmaIn, TurmaUpd,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas
@@ -460,6 +460,24 @@ def resultados(ano_id: int, ctx: Contexto = Depends(ver), db: Session = Depends(
                       .join(Aluno, Aluno.id == Matricula.aluno_id).join(Turma, Turma.id == Matricula.turma_id)
                       .where(Matricula.ano_id == ano_id).order_by(Turma.designacao, Aluno.nome_completo))
     return [{**as_dict(r), "aluno": a, "turma": t} for r, a, t in rows]
+
+
+@router.post("/anos-lectivos/{ano_id}/resultados/{matricula_id}/situacao", response_model=R.ResultadoComNomes,
+             summary="Muda a situação final de um aluno (decisão do conselho de turma), antes da transição")
+@livre_de_ciclo
+def mudar_situacao(ano_id: int, matricula_id: int, dados: SituacaoIn, ctx: Contexto = Depends(editar),
+                   db: Session = Depends(get_db)):
+    obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo")
+    m = obter(db, Matricula, matricula_id, ctx.estabelecimento_id, "Matrícula")
+    r = db.get(ResultadoFinal, matricula_id)
+    if m.ano_id != ano_id or r is None:
+        raise HTTPException(404, "Este aluno não tem resultado final neste ano. Feche primeiro o ano.")
+    antes = r.situacao
+    r.situacao = dados.situacao
+    auditar(db, ctx, "resultado_final", matricula_id, "update", {"situacao": dados.situacao, "motivo": dados.motivo},
+            antes={"situacao": antes})
+    db.commit()
+    return {**as_dict(r), "aluno": db.get(Aluno, m.aluno_id).nome_completo, "turma": db.get(Turma, m.turma_id).designacao}
 
 
 @router.post("/anos-lectivos/{ano_id}/transitar", response_model=R.ResultadoTransicao, summary="Matricula no novo ano os alunos do ano anterior")

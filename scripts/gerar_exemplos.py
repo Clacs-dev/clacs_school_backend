@@ -106,6 +106,13 @@ def _transitar(pedir):
                  json={"de_ano_id": 2, "turmas": [{"de": 1, "para": turma}], "copiar_servicos": True})
 
 
+def _mudar_situacao(pedir):
+    _ano_fechado()
+    with SessionLocal() as db:
+        mid = db.scalar(select(ResultadoFinal.matricula_id).where(ResultadoFinal.situacao == "reprovado").limit(1))
+    return pedir("POST", f"/api/anos-lectivos/2/resultados/{mid}/situacao", json=S.EXEMPLOS[S.SituacaoIn])
+
+
 def _webhook(pedir):
     ref = pedir("POST", "/api/portal/pagamentos/referencia", portal=True, json={"cobranca_ids": [36]}).json()
     corpo = json.dumps({"referencia": ref["referencia"], "valor": ref["valor"], "data": "2026-10-08",
@@ -235,6 +242,7 @@ ESPECIAIS = {
     "GET /api/anos-lectivos/{ano_id}/resultados": lambda pedir: (_ano_fechado(),
                                                                  pedir("GET", "/api/anos-lectivos/2/resultados"))[1],
     "POST /api/anos-lectivos/{ano_id}/transitar": _transitar,
+    "POST /api/anos-lectivos/{ano_id}/resultados/{matricula_id}/situacao": _mudar_situacao,
     "POST /api/cobrancas/{cid}/anular": lambda pedir: pedir("POST", "/api/cobrancas/36/anular"),
     "POST /api/pautas/fechar": lambda pedir: pedir("POST", "/api/pautas/fechar", params={"turma_id": 1, "periodo_id": 1}),
     "PATCH /api/relatorios/agendados/{rid}": lambda pedir: pedir("PATCH", "/api/relatorios/agendados/1",

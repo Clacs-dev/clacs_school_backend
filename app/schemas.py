@@ -367,6 +367,12 @@ class EventoIn(Entrada):
     publico: bool = Field(True, description="Aparece no portal das famílias")
 
 
+class SituacaoIn(Entrada):
+    """Decisão do conselho de turma depois do fecho: muda a situação final de um aluno antes da transição."""
+    situacao: Literal["aprovado", "transita", "reprovado", "recurso", "excluido_faltas"]
+    motivo: str = Field(min_length=3, description="Ex.: decisão do conselho de turma de 20/07")
+
+
 class ReordenarIn(Entrada):
     ids: list[int] = Field(min_length=1, description="Registos pela nova ordem (o primeiro fica com a ordem 1)")
 
@@ -1116,6 +1122,7 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     ClasseDisciplinaIn: {"disciplina_id": 8, "carga_horaria": 2},
     TempoLectivoIn: {"designacao": "1.º tempo", "duracao_minutos": 45},
     ReordenarIn: {"ids": [1]},
+    SituacaoIn: {"situacao": "transita", "motivo": "Decisão do conselho de turma"},
     HorarioEditarIn: {"funcionario_id": 2, "tempo": 3, "hora_inicio": "09:00", "hora_fim": "09:45"},
     ProgramaUnidadeIn: {"classe_id": 1, "disciplina_id": 1, "titulo": "Números naturais",
                         "objectivos": "Ler, escrever e comparar números até 1000.",
