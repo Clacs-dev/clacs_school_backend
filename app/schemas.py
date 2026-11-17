@@ -366,6 +366,12 @@ class EventoIn(Entrada):
     publico: bool = Field(True, description="Aparece no portal das famílias")
 
 
+class TempoLectivoIn(Entrada):
+    designacao: str | None = Field(None, description="Em branco: «N.º tempo»")
+    ordem: int | None = Field(None, ge=1, le=12, description="1.º, 2.º… tempo do dia; em branco, o seguinte")
+    duracao_minutos: int = Field(45, ge=5, le=240, description="Duração em minutos")
+
+
 class HorarioIn(Entrada):
     turma_id: int
     disciplina_id: int
@@ -374,8 +380,20 @@ class HorarioIn(Entrada):
     dia_semana: int = Field(ge=1, le=6, description="1 = segunda … 6 = sábado")
     tempo: int = Field(ge=1, le=12, description="1.º, 2.º… tempo do dia")
     hora_inicio: time
-    hora_fim: time
+    hora_fim: time | None = Field(None, description="Em branco: início + duração do tempo lectivo (Registo académico)")
     valido_desde: date | None = Field(None, description="Por omissão, hoje")
+
+
+class HorarioEditarIn(Entrada):
+    """Corrige um tempo lectivo do horário. Se ainda não começou, muda-o; se já está em uso, a alteração vale a partir
+    de hoje e a versão anterior fica no histórico (faltas e sumários já registados não mudam)."""
+    disciplina_id: int | None = None
+    funcionario_id: int | None = None
+    sala_id: int | None = None
+    dia_semana: int | None = Field(None, ge=1, le=6)
+    tempo: int | None = Field(None, ge=1, le=12)
+    hora_inicio: time | None = None
+    hora_fim: time | None = Field(None, description="Em branco com tempo ou início alterados: recalculada")
 
 
 class HorarioAlterarIn(Entrada):
@@ -1091,6 +1109,8 @@ EXEMPLOS: dict[type[Entrada], dict] = {
              "localizacao": "Bloco B, ao lado da biblioteca", "observacoes": "Com lavatórios e bancadas"},
     DisciplinaIn: {"nome": "Educação Musical", "sigla": "EM"},
     ClasseDisciplinaIn: {"disciplina_id": 8, "carga_horaria": 2},
+    TempoLectivoIn: {"designacao": "1.º tempo", "duracao_minutos": 45},
+    HorarioEditarIn: {"funcionario_id": 2, "tempo": 3, "hora_inicio": "09:00", "hora_fim": "09:45"},
     ProgramaUnidadeIn: {"classe_id": 1, "disciplina_id": 1, "ordem": 1, "titulo": "Números naturais",
                         "objectivos": "Ler, escrever e comparar números até 1000.",
                         "conteudos": "Leitura e escrita de números; ordem e comparação; valor posicional.",

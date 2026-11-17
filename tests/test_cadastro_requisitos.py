@@ -337,3 +337,44 @@ def test_pre_inscricao_publica_sem_conta(client, admin):
     assert _ok(client.post("/api/publico/candidaturas", json=corpo), 201)["duplicada"] is True
     c = _ok(client.get(f"/api/candidaturas/{r['referencia']}", headers=admin))
     assert (c["origem"], c["estado"], c["classe_id"]) == ("site", "submetida", classes[0]["id"])
+
+
+def test_tempos_lectivos_fim_automatico_e_editar_horario(client, admin):
+    """Tempos lectivos com duração; no horário a hora de fim sai do tempo escolhido; o horário edita-se depois de criado."""
+    antes = client.get("/api/tempos-lectivos", headers=admin).json()
+    t1 = _ok(client.post("/api/tempos-lectivos", headers=admin, json={"duracao_minutos": 45}), 201)
+    t2 = _ok(client.post("/api/tempos-lectivos", headers=admin, json={"duracao_minutos": 50}), 201)
+    assert t1["ordem"] == len(antes) + 1 and t2["ordem"] == t1["ordem"] + 1
+    assert t1["designacao"] == f"{t1['ordem']}.º tempo"
+    assert client.post("/api/tempos-lectivos", headers=admin, json={"ordem": t1["ordem"]}).status_code == 409
+
+    classe = client.get("/api/classes", headers=admin).json()[0]
+    turma = _ok(client.post("/api/turmas", headers=admin, json={"designacao": "Turma dos tempos", "classe_id": classe["id"]}), 201)
+    disc = _ok(client.post("/api/disciplinas", headers=admin, json={"nome": "Disciplina dos tempos", "sigla": "DTP"}), 201)
+    p1, p2 = (_ok(client.post("/api/funcionarios", headers=admin, json={"nome_completo": n, "cargo": "professor"}), 201)
+              for n in ("Prof. dos Tempos 1", "Prof. dos Tempos 2"))
+    base = {"turma_id": turma["id"], "disciplina_id": disc["id"], "funcionario_id": p1["id"], "dia_semana": 4}
+
+    # sem hora de fim: início + duração do tempo
+    h = _ok(client.post("/api/horarios", headers=admin, json={**base, "tempo": t1["ordem"], "hora_inicio": "07:30"}), 201)
+    assert h["hora_fim"] == "08:15:00"
+    sem_tempo = client.post("/api/horarios", headers=admin, json={**base, "tempo": 12, "hora_inicio": "17:00", "dia_semana": 5})
+    assert sem_tempo.status_code == 422 or any(t["ordem"] == 12 for t in antes)
+
+    # ainda não começou (válido desde hoje): corrige-se o próprio registo
+    e = _ok(client.post(f"/api/horarios/{h['id']}/editar", headers=admin, json={"tempo": t2["ordem"], "hora_inicio": "08:15",
+                                                                              "funcionario_id": p2["id"]}))
+    assert e["id"] == h["id"] and e["hora_fim"] == "09:05:00" and e["professor"] == "Prof. dos Tempos 2"
+
+    # já em uso: a alteração vale a partir de hoje e a versão anterior fica no histórico
+    passado = (date.today() - timedelta(days=30)).isoformat()
+    velho = _ok(client.post("/api/horarios", headers=admin, json={**base, "tempo": t1["ordem"], "hora_inicio": "10:00",
+                                                                 "valido_desde": passado}), 201)
+    novo = _ok(client.post(f"/api/horarios/{velho['id']}/editar", headers=admin, json={"hora_inicio": "10:30"}))
+    assert novo["id"] != velho["id"] and novo["valido_desde"] == date.today().isoformat() and novo["hora_fim"] == "11:15:00"
+    hist = {x["id"]: x for x in client.get("/api/horarios", headers=admin, params={"turma_id": turma["id"], "historico": True}).json()}
+    assert hist[velho["id"]]["valido_ate"] == (date.today() - timedelta(days=1)).isoformat()
+
+    # editar para cima de outra aula da turma é recusado
+    r = client.post(f"/api/horarios/{novo['id']}/editar", headers=admin, json={"hora_inicio": "08:30", "hora_fim": "09:00"})
+    assert r.status_code == 409 and "a turma já tem" in r.json()["detail"]

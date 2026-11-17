@@ -152,6 +152,18 @@ class Sala(Base):
     activo: Mapped[bool] = mapped_column(Boolean, server_default=true())
 
 
+class TempoLectivo(Base):
+    """Tempo lectivo da escola (1.º, 2.º… tempo do dia) com a sua duração. No horário escolhe-se o tempo e a hora
+    de fim é a de início mais esta duração."""
+    __tablename__ = "tempo_lectivo"
+    __table_args__ = (CheckConstraint("duracao_minutos BETWEEN 5 AND 240", name="duracao"),)
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    ordem: Mapped[int] = mapped_column(SmallInteger)
+    designacao: Mapped[str] = mapped_column(Text)
+    duracao_minutos: Mapped[int] = mapped_column(SmallInteger, server_default="45")
+
+
 class Disciplina(Base):
     __tablename__ = "disciplina"
     __table_args__ = (UniqueConstraint("estabelecimento_id", "nome"),)

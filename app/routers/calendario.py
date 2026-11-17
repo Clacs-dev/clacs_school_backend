@@ -1,7 +1,7 @@
 """Calendário escolar, horários (com histórico de alterações), substituições, registo das aulas com a chamada por
 tempo lectivo, assiduidade dos professores e relatório de assiduidade por disciplina."""
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -12,10 +12,13 @@ from app import respostas as R
 from app.common import ano_activo, as_dict, obter
 from app.database import get_db
 from app.models import (
-    Aluno, Assiduidade, Aula, Disciplina, EventoCalendario, Funcionario, Horario, Matricula, Substituicao, Turma,
+    Aluno, Assiduidade, Aula, Disciplina, EventoCalendario, Funcionario, Horario, Matricula, Substituicao, TempoLectivo,
+    Turma,
 )
+from app import ordem as ordens
 from app.schemas import (
-    AulaRegistoIn, EventoIn, FaltaProfessorIn, HorarioAlterarIn, HorarioIn, SubstituicaoIn,
+    AulaRegistoIn, EventoIn, FaltaProfessorIn, HorarioAlterarIn, HorarioEditarIn, HorarioIn, SubstituicaoIn,
+    TempoLectivoIn,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas, verificar_turma
 from app.services import calendario as svc
@@ -47,6 +50,46 @@ def criar_evento(dados: EventoIn, ctx: Contexto = Depends(editar_acad), db: Sess
     db.add(e)
     db.commit()
     return as_dict(e)
+
+
+# ---------------------------------------------------------------- tempos lectivos (Registo académico)
+def _tempos_de(est: int):
+    return select(TempoLectivo).where(TempoLectivo.estabelecimento_id == est)
+
+
+@router.get("/tempos-lectivos", response_model=list[R.TempoLectivo], summary="Tempos lectivos da escola e a duração de cada um")
+def tempos_lectivos(ctx: Contexto = Depends(ver_ped), db: Session = Depends(get_db)):
+    return [as_dict(t) for t in db.scalars(_tempos_de(ctx.estabelecimento_id).order_by(TempoLectivo.ordem, TempoLectivo.id))]
+
+
+@router.post("/tempos-lectivos", response_model=R.TempoLectivo, status_code=201,
+             summary="Novo tempo lectivo (ordem e nome automáticos se ficarem em branco)")
+def criar_tempo_lectivo(dados: TempoLectivoIn, ctx: Contexto = Depends(editar_acad), db: Session = Depends(get_db)):
+    est = ctx.estabelecimento_id
+    ordem = ordens.ao_criar(db, TempoLectivo, _tempos_de(est), dados.ordem, "um tempo lectivo", lambda t: t.designacao)
+    if ordem > 12:
+        raise HTTPException(422, "O dia tem no máximo 12 tempos lectivos")
+    t = TempoLectivo(estabelecimento_id=est, ordem=ordem, duracao_minutos=dados.duracao_minutos,
+                     designacao=(dados.designacao or "").strip() or f"{ordem}.º tempo")
+    db.add(t)
+    db.commit()
+    return as_dict(t)
+
+
+def _editar_tempo(db: Session, ctx: Contexto, obj: TempoLectivo, mudancas: dict) -> None:
+    if mudancas.get("ordem") and mudancas["ordem"] > 12:
+        raise HTTPException(422, "O dia tem no máximo 12 tempos lectivos")
+    if "designacao" in mudancas and not (mudancas["designacao"] or "").strip():
+        mudancas.pop("designacao")
+    ordens.ao_editar(db, obj, _tempos_de(ctx.estabelecimento_id), mudancas)
+
+
+def _fim_do_tempo(db: Session, est: int, tempo: int, inicio) -> object:
+    """Hora de fim = início + duração do tempo lectivo com essa ordem (registado no Registo académico)."""
+    t = db.scalar(_tempos_de(est).where(TempoLectivo.ordem == tempo))
+    if t is None:
+        raise HTTPException(422, f"Indique a hora de fim ou registe o {tempo}.º tempo em Registo académico → Tempos lectivos")
+    return (datetime.combine(date.today(), inicio) + timedelta(minutes=t.duracao_minutos)).time()
 
 
 # ---------------------------------------------------------------- horários
@@ -88,6 +131,8 @@ def _validar(db: Session, ctx: Contexto, dados) -> None:
 @router.post("/horarios", response_model=R.HorarioComNomes, status_code=201,
              summary="Novo tempo lectivo (recusa conflitos de turma, professor ou sala)")
 def criar_horario(dados: HorarioIn, ctx: Contexto = Depends(editar_acad), db: Session = Depends(get_db)):
+    if dados.hora_fim is None:
+        dados.hora_fim = _fim_do_tempo(db, ctx.estabelecimento_id, dados.tempo, dados.hora_inicio)
     _validar(db, ctx, dados)
     h = Horario(estabelecimento_id=ctx.estabelecimento_id, valido_desde=dados.valido_desde or date.today(),
                 **dados.model_dump(exclude={"valido_desde"}))
@@ -117,6 +162,42 @@ def alterar_horario(hid: int, dados: HorarioAlterarIn, ctx: Contexto = Depends(e
                                                **{k: str(v) for k, v in campos.items()}})
     db.commit()
     return _horario(db, novo)
+
+
+@router.post("/horarios/{hid}/editar", response_model=R.HorarioComNomes,
+             summary="Corrige um tempo do horário: se ainda não começou, muda-o; se já está em uso, vale a partir de hoje")
+def editar_horario(hid: int, dados: HorarioEditarIn, ctx: Contexto = Depends(editar_acad), db: Session = Depends(get_db)):
+    est = ctx.estabelecimento_id
+    h = obter(db, Horario, hid, est, "Horário")
+    hoje = date.today()
+    if h.valido_ate is not None and h.valido_ate < hoje:
+        raise HTTPException(409, "Esta versão do horário já terminou")
+    mudancas = dados.model_dump(exclude_unset=True)
+    campos = {c: getattr(h, c) for c in ("turma_id", "disciplina_id", "funcionario_id", "sala_id", "dia_semana",
+                                         "tempo", "hora_inicio", "hora_fim")}
+    campos.update(mudancas)
+    if mudancas.get("hora_fim") is None and ({"tempo", "hora_inicio"} & mudancas.keys()):
+        campos["hora_fim"] = _fim_do_tempo(db, est, campos["tempo"], campos["hora_inicio"])
+    if campos["hora_fim"] <= campos["hora_inicio"]:
+        raise HTTPException(422, "A hora de fim tem de ser depois da de início")
+    if campos["disciplina_id"] != h.disciplina_id:
+        obter(db, Disciplina, campos["disciplina_id"], est, "Disciplina")
+    if campos["funcionario_id"] and campos["funcionario_id"] != h.funcionario_id:
+        obter(db, Funcionario, campos["funcionario_id"], est, "Professor")
+    if h.valido_desde >= hoje:            # ainda não começou (ou começa hoje): corrige-se o próprio registo
+        for c, v in campos.items():
+            setattr(h, c, v)
+        svc.conflitos(db, h, h.valido_desde)
+        alvo = h
+    else:                                 # já em uso: fecha ontem e a nova versão vale a partir de hoje
+        alvo = Horario(estabelecimento_id=est, valido_desde=hoje, **campos)
+        h.valido_ate = hoje - timedelta(days=1)
+        db.flush()
+        svc.conflitos(db, alvo, hoje)
+        db.add(alvo)
+    auditar(db, ctx, "horario", hid, "update", {k: str(v) for k, v in campos.items()})
+    db.commit()
+    return _horario(db, alvo)
 
 
 @router.post("/horarios/{hid}/terminar", response_model=R.HorarioComNomes, summary="Termina o tempo lectivo (fica no histórico)")
@@ -259,5 +340,7 @@ def relatorio_assiduidade(turma_id: int, desde: date, ate: date, ctx: Contexto =
     return sorted(linhas.values(), key=lambda x: (x["aluno"], x["disciplina"] or ""))
 
 
+crud.registar(router, "/tempos-lectivos", TempoLectivo, nome="Tempo lectivo", modulo="academico",
+              resposta=R.TempoLectivo, entrada=TempoLectivoIn, ao_editar=_editar_tempo)
 crud.registar(router, "/eventos", EventoCalendario, nome="Evento", modulo="academico", resposta=R.EventoCalendario,
               entrada=EventoIn)

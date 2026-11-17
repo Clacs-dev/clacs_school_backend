@@ -3861,6 +3861,22 @@
   "nome": "Propina",
   "periodicidade": "mensal"
  },
+ "GET /api/tempos-lectivos": [
+  {
+   "designacao": "1.º tempo",
+   "duracao_minutos": 45,
+   "estabelecimento_id": 1,
+   "id": 1,
+   "ordem": 1
+  }
+ ],
+ "GET /api/tempos-lectivos/{id_}": {
+  "designacao": "1.º tempo",
+  "duracao_minutos": 45,
+  "estabelecimento_id": 1,
+  "id": 1,
+  "ordem": 1
+ },
  "GET /api/tipos-avaliacao": [
   {
    "designacao": "MAC",
@@ -4611,6 +4627,13 @@
   "id": 1,
   "nome": "Transporte escolar",
   "periodicidade": "mensal"
+ },
+ "PATCH /api/tempos-lectivos/{id_}": {
+  "designacao": "1.º tempo",
+  "duracao_minutos": 45,
+  "estabelecimento_id": 1,
+  "id": 1,
+  "ordem": 1
  },
  "PATCH /api/tipos-avaliacao/{id_}": {
   "designacao": "Prova trimestral",
@@ -6389,6 +6412,24 @@
   "valido_ate": null,
   "valido_desde": "2026-11-16"
  },
+ "POST /api/horarios/{hid}/editar": {
+  "criado_em": "2026-11-17T12:49:23",
+  "dia_semana": 1,
+  "disciplina": "Língua Portuguesa",
+  "disciplina_id": 1,
+  "estabelecimento_id": 1,
+  "funcionario_id": 2,
+  "hora_fim": "09:45:00",
+  "hora_inicio": "09:00:00",
+  "id": 2,
+  "professor": "Pedro Quim",
+  "sala_id": 1,
+  "tempo": 3,
+  "turma": "5.ª A",
+  "turma_id": 1,
+  "valido_ate": null,
+  "valido_desde": "2026-11-17"
+ },
  "POST /api/horarios/{hid}/terminar": {
   "criado_em": "2026-11-04T13:31:25",
   "dia_semana": 1,
@@ -7544,6 +7585,13 @@
   "motivo": "Professora em formação",
   "registada_por": 1,
   "substituto_id": 2
+ },
+ "POST /api/tempos-lectivos": {
+  "designacao": "1.º tempo",
+  "duracao_minutos": 45,
+  "estabelecimento_id": 1,
+  "id": 2,
+  "ordem": 2
  },
  "POST /api/tipos-avaliacao": {
   "designacao": "Prova trimestral",
