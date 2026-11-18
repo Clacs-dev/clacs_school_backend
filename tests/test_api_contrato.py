@@ -137,6 +137,7 @@ def test_ordem_automatica_sem_repetidos(client, admin):
     assert client.patch(f"/api/classes/{quarta['id']}", headers=admin, json={"designacao": "5.ª Ordem"}).status_code == 409
 
     disc = ok(client.post("/api/disciplinas", headers=admin, json={"nome": "Disciplina da ordem", "sigla": "DOR"}))
+    ok(client.post(f"/api/classes/{quarta['id']}/disciplinas", headers=admin, json={"disciplina_id": disc["id"]}))
     base = {"classe_id": quarta["id"], "disciplina_id": disc["id"]}
     u1 = ok(client.post("/api/programas", headers=admin, json={**base, "titulo": "Primeira"}))
     u2 = ok(client.post("/api/programas", headers=admin, json={**base, "titulo": "Segunda"}))

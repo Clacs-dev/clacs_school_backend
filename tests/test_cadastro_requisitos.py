@@ -295,6 +295,7 @@ def test_professor_nao_da_duas_aulas_ao_mesmo_tempo(client, admin):
     a = _ok(client.post("/api/turmas", headers=admin, json={"designacao": "5.ª A (conflitos)", "classe_id": classe["id"]}), 201)
     b = _ok(client.post("/api/turmas", headers=admin, json={"designacao": "5.ª B (conflitos)", "classe_id": classe["id"]}), 201)
     lp = _ok(client.post("/api/disciplinas", headers=admin, json={"nome": "Língua Portuguesa (conflitos)", "sigla": "LPC"}), 201)
+    _ok(client.post(f"/api/classes/{classe['id']}/disciplinas", headers=admin, json={"disciplina_id": lp["id"]}), 201)
     x, y, z = (_ok(client.post("/api/funcionarios", headers=admin, json={"nome_completo": n, "cargo": "professor"}), 201)
                for n in ("Prof. Xavier", "Prof. Yolanda", "Prof. Zeferino"))
     seg = {"disciplina_id": lp["id"], "dia_semana": 1, "tempo": 2, "hora_inicio": "08:10:00", "hora_fim": "09:00:00"}
@@ -351,6 +352,7 @@ def test_tempos_lectivos_fim_automatico_e_editar_horario(client, admin):
     classe = client.get("/api/classes", headers=admin).json()[0]
     turma = _ok(client.post("/api/turmas", headers=admin, json={"designacao": "Turma dos tempos", "classe_id": classe["id"]}), 201)
     disc = _ok(client.post("/api/disciplinas", headers=admin, json={"nome": "Disciplina dos tempos", "sigla": "DTP"}), 201)
+    _ok(client.post(f"/api/classes/{classe['id']}/disciplinas", headers=admin, json={"disciplina_id": disc["id"]}), 201)
     p1, p2 = (_ok(client.post("/api/funcionarios", headers=admin, json={"nome_completo": n, "cargo": "professor"}), 201)
               for n in ("Prof. dos Tempos 1", "Prof. dos Tempos 2"))
     base = {"turma_id": turma["id"], "disciplina_id": disc["id"], "funcionario_id": p1["id"], "dia_semana": 4}
@@ -384,6 +386,10 @@ def test_programa_com_tempo_e_horario_na_sala_da_turma(client, admin):
     tempo = _ok(client.post("/api/tempos-lectivos", headers=admin, json={"duracao_minutos": 45}), 201)
     classe = client.get("/api/classes", headers=admin).json()[0]
     disc = _ok(client.post("/api/disciplinas", headers=admin, json={"nome": "Ciências da Natureza (sala)", "sigla": "CNS"}), 201)
+    # regra: fora do plano curricular não há programa; depois de associada, já há
+    assert client.post("/api/programas", headers=admin, json={"classe_id": classe["id"], "disciplina_id": disc["id"],
+                                                             "titulo": "Fora do plano"}).status_code == 422
+    _ok(client.post(f"/api/classes/{classe['id']}/disciplinas", headers=admin, json={"disciplina_id": disc["id"]}), 201)
     u = _ok(client.post("/api/programas", headers=admin, json={"classe_id": classe["id"], "disciplina_id": disc["id"],
                                                               "titulo": "Os seres vivos", "tempo_lectivo_id": tempo["id"]}), 201)
     assert u["tempo_lectivo_id"] == tempo["id"]

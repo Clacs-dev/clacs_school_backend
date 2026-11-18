@@ -16,6 +16,7 @@ from app.models import (
     Turma,
 )
 from app import ordem as ordens
+from app.plano import exigir_no_plano
 from app.schemas import (
     AulaRegistoIn, EventoIn, FaltaProfessorIn, HorarioAlterarIn, HorarioEditarIn, HorarioIn, ReordenarIn,
     SubstituicaoIn, TempoLectivoIn,
@@ -128,6 +129,7 @@ def horarios(turma_id: int | None = None, funcionario_id: int | None = None, dat
 def _validar(db: Session, ctx: Contexto, dados) -> None:
     t = obter(db, Turma, dados.turma_id, ctx.estabelecimento_id, "Turma")
     obter(db, Disciplina, dados.disciplina_id, ctx.estabelecimento_id, "Disciplina")
+    exigir_no_plano(db, t.classe_id, dados.disciplina_id)
     if dados.funcionario_id:
         obter(db, Funcionario, dados.funcionario_id, ctx.estabelecimento_id, "Professor")
     if dados.hora_fim <= dados.hora_inicio:
@@ -192,6 +194,7 @@ def editar_horario(hid: int, dados: HorarioEditarIn, ctx: Contexto = Depends(edi
         raise HTTPException(422, "A hora de fim tem de ser depois da de início")
     if campos["disciplina_id"] != h.disciplina_id:
         obter(db, Disciplina, campos["disciplina_id"], est, "Disciplina")
+        exigir_no_plano(db, db.get(Turma, h.turma_id).classe_id, campos["disciplina_id"])
     if campos["funcionario_id"] and campos["funcionario_id"] != h.funcionario_id:
         obter(db, Funcionario, campos["funcionario_id"], est, "Professor")
     if h.valido_desde >= hoje:            # ainda não começou (ou começa hoje): corrige-se o próprio registo

@@ -196,7 +196,9 @@ def test_pedagogico_pauta(client, admin):
     periodo = client.get(f"/api/anos-lectivos/{ano['id']}/periodos", headers=admin).json()[0]
     pauta = client.get("/api/pautas", headers=admin, params={"turma_id": turma["id"], "periodo_id": periodo["id"]}).json()
     # Alunos que entraram na turma depois das avaliações (outros testes) ainda não têm notas.
-    assert len(pauta["disciplinas"]) == 3 and sum(l["media_geral"] is not None for l in pauta["linhas"]) >= 3
+    # a pauta mostra todas as disciplinas do plano curricular da classe (as sem notas ficam vazias)
+    plano = client.get(f"/api/classes/{turma['classe_id']}/disciplinas", headers=admin).json()
+    assert len(pauta["disciplinas"]) == len(plano) >= 3 and sum(l["media_geral"] is not None for l in pauta["linhas"]) >= 3
     r = client.post("/api/pautas/fechar", headers=admin, params={"turma_id": turma["id"], "periodo_id": periodo["id"]})
     assert r.json()["resultados"] > 0
 

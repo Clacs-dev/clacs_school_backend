@@ -19,6 +19,7 @@ from app.schemas import (
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas
 from app import ordem as ordens
+from app.plano import exigir_no_plano
 from app.ciclo import livre_de_ciclo, todos_os_ciclos
 from app.services import fecho_ano
 from app.services import turmas as ocupacao_turmas
@@ -259,6 +260,7 @@ def programas(classe_id: int | None = None, disciplina_id: int | None = None, ct
 def criar_programa(dados: ProgramaUnidadeIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     _classe(db, dados.classe_id, ctx.estabelecimento_id)
     obter(db, Disciplina, dados.disciplina_id, ctx.estabelecimento_id, "Disciplina")
+    exigir_no_plano(db, dados.classe_id, dados.disciplina_id)
     if dados.tempo_lectivo_id:
         obter(db, TempoLectivo, dados.tempo_lectivo_id, ctx.estabelecimento_id, "Tempo lectivo")
     irmaos = _unidades_de(dados.classe_id, dados.disciplina_id)
@@ -433,8 +435,9 @@ def atribuicoes(tid: int, ctx: Contexto = Depends(ver), db: Session = Depends(ge
 @router.put("/turmas/{tid}/atribuicoes", response_model=R.AtribuicaoDocente, status_code=200)
 def atribuir(tid: int, dados: AtribuicaoIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
-    obter(db, Turma, tid, est, "Turma")
+    t = obter(db, Turma, tid, est, "Turma")
     obter(db, Disciplina, dados.disciplina_id, est, "Disciplina")
+    exigir_no_plano(db, t.classe_id, dados.disciplina_id)
     obter(db, Funcionario, dados.funcionario_id, est, "Funcionário")
     a = db.scalar(select(AtribuicaoDocente).where(AtribuicaoDocente.turma_id == tid,
                                                   AtribuicaoDocente.disciplina_id == dados.disciplina_id))

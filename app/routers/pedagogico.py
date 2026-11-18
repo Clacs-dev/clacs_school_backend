@@ -17,6 +17,7 @@ from app.schemas import (
     AssiduidadeIn, AvaliacaoIn, NotasIn, OcorrenciaIn, OcorrenciaUpd, PresencaItem, RegistoDiarioIn, TipoAvaliacaoIn,
     TipoOcorrenciaIn,
 )
+from app.plano import disciplinas_do_plano, exigir_no_plano
 from app.security import Contexto, auditar, exige, turmas_permitidas, verificar_turma
 from app.services import pedagogico as svc_pedagogico
 from app.services.pedagogico import escala, media_ponderada
@@ -78,8 +79,9 @@ def avaliacoes(turma_id: int, periodo_id: int | None = None, disciplina_id: int 
 @router.post("/avaliacoes", response_model=R.Avaliacao, status_code=201)
 def criar_avaliacao(dados: AvaliacaoIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
-    _turma(db, ctx, dados.turma_id)
+    t = _turma(db, ctx, dados.turma_id)
     obter(db, Disciplina, dados.disciplina_id, est, "Disciplina")
+    exigir_no_plano(db, t.classe_id, dados.disciplina_id)
     obter(db, TipoAvaliacao, dados.tipo_id, est, "Tipo de avaliação")
     obter(db, PeriodoLectivo, dados.periodo_id, nome="Período")
     a = Avaliacao(**dados.model_dump())
@@ -126,10 +128,12 @@ def lancar_notas(avid: int, dados: NotasIn, ctx: Contexto = Depends(editar), db:
 
 @router.get("/pautas", response_model=R.Pauta, summary="Pauta da turma no período: média por aluno e disciplina")
 def pauta(turma_id: int, periodo_id: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
-    _turma(db, ctx, turma_id)
-    discs = db.execute(select(Disciplina.id, Disciplina.nome).join(Avaliacao, Avaliacao.disciplina_id == Disciplina.id)
-                       .where(Avaliacao.turma_id == turma_id, Avaliacao.periodo_id == periodo_id)
-                       .distinct().order_by(Disciplina.nome)).all()
+    t = _turma(db, ctx, turma_id)
+    # As disciplinas do plano curricular da classe (as que ainda não têm notas aparecem vazias) e, para não esconder
+    # dados antigos, as que tenham avaliações neste período mesmo fora do plano.
+    com_avaliacoes = select(Avaliacao.disciplina_id).where(Avaliacao.turma_id == turma_id, Avaliacao.periodo_id == periodo_id)
+    ids = set(disciplinas_do_plano(db, t.classe_id)) | set(db.scalars(com_avaliacoes))
+    discs = db.execute(select(Disciplina.id, Disciplina.nome).where(Disciplina.id.in_(ids)).order_by(Disciplina.nome)).all()
     linhas = []
     for mid, aid, nome in _alunos_turma(db, turma_id):
         medias = {d: media_ponderada(db, aid, turma_id, d, periodo_id) for d, _ in discs}
