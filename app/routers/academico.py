@@ -372,6 +372,23 @@ def sugestao_turma(classe_id: int | None = None, turma_id: int | None = None, ct
             "mensagem": msg}
 
 
+PERIODOS = {"manha": "de manhã", "tarde": "à tarde", "noite": "à noite"}
+
+
+def _sala_livre(db: Session, est: int, ano_id: int, sala_id: int | None, periodo: str, excepto: int | None = None) -> None:
+    """Uma sala só tem uma turma em cada período do dia (manhã, tarde, noite) no mesmo ciclo."""
+    if not sala_id:
+        return
+    stmt = select(Turma).where(Turma.estabelecimento_id == est, Turma.ano_id == ano_id, Turma.sala_id == sala_id,
+                               Turma.periodo_dia == periodo)
+    if excepto:
+        stmt = stmt.where(Turma.id != excepto)
+    if outra := db.scalars(stmt.limit(1)).first():
+        sala = db.get(Sala, sala_id)
+        raise HTTPException(409, f"A {sala.designacao} já está ocupada {PERIODOS.get(periodo, periodo)} pela turma "
+                                 f"{outra.designacao}. Escolha outra sala ou outro período.")
+
+
 @router.post("/turmas", response_model=R.Turma, status_code=201)
 def criar_turma(dados: TurmaIn, ctx: Contexto = Depends(criar), db: Session = Depends(get_db)):
     est = ctx.estabelecimento_id
@@ -382,6 +399,7 @@ def criar_turma(dados: TurmaIn, ctx: Contexto = Depends(criar), db: Session = De
         obter(db, Sala, dados.sala_id, est, "Sala")
     if dados.director_turma_id:
         obter(db, Funcionario, dados.director_turma_id, est, "Funcionário")
+    _sala_livre(db, est, ano_id, dados.sala_id, dados.periodo_dia)
     capacidade = dados.capacidade or ocupacao_turmas.capacidade_padrao(db, est)
     t = Turma(estabelecimento_id=est, **{**dados.model_dump(), "ano_id": ano_id, "capacidade": capacidade})
     res = gravar(db, t, "Esta turma já existe neste ano lectivo")
@@ -393,7 +411,12 @@ def criar_turma(dados: TurmaIn, ctx: Contexto = Depends(criar), db: Session = De
 @router.patch("/turmas/{tid}", response_model=R.Turma)
 def editar_turma(tid: int, dados: TurmaUpd, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     t = obter(db, Turma, tid, ctx.estabelecimento_id, "Turma")
-    aplicar(t, dados.model_dump(exclude_unset=True))
+    mudancas = dados.model_dump(exclude_unset=True)
+    if mudancas.get("sala_id"):
+        obter(db, Sala, mudancas["sala_id"], ctx.estabelecimento_id, "Sala")
+    _sala_livre(db, ctx.estabelecimento_id, t.ano_id, mudancas.get("sala_id", t.sala_id),
+                mudancas.get("periodo_dia") or t.periodo_dia, excepto=t.id)
+    aplicar(t, mudancas)
     return gravar(db, t, "Esta turma já existe neste ano lectivo")
 
 

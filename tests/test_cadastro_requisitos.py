@@ -400,3 +400,17 @@ def test_programa_com_tempo_e_horario_na_sala_da_turma(client, admin):
             "turma_id": turma["id"], "disciplina_id": disc["id"], "funcionario_id": prof["id"], "dia_semana": dia,
             "tempo": tempo["ordem"], "hora_inicio": "13:00"}), 201)
         assert h["sala_id"] == sala["id"]
+
+def test_sala_com_uma_turma_por_periodo(client, admin):
+    """5.ª A e 5.ª B não podem ficar na mesma sala no mesmo período; noutro período pode."""
+    classe = client.get("/api/classes", headers=admin).json()[0]
+    sala = _ok(client.post("/api/salas", headers=admin, json={"designacao": "Sala 1 (períodos)", "capacidade": 30}), 201)
+    _ok(client.post("/api/turmas", headers=admin, json={"designacao": "5.ª A (sala)", "classe_id": classe["id"],
+                                                       "sala_id": sala["id"], "periodo_dia": "manha"}), 201)
+    r = client.post("/api/turmas", headers=admin, json={"designacao": "5.ª B (sala)", "classe_id": classe["id"],
+                                                        "sala_id": sala["id"], "periodo_dia": "manha"})
+    assert r.status_code == 409 and "já está ocupada de manhã pela turma 5.ª A (sala)" in r.json()["detail"]
+    b = _ok(client.post("/api/turmas", headers=admin, json={"designacao": "5.ª B (sala)", "classe_id": classe["id"],
+                                                           "sala_id": sala["id"], "periodo_dia": "tarde"}), 201)
+    assert client.patch(f"/api/turmas/{b['id']}", headers=admin, json={"periodo_dia": "manha"}).status_code == 409
+    _ok(client.patch(f"/api/turmas/{b['id']}", headers=admin, json={"capacidade": 25}))   # outras alterações continuam
