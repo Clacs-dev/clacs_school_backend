@@ -98,11 +98,18 @@ def criar_ano(dados: AnoIn, ctx: Contexto = Depends(criar), db: Session = Depend
 
 @router.post("/anos-lectivos/{ano_id}/activar", response_model=R.AnoLectivo)
 def activar_ano(ano_id: int, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
+    """Regra: um ciclo só encerra pelo «Fechar ciclo» (que apura os resultados finais). Por isso só se activa um ciclo
+    novo depois de fechar o activo, e um ciclo encerrado não volta a ser activado."""
     ano = obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo")
-    db.execute(update(AnoLectivo).where(AnoLectivo.estabelecimento_id == ctx.estabelecimento_id,
-                                        AnoLectivo.estado == "activo", AnoLectivo.id != ano_id)
-               .values(estado="encerrado"))
-    db.flush()
+    if ano.estado == "activo":
+        return as_dict(ano)
+    if ano.estado == "encerrado":
+        raise HTTPException(409, f"O ciclo {ano.designacao} está encerrado: não pode voltar a ser activado.")
+    activo = db.scalar(select(AnoLectivo).where(AnoLectivo.estabelecimento_id == ctx.estabelecimento_id,
+                                                AnoLectivo.estado == "activo", AnoLectivo.id != ano_id))
+    if activo is not None:
+        raise HTTPException(409, f"Feche primeiro o ciclo {activo.designacao} («Fechar ciclo» calcula as médias e a "
+                                 f"situação final dos alunos) e só depois active o ciclo {ano.designacao}.")
     ano.estado = "activo"
     auditar(db, ctx, "ano_lectivo", ano_id, "update", {"estado": "activo"})
     db.commit()

@@ -254,6 +254,11 @@ def test_importar_cobrancas_e_pagamentos(client, admin):
 # ---------------------------------------------------------------- fecho do ano (por último: encerra o ano activo)
 def test_fecho_do_ano_e_passagem(client, admin):
     ano = next(a for a in client.get("/api/anos-lectivos", headers=admin).json() if a["estado"] == "activo")
+    # regra: com um ciclo activo por fechar, não se activa outro (senão encerrava sem resultados finais)
+    seguinte = client.post("/api/anos-lectivos", headers=admin,
+                           json={"designacao": "2098/2099", "data_inicio": "2098-09-01", "data_fim": "2099-07-15"}).json()
+    r = client.post(f"/api/anos-lectivos/{seguinte['id']}/activar", headers=admin)
+    assert r.status_code == 409 and f"Feche primeiro o ciclo {ano['designacao']}" in r.json()["detail"]
     sim = client.post(f"/api/anos-lectivos/{ano['id']}/fechar", headers=admin).json()
     assert sim["simulado"] and sim["totais"]["aprovado"] > 0
     if sim["totais"]["sem_avaliacao"]:
@@ -277,7 +282,8 @@ def test_fecho_do_ano_e_passagem(client, admin):
 
     novo = client.post("/api/anos-lectivos", headers=admin,
                        json={"designacao": "2099/2100", "data_inicio": "2099-09-01", "data_fim": "2100-07-15"}).json()
-    client.post(f"/api/anos-lectivos/{novo['id']}/activar", headers=admin)
+    assert client.post(f"/api/anos-lectivos/{novo['id']}/activar", headers=admin).status_code == 200
+    assert client.post(f"/api/anos-lectivos/{ano['id']}/activar", headers=admin).status_code == 409   # encerrado
     classe = client.get("/api/classes", headers=admin).json()[0]
     t_novo = client.post("/api/turmas", headers=admin, json={"designacao": "6.ª A", "classe_id": classe["id"],
                                                              "capacidade": 40}).json()
