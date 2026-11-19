@@ -191,6 +191,8 @@ def _documento_portal(pedir):
 
 
 ESPECIAIS = {
+    "POST /api/anos-lectivos/{ano_id}/plano/copiar": lambda pedir: pedir(
+        "POST", "/api/anos-lectivos/2/plano/copiar", json=S.EXEMPLOS[S.CopiarPlanoIn]),
     "POST /api/horarios": lambda pedir: pedir("POST", "/api/horarios", json={
         **S.EXEMPLOS[S.HorarioIn], "tempo": 2, "hora_inicio": "08:20:00", "hora_fim": "09:05:00"}),
     "POST /api/acordos": lambda pedir: (pedir("POST", "/api/acordos/1/cancelar", json=S.EXEMPLOS[S.MotivoIn]),

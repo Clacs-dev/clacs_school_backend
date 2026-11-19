@@ -417,6 +417,51 @@ class AulaPrevista(Saida):
     sumario: str | None
 
 
+class ActividadeDaSemana(Saida):
+    id: int
+    titulo: str
+    tipo: str
+    data_inicio: date
+    data_fim: date | None = None
+
+
+class SemanaDoCiclo(Saida):
+    inicio: date = Field(description="Segunda-feira")
+    fim: date = Field(description="Domingo")
+    numero: int | None = Field(None, description="N.º da semana lectiva no trimestre (vazio sem aulas)")
+    fase: str = Field(description="Preparação do ano, o trimestre, Pausa ou Fim do ano")
+    periodo_id: int | None = None
+    lectiva: bool
+    dias_lectivos: int
+    actividades: list[ActividadeDaSemana]
+
+
+class PeriodoDoCiclo(Saida):
+    id: int
+    designacao: str
+    data_inicio: date
+    data_fim: date
+    semanas_lectivas: int
+    dias_lectivos: int
+
+
+class SemanasDoCiclo(Saida):
+    ano_id: int
+    designacao: str
+    data_inicio: date
+    data_fim: date
+    semanas_lectivas: int
+    dias_lectivos: int
+    periodos: list[PeriodoDoCiclo]
+    semanas: list[SemanaDoCiclo]
+
+
+class CopiaPlano(Saida):
+    copiadas: int
+    repetidas: int = Field(description="Já existiam no ciclo de destino")
+    fora_do_ciclo: int = Field(description="Ficariam fora das datas do ciclo de destino")
+
+
 class AssiduidadeProfessor(Saida):
     funcionario_id: int
     professor: str

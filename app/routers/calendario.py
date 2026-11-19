@@ -9,16 +9,17 @@ from sqlalchemy.orm import Session
 
 from app import crud
 from app import respostas as R
+from app.ciclo import livre_de_ciclo
 from app.common import ano_activo, as_dict, obter
 from app.database import get_db
 from app.models import (
-    Aluno, Assiduidade, Aula, Disciplina, EventoCalendario, Funcionario, Horario, Matricula, Substituicao, TempoLectivo,
+    Aluno, AnoLectivo, Assiduidade, Aula, Disciplina, EventoCalendario, Funcionario, Horario, Matricula, Substituicao, TempoLectivo,
     Turma,
 )
 from app import ordem as ordens
 from app.plano import exigir_no_plano
 from app.schemas import (
-    AulaRegistoIn, EventoIn, FaltaProfessorIn, HorarioAlterarIn, HorarioEditarIn, HorarioIn, ReordenarIn,
+    AulaRegistoIn, CopiarPlanoIn, EventoIn,FaltaProfessorIn, HorarioAlterarIn, HorarioEditarIn, HorarioIn, ReordenarIn,
     SubstituicaoIn, TempoLectivoIn,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas, verificar_turma
@@ -51,6 +52,29 @@ def criar_evento(dados: EventoIn, ctx: Contexto = Depends(editar_acad), db: Sess
     db.add(e)
     db.commit()
     return as_dict(e)
+
+
+@router.get("/anos-lectivos/{ano_id}/semanas", response_model=R.SemanasDoCiclo,
+            summary="Calendário semanal do ciclo: fase, n.º da semana lectiva, dias com aulas e actividades de cada semana")
+@livre_de_ciclo
+def semanas(ano_id: int, ctx: Contexto = Depends(ver_ped), db: Session = Depends(get_db)):
+    return svc.semanas_do_ciclo(db, obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo"))
+
+
+@router.post("/anos-lectivos/{ano_id}/plano/copiar", response_model=R.CopiaPlano,
+             summary="Copia o plano de actividades de outro ciclo (datas ajustadas às do ciclo)")
+@livre_de_ciclo
+def copiar_plano(ano_id: int, dados: CopiarPlanoIn, ctx: Contexto = Depends(editar_acad), db: Session = Depends(get_db)):
+    destino = obter(db, AnoLectivo, ano_id, ctx.estabelecimento_id, "Ano lectivo")
+    origem = obter(db, AnoLectivo, dados.origem_id, ctx.estabelecimento_id, "Ano lectivo")
+    if destino.estado == "encerrado":
+        raise HTTPException(409, f"O ciclo {destino.designacao} está encerrado: só consulta")
+    if origem.id == destino.id:
+        raise HTTPException(422, "Escolha outro ciclo para copiar o plano")
+    res = svc.copiar_plano(db, origem, destino)
+    auditar(db, ctx, "ano_lectivo", ano_id, "update", {"plano_copiado_de": origem.designacao, **res})
+    db.commit()
+    return res
 
 
 # ---------------------------------------------------------------- tempos lectivos (Registo académico)

@@ -608,6 +608,54 @@
    "turma": "5.ª A"
   }
  ],
+ "GET /api/anos-lectivos/{ano_id}/semanas": {
+  "ano_id": 1,
+  "data_fim": "2026-07-15",
+  "data_inicio": "2025-09-01",
+  "designacao": "2025/2026",
+  "dias_lectivos": 213,
+  "periodos": [
+   {
+    "data_fim": "2025-12-20",
+    "data_inicio": "2025-09-01",
+    "designacao": "1.º Trimestre",
+    "dias_lectivos": 80,
+    "id": 4,
+    "semanas_lectivas": 16
+   },
+   {
+    "data_fim": "2026-03-31",
+    "data_inicio": "2026-01-06",
+    "designacao": "2.º Trimestre",
+    "dias_lectivos": 61,
+    "id": 5,
+    "semanas_lectivas": 13
+   }
+  ],
+  "semanas": [
+   {
+    "actividades": [],
+    "dias_lectivos": 5,
+    "fase": "1.º Trimestre",
+    "fim": "2025-09-07",
+    "inicio": "2025-09-01",
+    "lectiva": true,
+    "numero": 1,
+    "periodo_id": 4
+   },
+   {
+    "actividades": [],
+    "dias_lectivos": 5,
+    "fase": "1.º Trimestre",
+    "fim": "2025-09-14",
+    "inicio": "2025-09-08",
+    "lectiva": true,
+    "numero": 2,
+    "periodo_id": 4
+   }
+  ],
+  "semanas_lectivas": 44
+ },
  "GET /api/anos-lectivos/{id_}": {
   "data_fim": "2026-07-15",
   "data_inicio": "2025-09-01",
@@ -5027,6 +5075,11 @@
   "designacao": "1.º Trimestre",
   "id": 7,
   "ordem": 1
+ },
+ "POST /api/anos-lectivos/{ano_id}/plano/copiar": {
+  "copiadas": 0,
+  "fora_do_ciclo": 0,
+  "repetidas": 0
  },
  "POST /api/anos-lectivos/{ano_id}/resultados/{matricula_id}/situacao": {
   "aluno": "Ana Cota",

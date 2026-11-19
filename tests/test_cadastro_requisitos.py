@@ -288,6 +288,51 @@ def test_horarios_aulas_substituicoes_e_feriados(client, admin):
     _ok(client.get(f"/api/portal/educandos/{_educando(client, ee)}/horario", headers=ee))
 
 
+def test_plano_de_actividades_por_semanas_e_copia(client, admin):
+    """Calendário do ano lectivo: semanas numeradas por trimestre, semanas sem aulas (férias, pausa entre
+    trimestres), dias lectivos sem os feriados, e a cópia do plano para o ciclo seguinte."""
+    a = _ok(client.post("/api/anos-lectivos", headers=admin, json={
+        "designacao": "2040/2041 (plano)", "data_inicio": "2040-09-03", "data_fim": "2041-07-20"}), 201)
+    b = _ok(client.post("/api/anos-lectivos", headers=admin, json={
+        "designacao": "2041/2042 (plano)", "data_inicio": "2041-09-02", "data_fim": "2042-07-19"}), 201)
+    p1 = _ok(client.get(f"/api/anos-lectivos/{a['id']}/periodos", headers=admin))[0]
+    seg = date.fromisoformat(p1["data_inicio"])
+    seg -= timedelta(days=seg.weekday())
+    ferias, feriado = seg + timedelta(weeks=3), seg + timedelta(weeks=5, days=2)
+    _ok(client.post("/api/eventos", headers=admin, json={
+        "tipo": "ferias", "titulo": "Férias intercalares", "data_inicio": ferias.isoformat(),
+        "data_fim": (ferias + timedelta(days=4)).isoformat(), "responsavel": "Direcção pedagógica"}), 201)
+    _ok(client.post("/api/eventos", headers=admin, json={
+        "tipo": "feriado", "titulo": "Feriado (plano)", "data_inicio": feriado.isoformat()}), 201)
+    _ok(client.post("/api/eventos", headers=admin, json={
+        "tipo": "exame", "titulo": "Exames do 1.º trimestre", "data_inicio": (seg + timedelta(weeks=12)).isoformat(),
+        "data_fim": (seg + timedelta(weeks=13, days=4)).isoformat()}), 201)
+
+    cal = _ok(client.get(f"/api/anos-lectivos/{a['id']}/semanas", headers=admin))
+    semanas = {s["inicio"]: s for s in cal["semanas"]}
+    assert all(date.fromisoformat(s["inicio"]).weekday() == 0 for s in cal["semanas"])
+    assert semanas[seg.isoformat()]["numero"] == 1 and semanas[seg.isoformat()]["fase"] == "1.º Trimestre"
+    sem_aulas = semanas[ferias.isoformat()]
+    assert not sem_aulas["lectiva"] and sem_aulas["numero"] is None
+    assert [x["tipo"] for x in sem_aulas["actividades"]] == ["ferias"]
+    assert semanas[(ferias + timedelta(weeks=1)).isoformat()]["numero"] == 4      # a semana de férias não conta
+    assert semanas[(seg + timedelta(weeks=5)).isoformat()]["dias_lectivos"] == 4  # feriado a meio da semana
+    assert any(s["fase"] == "Pausa" and not s["lectiva"] for s in cal["semanas"])  # entre o 1.º e o 2.º trimestre
+    assert cal["semanas_lectivas"] == sum(p["semanas_lectivas"] for p in cal["periodos"]) > 30
+    # as aulas previstas também respeitam as férias
+    assert _ok(client.get("/api/aulas", headers=admin, params={"data": ferias.isoformat()})) == []
+
+    copia = _ok(client.post(f"/api/anos-lectivos/{b['id']}/plano/copiar", headers=admin, json={"origem_id": a["id"]}))
+    assert copia == {"copiadas": 3, "repetidas": 0, "fora_do_ciclo": 0}
+    copiadas = {x["titulo"]: x for s in _ok(client.get(f"/api/anos-lectivos/{b['id']}/semanas", headers=admin))["semanas"]
+                for x in s["actividades"]}
+    assert copiadas["Feriado (plano)"]["data_inicio"] == feriado.replace(year=feriado.year + 1).isoformat()
+    assert date.fromisoformat(copiadas["Férias intercalares"]["data_inicio"]).weekday() == 0
+    assert _ok(client.post(f"/api/anos-lectivos/{b['id']}/plano/copiar", headers=admin,
+                           json={"origem_id": a["id"]}))["repetidas"] == 3
+    _ok(client.post(f"/api/anos-lectivos/{b['id']}/plano/copiar", headers=admin, json={"origem_id": b["id"]}), 422)
+
+
 def test_professor_nao_da_duas_aulas_ao_mesmo_tempo(client, admin):
     """5.ª A e 5.ª B: o mesmo professor não pode estar nas duas à mesma hora; outro professor (mesmo da mesma
     disciplina) pode. Vale também para o professor substituto."""

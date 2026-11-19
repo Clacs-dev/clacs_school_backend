@@ -1407,9 +1407,16 @@ class Despesa(Base):
 # =====================================================================
 # 14. CALENDÁRIO, HORÁRIOS E AULAS
 # =====================================================================
+# Tipos de actividade do plano do ano lectivo, pelas fases do calendário: preparação (matrículas, abertura), aulas,
+# provas e exames (época normal e recurso), entrega de boletins, pausas e férias. Os quatro últimos não têm aulas.
+TIPOS_EVENTO = ("matricula", "abertura", "aulas", "prova", "exame", "recurso", "entrega", "reuniao", "evento",
+                "pausa", "ferias", "interrupcao", "feriado")
+
+
 class EventoCalendario(Base):
+    """Actividade do plano do ano lectivo (calendário escolar)."""
     __tablename__ = "evento_calendario"
-    __table_args__ = (ck_in("tipo", "feriado", "interrupcao", "evento", "reuniao", "prova"),)
+    __table_args__ = (ck_in("tipo", *TIPOS_EVENTO),)
     id: Mapped[int] = pk()
     estabelecimento_id: Mapped[int] = estab_fk()
     tipo: Mapped[str] = mapped_column(Text)
@@ -1417,6 +1424,7 @@ class EventoCalendario(Base):
     data_inicio: Mapped[date] = mapped_column(Date, index=True)
     data_fim: Mapped[date | None] = mapped_column(Date)          # vazio = um só dia
     descricao: Mapped[str | None] = mapped_column(Text)
+    responsavel: Mapped[str | None] = mapped_column(Text)        # quem organiza (direcção pedagógica, secretaria…)
     publico: Mapped[bool] = mapped_column(Boolean, server_default=true())   # aparece no portal das famílias
 
 

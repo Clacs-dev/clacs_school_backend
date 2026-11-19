@@ -5,9 +5,99 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import Aula, Disciplina, EventoCalendario, Funcionario, Horario, Parametro, Substituicao, Turma
+from app.models import (
+    AnoLectivo, Aula, Disciplina, EventoCalendario, Funcionario, Horario, Parametro, PeriodoLectivo, Substituicao, Turma,
+)
 
-SEM_AULAS = ("feriado", "interrupcao")
+SEM_AULAS = ("feriado", "interrupcao", "pausa", "ferias")
+
+
+def _eventos_entre(db: Session, est: int, desde: date, ate: date) -> list[EventoCalendario]:
+    return list(db.scalars(select(EventoCalendario).where(
+        EventoCalendario.estabelecimento_id == est, EventoCalendario.data_inicio <= ate,
+        func.coalesce(EventoCalendario.data_fim, EventoCalendario.data_inicio) >= desde)
+        .order_by(EventoCalendario.data_inicio, EventoCalendario.id)))
+
+
+def semanas_do_ciclo(db: Session, ano: AnoLectivo) -> dict:
+    """Semanas do ciclo (segunda a domingo), como no calendário do ano académico: a fase de cada semana (preparação,
+    o trimestre, pausa, fim do ano), o número da semana lectiva dentro do trimestre, os dias com aulas (segunda a
+    sexta, dentro de um trimestre e fora de feriados, interrupções, pausas e férias) e as actividades do plano."""
+    est, ini, fim = ano.estabelecimento_id, ano.data_inicio, ano.data_fim
+    periodos = list(db.scalars(select(PeriodoLectivo).where(PeriodoLectivo.ano_id == ano.id).order_by(PeriodoLectivo.ordem)))
+    eventos = _eventos_entre(db, est, ini, fim)
+    sem_aulas = dias_sem_aulas(db, est, ini, fim)
+    resumo = {p.id: {"id": p.id, "designacao": p.designacao, "data_inicio": p.data_inicio, "data_fim": p.data_fim,
+                     "semanas_lectivas": 0, "dias_lectivos": 0} for p in periodos}
+
+    def periodo_de(d: date) -> PeriodoLectivo | None:
+        return next((p for p in periodos if p.data_inicio <= d <= p.data_fim), None)
+
+    semanas, numero = [], {}
+    segunda = ini - timedelta(days=ini.weekday())
+    while segunda <= fim:
+        domingo = segunda + timedelta(days=6)
+        uteis = [segunda + timedelta(days=i) for i in range(5) if ini <= segunda + timedelta(days=i) <= fim]
+        lectivos = [d for d in uteis if periodo_de(d) and d not in sem_aulas]
+        periodo = periodo_de(lectivos[0]) if lectivos else next((periodo_de(d) for d in uteis if periodo_de(d)), None)
+        if periodo is not None:
+            fase = periodo.designacao
+        elif not periodos or segunda + timedelta(days=4) < periodos[0].data_inicio:
+            fase = "Preparação do ano"
+        elif segunda > periodos[-1].data_fim:
+            fase = "Fim do ano"
+        else:
+            fase = "Pausa"
+        n = None
+        if lectivos:
+            numero[periodo.id] = n = numero.get(periodo.id, 0) + 1
+            resumo[periodo.id]["semanas_lectivas"] += 1
+            resumo[periodo.id]["dias_lectivos"] += len(lectivos)
+        semanas.append({
+            "inicio": segunda, "fim": domingo, "numero": n, "fase": fase, "periodo_id": periodo.id if periodo else None,
+            "lectiva": bool(lectivos), "dias_lectivos": len(lectivos),
+            "actividades": [{"id": e.id, "titulo": e.titulo, "tipo": e.tipo, "data_inicio": e.data_inicio, "data_fim": e.data_fim}
+                            for e in eventos if e.data_inicio <= domingo and (e.data_fim or e.data_inicio) >= segunda]})
+        segunda += timedelta(days=7)
+    lista = list(resumo.values())
+    return {"ano_id": ano.id, "designacao": ano.designacao, "data_inicio": ini, "data_fim": fim,
+            "semanas_lectivas": sum(p["semanas_lectivas"] for p in lista), "dias_lectivos": sum(p["dias_lectivos"] for p in lista),
+            "periodos": lista, "semanas": semanas}
+
+
+def _mesmo_dia_noutro_ano(d: date, anos: int) -> date:
+    try:
+        return d.replace(year=d.year + anos)
+    except ValueError:          # 29 de Fevereiro num ano que não é bissexto
+        return d.replace(year=d.year + anos, day=28)
+
+
+def copiar_plano(db: Session, origem: AnoLectivo, destino: AnoLectivo) -> dict:
+    """Copia as actividades do plano de um ciclo para outro. As datas avançam um número inteiro de semanas (a reunião
+    de segunda-feira continua a ser à segunda-feira); os feriados ficam no mesmo dia e mês. Não copia o que já existe
+    no destino (mesmo tipo, título e data) nem o que ficaria fora das datas do ciclo."""
+    semanas = round((destino.data_inicio - origem.data_inicio).days / 7)
+    anos = destino.data_inicio.year - origem.data_inicio.year
+    existentes = {(e.tipo, e.titulo.strip().lower(), e.data_inicio)
+                  for e in _eventos_entre(db, destino.estabelecimento_id, destino.data_inicio, destino.data_fim)}
+    res = {"copiadas": 0, "repetidas": 0, "fora_do_ciclo": 0}
+    for e in _eventos_entre(db, origem.estabelecimento_id, origem.data_inicio, origem.data_fim):
+        if e.tipo == "feriado":
+            mudar = lambda d: _mesmo_dia_noutro_ano(d, anos)  # noqa: E731
+        else:
+            mudar = lambda d: d + timedelta(weeks=semanas)  # noqa: E731
+        inicio, fim = mudar(e.data_inicio), e.data_fim and mudar(e.data_fim)
+        if inicio < destino.data_inicio or (fim or inicio) > destino.data_fim:
+            res["fora_do_ciclo"] += 1
+        elif (e.tipo, e.titulo.strip().lower(), inicio) in existentes:
+            res["repetidas"] += 1
+        else:
+            db.add(EventoCalendario(estabelecimento_id=destino.estabelecimento_id, tipo=e.tipo, titulo=e.titulo,
+                                    data_inicio=inicio, data_fim=fim, descricao=e.descricao, responsavel=e.responsavel,
+                                    publico=e.publico))
+            existentes.add((e.tipo, e.titulo.strip().lower(), inicio))
+            res["copiadas"] += 1
+    return res
 
 
 def dias_sem_aulas(db: Session, est: int, desde: date, ate: date) -> set[date]:

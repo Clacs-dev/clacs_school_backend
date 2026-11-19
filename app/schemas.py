@@ -359,12 +359,21 @@ class MotivoIn(Entrada):
 
 
 class EventoIn(Entrada):
-    tipo: Literal["feriado", "interrupcao", "evento", "reuniao", "prova"]
+    tipo: Literal["matricula", "abertura", "aulas", "prova", "exame", "recurso", "entrega", "reuniao", "evento",
+                  "pausa", "ferias", "interrupcao", "feriado"] = Field(
+        description="Fase do plano: pausa, férias, interrupção e feriado são dias sem aulas")
     titulo: str = Field(min_length=2)
     data_inicio: date
     data_fim: date | None = Field(None, description="Vazio = um só dia")
     descricao: str | None = None
+    responsavel: str | None = Field(None, description="Quem organiza (ex.: Direcção pedagógica)")
     publico: bool = Field(True, description="Aparece no portal das famílias")
+
+
+class CopiarPlanoIn(Entrada):
+    """Copia as actividades de outro ciclo: as datas avançam o mesmo número de semanas (o dia da semana mantém-se);
+    os feriados ficam no mesmo dia e mês."""
+    origem_id: int = Field(description="Ciclo (ano lectivo) de onde se copia o plano")
 
 
 class SituacaoIn(Entrada):
@@ -1166,6 +1175,7 @@ EXEMPLOS: dict[type[Entrada], dict] = {
                     "prestacoes": [{"valor": 15000, "vencimento": "2026-12-10"}, {"valor": 30000, "vencimento": "2027-02-10"}]},
     MotivoIn: {"motivo": "O encarregado pagou a dívida toda de uma vez"},
     EventoIn: {"tipo": "feriado", "titulo": "Dia da Independência", "data_inicio": "2026-11-11", "publico": True},
+    CopiarPlanoIn: {"origem_id": 1},
     HorarioIn: {"turma_id": 1, "disciplina_id": 1, "funcionario_id": 1, "sala_id": 1, "dia_semana": 1, "tempo": 1,
                 "hora_inicio": "07:30:00", "hora_fim": "08:15:00", "valido_desde": "2026-09-01"},
     HorarioAlterarIn: {"desde": "2026-11-16", "motivo": "Troca com Educação Física", "tempo": 2,
