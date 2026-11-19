@@ -209,6 +209,91 @@ def horario_turma(db: Session, turma: Turma, dia: date) -> bytes:
     return pdf.gerar(est, f"Horário da turma {pdf.esc(turma.designacao)}", blocos, horizontal=True)
 
 
+def horas_texto(minutos: int) -> str:
+    """20 horas, 1 hora, 3h45."""
+    h, m = divmod(minutos, 60)
+    if m:
+        return f"{h}h{m:02d}"
+    return "1 hora" if h == 1 else f"{h} horas"
+
+
+def horario_professor(db: Session, prof: Funcionario, dia: date) -> bytes:
+    """Horário e carga horária semanal do professor em vigor nessa data (como o horário do docente em papel): linhas
+    com os tempos da escola (os intervalos a cinzento), colunas de segunda a sábado; em cada aula a sigla da
+    disciplina, a turma e a sala. Por cima, as unidades curriculares por extenso e a carga horária em horas."""
+    # Só as turmas do ano lectivo dessa data (horários de anos anteriores podem ter ficado sem data de fim).
+    ano = db.scalar(select(AnoLectivo).where(AnoLectivo.estabelecimento_id == prof.estabelecimento_id,
+                                             AnoLectivo.data_inicio <= dia, AnoLectivo.data_fim >= dia)
+                    .order_by(AnoLectivo.data_inicio.desc()).limit(1))
+    escola = list(db.scalars(select(Horario).join(Turma, Turma.id == Horario.turma_id).where(
+        Horario.estabelecimento_id == prof.estabelecimento_id, Horario.valido_desde <= dia,
+        or_(Horario.valido_ate.is_(None), Horario.valido_ate >= dia), Turma.ano_id == (ano.id if ano else -1))))
+    aulas = [h for h in escola if h.funcionario_id == prof.id]
+    est = db.get(Estabelecimento, prof.estabelecimento_id)
+    dias = [d for d in range(1, 7) if d <= 5 or any(h.dia_semana == d for h in escola)]
+    faixas = sorted({(h.hora_inicio, h.hora_fim) for h in escola})
+    discs = {h.disciplina_id: db.get(Disciplina, h.disciplina_id) for h in aulas}
+    minutos = sum((h.hora_fim.hour * 60 + h.hora_fim.minute) - (h.hora_inicio.hour * 60 + h.hora_inicio.minute) for h in aulas)
+    periodo = ano and db.scalar(select(PeriodoLectivo).where(PeriodoLectivo.ano_id == ano.id, PeriodoLectivo.data_inicio <= dia,
+                                                            PeriodoLectivo.data_fim >= dia))
+
+    centro = ParagraphStyle("pc", parent=pdf.NORMAL, alignment=TA_CENTER, fontSize=9.5, leading=12)
+    cab = ParagraphStyle("pcab", parent=centro, fontName="Helvetica-Bold", fontSize=10.5)
+    hora = ParagraphStyle("ph", parent=centro, fontName="Helvetica-Bold", fontSize=9.5, leading=12)
+    linha = ParagraphStyle("pl", parent=pdf.NORMAL, fontSize=11, leading=16)
+    direita = ParagraphStyle("pd", parent=pdf.NORMAL, alignment=TA_RIGHT, fontSize=10.5)
+    nota = ParagraphStyle("pn", parent=pdf.NORMAL, alignment=TA_RIGHT, fontSize=8.5)
+
+    def aula(h: Horario) -> str:
+        d = discs[h.disciplina_id]
+        texto = f"<font size=12><b>{pdf.esc((d.sigla or d.nome).upper())}</b></font><br/><b>{pdf.esc(db.get(Turma, h.turma_id).designacao)}</b>"
+        if h.sala_id:
+            texto += f"<br/><br/>(Sala {pdf.esc(db.get(Sala, h.sala_id).designacao)})"
+        return texto
+
+    linhas, intervalos = [[pdf.p("Hora", cab), *[pdf.p(DIAS_SEMANA[d - 1], cab) for d in dias]]], []
+    anterior = None
+    for ini, fim in faixas:
+        if anterior and (ini.hour * 60 + ini.minute) - (anterior.hour * 60 + anterior.minute) >= 15:
+            intervalos.append(len(linhas))                     # intervalo: linha a cinzento
+            linhas.append([""] * (len(dias) + 1))
+        anterior = fim
+        celulas = []
+        for d in dias:
+            daqui = [h for h in aulas if h.dia_semana == d and (h.hora_inicio, h.hora_fim) == (ini, fim)]
+            celulas.append(pdf.p("<br/>——<br/>".join(aula(h) for h in daqui), centro) if daqui else "")
+        linhas.append([pdf.p(f"{ini:%H:%M}<br/>às<br/>{fim:%H:%M}", hora), *celulas])
+    largura_hora = 24 * mm
+    largura_dia = (261 * mm - largura_hora) / len(dias)
+    alturas = [None] + [3 * mm if i in intervalos else None for i in range(1, len(linhas))]
+    t = Table(linhas, colWidths=[largura_hora, *[largura_dia] * len(dias)], rowHeights=alturas, repeatRows=1)
+    estilo = [
+        ("GRID", (0, 0), (-1, -1), 0.8, colors.black),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#a6a6a6")), ("BACKGROUND", (0, 1), (0, -1), colors.HexColor("#d9d9d9")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("TOPPADDING", (0, 1), (-1, -1), 3), ("BOTTOMPADDING", (0, 1), (-1, -1), 4),
+    ]
+    for i in intervalos:
+        estilo += [("BACKGROUND", (0, i), (-1, i), colors.HexColor("#a6a6a6")), ("TOPPADDING", (0, i), (-1, i), 0),
+                   ("BOTTOMPADDING", (0, i), (-1, i), 0)]
+    for i, ln in enumerate(linhas[1:], start=1):              # células com aula a cinzento claro, como no modelo
+        for j, c in enumerate(ln[1:], start=1):
+            if c:
+                estilo.append(("BACKGROUND", (j, i), (j, i), colors.HexColor("#f2f2f2")))
+    t.setStyle(TableStyle(estilo))
+
+    unidades = "; ".join(f"{pdf.esc(d.nome)}" + (f" ({pdf.esc(d.sigla)})" if d.sigla else "")
+                         for d in sorted(discs.values(), key=lambda d: d.nome))
+    rodape = " – ".join(x for x in [f"Ano lectivo {pdf.esc(ano.designacao)}" if ano else None,
+                                    pdf.esc(periodo.designacao) if periodo else None, f"em vigor a {pdf.dt(dia)}"] if x)
+    blocos = [pdf.p(f"<i>Professor:</i> <font size=14><b>{pdf.esc(prof.nome_completo)}</b></font>", linha),
+              pdf.p(f"<i>Unidade curricular:</i> <b><i>{unidades or '—'}</i></b>", linha), Spacer(1, 2 * mm),
+              pdf.p(f"Carga horária: <b>{horas_texto(minutos)}</b> por semana ({len(aulas)} {'tempo' if len(aulas) == 1 else 'tempos'})", direita), Spacer(1, 3 * mm),
+              t if faixas else pdf.p("A escola ainda não tem horários nesta data.", centro),
+              Spacer(1, 2 * mm), pdf.p(rodape, nota)]
+    return pdf.gerar(est, "Horário do professor", blocos, horizontal=True)
+
+
 def declaracao(db: Session, m: Matricula) -> bytes:
     est = db.get(Estabelecimento, m.estabelecimento_id)
     a, t, ano = db.get(Aluno, m.aluno_id), db.get(Turma, m.turma_id), db.get(AnoLectivo, m.ano_id)

@@ -12,8 +12,8 @@ from app import armazenamento
 from app import respostas as R
 from app.common import as_dict, obter
 from app.database import get_db
-from app.models import Aluno, AnoLectivo, DocumentoAluno, Matricula, Pagamento, PeriodoLectivo, Turma
-from app.security import Contexto, auditar, contexto_actual, exige, verificar_turma
+from app.models import Aluno, AnoLectivo, DocumentoAluno, Funcionario, Matricula, Pagamento, PeriodoLectivo, Turma
+from app.security import Contexto, auditar, contexto_actual, exige, turmas_permitidas, verificar_turma
 from app.services import documentos as docs
 
 router = APIRouter(prefix="/api", tags=["Documentos e ficheiros"])
@@ -127,6 +127,16 @@ def horario_pdf(tid: int, data: date | None = None, ctx: Contexto = Depends(exig
     t = obter(db, Turma, tid, ctx.estabelecimento_id, "Turma")
     verificar_turma(db, ctx, tid)
     return _pdf(docs.horario_turma(db, t, data or date.today()), f"horario-{t.designacao}")
+
+
+@router.get("/professores/{fid}/horario.pdf", responses=R.PDF,
+            summary="Horário e carga horária semanal do professor em vigor numa data (por omissão hoje), na horizontal")
+def horario_professor_pdf(fid: int, data: date | None = None, ctx: Contexto = Depends(exige("pedagogico")),
+                          db: Session = Depends(get_db)):
+    prof = obter(db, Funcionario, fid, ctx.estabelecimento_id, "Professor")
+    if fid != ctx.utilizador.funcionario_id and turmas_permitidas(db, ctx) is not None:
+        raise HTTPException(403, "Só pode ver o seu próprio horário")
+    return _pdf(docs.horario_professor(db, prof, data or date.today()), f"horario-{prof.nome_completo}")
 
 
 @router.get("/turmas/{tid}/pauta-final.pdf", responses=R.PDF, summary="Pauta final da turma (todos os trimestres), na horizontal")
