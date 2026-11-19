@@ -105,7 +105,7 @@ def eu(ee: Encarregado = Depends(encarregado_actual), db: Session = Depends(get_
         educandos.append({"id": a.id, "nome": a.nome_completo, "numero_processo": a.numero_processo,
                           "em_divida": sum(c["valor_em_aberto"] for c in cob),
                           "em_atraso": sum(c["valor_em_aberto"] for c in cob if c["dias_atraso"] > 0),
-                          "turma": cob[0]["turma"] if cob else None})
+                          "turma": _nome_turma(db, aid)})
     prefs = {p.canal: p.activo for p in db.scalars(select(PreferenciaContacto).where(PreferenciaContacto.encarregado_id == ee.id))}
     return {"encarregado": {k: v for k, v in as_dict(ee).items() if k in ("id", "nome_completo", "telefone", "whatsapp", "email", "nif")},
             "educandos": educandos, "preferencias": prefs}
@@ -154,6 +154,12 @@ def pauta_educando(aid: int, ee: Encarregado = Depends(encarregado_actual), db: 
         gerais.append(round(sum(validas) / len(validas), 1) if validas else None)
     return {"aluno_id": a.id, "aluno": a.nome_completo, "turma": turma.designacao,
             "periodos": [p.designacao for p in periodos], "linhas": linhas, "medias_gerais": gerais, **escala_notas}
+
+
+def _nome_turma(db: Session, aid: int) -> str | None:
+    """Turma do educando no ano activo (aparece mesmo sem dívidas)."""
+    m = _turma_actual(db, aid)
+    return db.get(Turma, m.turma_id).designacao if m else None
 
 
 def _turma_actual(db: Session, aid: int) -> Matricula | None:
