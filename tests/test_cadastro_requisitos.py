@@ -475,8 +475,8 @@ def test_ficha_e_programa_da_disciplina(client, admin):
     """Ficha da disciplina como o programa oficial: identificação, objectivos, programa numerado e bibliografia."""
     from app.services.documentos import numerar_conteudos
     assert numerar_conteudos("O acto comunicacional\nRegras da escrita\n- Acentuação\n- Pontuação\nResumo", 4) == [
-        (2, "4.1.", "O acto comunicacional"), (2, "4.2.", "Regras da escrita"), (3, "4.2.1", "Acentuação"),
-        (3, "4.2.2", "Pontuação"), (2, "4.3.", "Resumo")]
+        (2, "4.1.", "O acto comunicacional"), (2, "4.2.", "Regras da escrita"), (3, "4.2.1.", "Acentuação"),
+        (3, "4.2.2.", "Pontuação"), (2, "4.3.", "Resumo")]
     classe = client.get("/api/classes", headers=admin).json()[0]
     disc = client.get(f"/api/classes/{classe['id']}/disciplinas", headers=admin).json()[0]
     params = {"classe_id": classe["id"], "disciplina_id": disc["id"]}
@@ -495,3 +495,24 @@ def test_ficha_e_programa_da_disciplina(client, admin):
                  if d["id"] not in {x["id"] for x in client.get(f"/api/classes/{classe['id']}/disciplinas", headers=admin).json()}), None)
     if fora:
         _ok(client.put("/api/fichas-disciplina", headers=admin, json={**ficha, "disciplina_id": fora["id"]}), 422)
+
+
+def test_programa_colado_na_ficha(client, admin):
+    """O programa colado como no programa oficial (1., 1.1., 13.2.1.1.) passa a ser as unidades da disciplina."""
+    classe = client.get("/api/classes", headers=admin).json()[0]
+    disc = client.get(f"/api/classes/{classe['id']}/disciplinas", headers=admin).json()[0]
+    params = {"classe_id": classe["id"], "disciplina_id": disc["id"]}
+    programa = ("PROGRAMA\n\n1.\tINTRODUÇÃO\n1.1.\tObjecto da economia.\n1.2.\tMicroeconomia e macroeconomia\n"
+                "2.\tO MERCADO DE TRABALHO\n2.1.\tProcura de trabalho\n2.1.1.\tEm concorrência perfeita\n"
+                "2.1.1.1.\tDeslocamentos da curva\n2.2.\tOferta de trabalho\n3.\tRENDAS E JUROS\n3.1.1.\tO capital\n3.1.2.\tA taxa de juro\n")
+    f = _ok(client.put("/api/fichas-disciplina", headers=admin, json={**params, "regime": "Anual", "programa": programa}))
+    assert f["programa"].splitlines()[:3] == ["1. INTRODUÇÃO", "1.1. Objecto da economia.", "1.2. Microeconomia e macroeconomia"]
+    assert "2.1.1.1. Deslocamentos da curva" in f["programa"] and "3.2. A taxa de juro" in f["programa"]
+    unidades = _ok(client.get("/api/programas", headers=admin, params=params))
+    assert [u["titulo"] for u in unidades] == ["INTRODUÇÃO", "O MERCADO DE TRABALHO", "RENDAS E JUROS"]
+    # gravar outra vez sem programa não mexe nas unidades; com programa, as que saem são apagadas
+    _ok(client.put("/api/fichas-disciplina", headers=admin, json={**params, "regime": "Anual"}))
+    assert len(_ok(client.get("/api/programas", headers=admin, params=params))) == 3
+    _ok(client.put("/api/fichas-disciplina", headers=admin, json={**params, "regime": "Anual", "programa": "1. INTRODUÇÃO\n1.1. Só isto"}))
+    assert [u["titulo"] for u in _ok(client.get("/api/programas", headers=admin, params=params))] == ["INTRODUÇÃO"]
+    _ok(client.put("/api/fichas-disciplina", headers=admin, json={**params, "regime": "Anual", "programa": "texto sem números"}))

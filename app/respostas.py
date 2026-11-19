@@ -69,6 +69,10 @@ Sala = _de_tabela(m.Sala, "Sala")
 TempoLectivo = _de_tabela(m.TempoLectivo, "TempoLectivo")
 ProgramaUnidade = _de_tabela(m.ProgramaUnidade, "ProgramaUnidade")
 FichaDisciplina = _de_tabela(m.FichaDisciplina, "FichaDisciplina")
+
+
+class FichaDisciplinaComPrograma(FichaDisciplina):
+    programa: str = Field("", description="As unidades do programa em texto numerado")
 Disciplina = _de_tabela(m.Disciplina, "Disciplina")
 Funcionario = _de_tabela(m.Funcionario, "Funcionario")
 Turma = _de_tabela(m.Turma, "Turma")

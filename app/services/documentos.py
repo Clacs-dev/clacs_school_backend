@@ -14,6 +14,7 @@ from app.models import (
     Aluno, AnoLectivo, Assiduidade, Avaliacao, Classe, Cobranca, Disciplina, Encarregado, Estabelecimento, FichaDisciplina, Funcionario,
     Horario, Matricula, MetodoPagamento, Pagamento, PagamentoAlocacao, PeriodoLectivo, ProgramaUnidade, Sala, Servico, Turma,
 )
+from app.programa_texto import numerar_conteudos  # noqa: F401  (reexportado para os testes)
 from app.services.alertas import comportamento_actual
 from app.services.calendario import assiduidade_professores
 from app.services.financeiro import cobrancas_detalhe
@@ -324,23 +325,6 @@ def assiduidade_professores_pdf(db: Session, est_id: int, desde: date, ate: date
     return pdf.gerar(est, f"Assiduidade entre {pdf.dt(desde)} e {pdf.dt(ate)}", blocos)
 
 
-def numerar_conteudos(conteudos: str | None, unidade: int) -> list[tuple[int, str, str]]:
-    """Subunidades numeradas como no programa oficial: cada linha é 1.1, 1.2…; uma linha começada por «-» é um
-    subponto da anterior (1.1.1, 1.1.2…). Devolve (nível, número, texto)."""
-    linhas, sub, subsub = [], 0, 0
-    for bruta in (conteudos or "").splitlines():
-        texto = bruta.strip()
-        if not texto:
-            continue
-        if texto.startswith("-") and sub:
-            subsub += 1
-            linhas.append((3, f"{unidade}.{sub}.{subsub}", texto.lstrip("- ").strip()))
-        else:
-            sub, subsub = sub + 1, 0
-            linhas.append((2, f"{unidade}.{sub}.", texto.lstrip("- ").strip()))
-    return linhas
-
-
 def tempos_semanais(teoricos: int | None, praticos: int | None) -> str:
     if teoricos is None and praticos is None:
         return "—"
@@ -362,7 +346,8 @@ def programa_disciplina(db: Session, classe: Classe, disciplina: Disciplina) -> 
     item = ParagraphStyle("pi", parent=pdf.NORMAL, fontSize=10, leading=14, leftIndent=12, firstLineIndent=-12)
     unidade = ParagraphStyle("pu", parent=pdf.NORMAL, fontName="Helvetica-Bold", fontSize=10, leading=14, spaceBefore=6)
     nivel = {2: ParagraphStyle("p2", parent=pdf.NORMAL, fontSize=10, leading=14, leftIndent=14),
-             3: ParagraphStyle("p3", parent=pdf.NORMAL, fontSize=10, leading=14, leftIndent=34)}
+             3: ParagraphStyle("p3", parent=pdf.NORMAL, fontSize=10, leading=14, leftIndent=34),
+             4: ParagraphStyle("p4", parent=pdf.NORMAL, fontSize=10, leading=14, leftIndent=58)}
 
     ident = Table([
         [pdf.p("<b>Designação da disciplina:</b>"), pdf.p(f"<b>{pdf.esc(disciplina.nome.upper())}</b>")],

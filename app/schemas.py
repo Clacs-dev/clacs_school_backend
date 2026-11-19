@@ -150,6 +150,8 @@ class FichaDisciplinaIn(Entrada):
     precedencia: str | None = Field(None, description="Vazio = Não tem")
     objectivos: str | None = Field(None, description="Objectivos gerais, um por linha")
     bibliografia: str | None = Field(None, description="Uma obra por linha")
+    programa: str | None = Field(None, description="Programa numerado como no programa oficial (1., 1.1., 1.1.1.…); "
+                                                   "substitui as unidades. Vazio = não mexe nas unidades")
 
 
 class ClasseDisciplinaIn(Entrada):

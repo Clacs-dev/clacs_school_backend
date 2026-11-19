@@ -1561,7 +1561,8 @@
   "precedencia": "Língua Portuguesa da classe anterior",
   "regime": "Anual",
   "tempos_praticos": 2,
-  "tempos_teoricos": 3
+  "tempos_teoricos": 3,
+  "programa": "1. Comunicação oral\n1.1. Ouvir e contar histórias\n1.2. Regras da conversa\n1.2.1 Esperar a vez de falar"
  },
  "GET /api/funcionarios": [
   {
@@ -7914,7 +7915,8 @@
   "precedencia": "Língua Portuguesa da classe anterior",
   "regime": "Anual",
   "tempos_praticos": 2,
-  "tempos_teoricos": 3
+  "tempos_teoricos": 3,
+  "programa": "1. Comunicação oral\n1.1. Ouvir e contar histórias\n1.2. Regras da conversa\n1.2.1 Esperar a vez de falar"
  },
  "PUT /api/parametros/{chave}": {
   "chave": "1",

@@ -20,6 +20,7 @@ from app.schemas import (
 from app.security import Contexto, auditar, exige, turmas_permitidas
 from app import ordem as ordens
 from app.plano import exigir_no_plano
+from app.programa_texto import escrever_programa, ler_programa
 from app.ciclo import livre_de_ciclo, todos_os_ciclos
 from app.services import fecho_ano
 from app.services import turmas as ocupacao_turmas
@@ -275,29 +276,57 @@ def criar_programa(dados: ProgramaUnidadeIn, ctx: Contexto = Depends(criar), db:
     return gravar(db, ProgramaUnidade(estabelecimento_id=ctx.estabelecimento_id, **{**dados.model_dump(), "ordem": ordem}))
 
 
-@router.get("/fichas-disciplina", response_model=R.FichaDisciplina | None,
+def _ficha_com_programa(db: Session, f: FichaDisciplina) -> dict:
+    unidades = db.execute(select(ProgramaUnidade.titulo, ProgramaUnidade.conteudos).where(
+        ProgramaUnidade.classe_id == f.classe_id, ProgramaUnidade.disciplina_id == f.disciplina_id)
+        .order_by(ProgramaUnidade.ordem, ProgramaUnidade.id)).all()
+    return {**as_dict(f), "programa": escrever_programa([tuple(u) for u in unidades])}
+
+
+@router.get("/fichas-disciplina", response_model=R.FichaDisciplinaComPrograma | None,
             summary="Ficha (programa oficial) da disciplina numa classe; vazio se ainda não foi preenchida")
 def ficha_disciplina(classe_id: int, disciplina_id: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
     f = db.scalar(select(FichaDisciplina).where(FichaDisciplina.estabelecimento_id == ctx.estabelecimento_id,
                                                 FichaDisciplina.classe_id == classe_id, FichaDisciplina.disciplina_id == disciplina_id))
-    return as_dict(f) if f else None
+    return _ficha_com_programa(db, f) if f else None
 
 
-@router.put("/fichas-disciplina", response_model=R.FichaDisciplina,
-            summary="Preenche ou altera a ficha da disciplina numa classe (regime, tempos, precedência, objectivos e bibliografia)")
+def _substituir_unidades(db: Session, est: int, classe_id: int, disciplina_id: int, texto: str) -> None:
+    """As unidades passam a ser as do programa colado. Uma unidade com o mesmo título mantém o trimestre, o tempo e
+    os objectivos; as que deixaram de constar são apagadas."""
+    lidas = ler_programa(texto)
+    if not lidas:
+        raise HTTPException(422, "O programa está vazio ou não tem unidades numeradas (1., 2., …)")
+    existentes = {u.titulo.strip().lower(): u for u in db.scalars(_unidades_de(classe_id, disciplina_id))}
+    for ordem, (titulo, conteudos) in enumerate(lidas, start=1):
+        u = existentes.pop(titulo.lower(), None) or ProgramaUnidade(estabelecimento_id=est, classe_id=classe_id,
+                                                                    disciplina_id=disciplina_id, titulo=titulo)
+        u.titulo, u.conteudos, u.ordem = titulo, conteudos or None, ordem
+        db.add(u)
+    for u in existentes.values():
+        db.delete(u)
+
+
+@router.put("/fichas-disciplina", response_model=R.FichaDisciplinaComPrograma,
+            summary="Preenche ou altera a ficha da disciplina numa classe (identificação, objectivos, programa e bibliografia)")
 def gravar_ficha_disciplina(dados: FichaDisciplinaIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
     _classe(db, dados.classe_id, ctx.estabelecimento_id)
     obter(db, Disciplina, dados.disciplina_id, ctx.estabelecimento_id, "Disciplina")
     exigir_no_plano(db, dados.classe_id, dados.disciplina_id)
     f = db.scalar(select(FichaDisciplina).where(FichaDisciplina.classe_id == dados.classe_id,
-                                                FichaDisciplina.disciplina_id == dados.disciplina_id)) or         FichaDisciplina(estabelecimento_id=ctx.estabelecimento_id, classe_id=dados.classe_id, disciplina_id=dados.disciplina_id)
-    for campo, valor in dados.model_dump(exclude={"classe_id", "disciplina_id"}).items():
+                                                FichaDisciplina.disciplina_id == dados.disciplina_id))
+    if f is None:
+        f = FichaDisciplina(estabelecimento_id=ctx.estabelecimento_id, classe_id=dados.classe_id, disciplina_id=dados.disciplina_id)
+    for campo, valor in dados.model_dump(exclude={"classe_id", "disciplina_id", "programa"}).items():
         setattr(f, campo, valor.strip() if isinstance(valor, str) else valor)
     db.add(f)
+    if dados.programa:
+        _substituir_unidades(db, ctx.estabelecimento_id, dados.classe_id, dados.disciplina_id, dados.programa)
     db.flush()
-    auditar(db, ctx, "ficha_disciplina", f.id, "update", {"classe_id": dados.classe_id, "disciplina_id": dados.disciplina_id})
+    auditar(db, ctx, "ficha_disciplina", f.id, "update", {"classe_id": dados.classe_id, "disciplina_id": dados.disciplina_id,
+                                                          "programa": bool(dados.programa)})
     db.commit()
-    return as_dict(f)
+    return _ficha_com_programa(db, f)
 
 
 def _unidades_de(classe_id: int, disciplina_id: int):
