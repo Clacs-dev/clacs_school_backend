@@ -1551,6 +1551,18 @@
   "tipo": "feriado",
   "titulo": "Dia da Independência"
  },
+ "GET /api/fichas-disciplina": {
+  "bibliografia": "Ministério da Educação (2019). Manual de Língua Portuguesa. Luanda; Texto Editores.",
+  "classe_id": 1,
+  "disciplina_id": 1,
+  "estabelecimento_id": 1,
+  "id": 1,
+  "objectivos": "Ler e interpretar textos simples\nComunicar por escrito e oralmente com clareza",
+  "precedencia": "Língua Portuguesa da classe anterior",
+  "regime": "Anual",
+  "tempos_praticos": 2,
+  "tempos_teoricos": 3
+ },
  "GET /api/funcionarios": [
   {
    "activo": true,
@@ -7891,6 +7903,18 @@
   "activo": false,
   "canal": "sms",
   "encarregado_id": 1
+ },
+ "PUT /api/fichas-disciplina": {
+  "bibliografia": "Ministério da Educação (2019). Manual de Língua Portuguesa. Luanda; Texto Editores.",
+  "classe_id": 1,
+  "disciplina_id": 1,
+  "estabelecimento_id": 1,
+  "id": 1,
+  "objectivos": "Ler e interpretar textos simples\nComunicar por escrito e oralmente com clareza",
+  "precedencia": "Língua Portuguesa da classe anterior",
+  "regime": "Anual",
+  "tempos_praticos": 2,
+  "tempos_teoricos": 3
  },
  "PUT /api/parametros/{chave}": {
   "chave": "1",

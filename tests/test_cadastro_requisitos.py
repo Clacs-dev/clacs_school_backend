@@ -470,3 +470,28 @@ def test_sala_com_uma_turma_por_periodo(client, admin):
                                                            "sala_id": sala["id"], "periodo_dia": "tarde"}), 201)
     assert client.patch(f"/api/turmas/{b['id']}", headers=admin, json={"periodo_dia": "manha"}).status_code == 409
     _ok(client.patch(f"/api/turmas/{b['id']}", headers=admin, json={"capacidade": 25}))   # outras alterações continuam
+
+def test_ficha_e_programa_da_disciplina(client, admin):
+    """Ficha da disciplina como o programa oficial: identificação, objectivos, programa numerado e bibliografia."""
+    from app.services.documentos import numerar_conteudos
+    assert numerar_conteudos("O acto comunicacional\nRegras da escrita\n- Acentuação\n- Pontuação\nResumo", 4) == [
+        (2, "4.1.", "O acto comunicacional"), (2, "4.2.", "Regras da escrita"), (3, "4.2.1", "Acentuação"),
+        (3, "4.2.2", "Pontuação"), (2, "4.3.", "Resumo")]
+    classe = client.get("/api/classes", headers=admin).json()[0]
+    disc = client.get(f"/api/classes/{classe['id']}/disciplinas", headers=admin).json()[0]
+    params = {"classe_id": classe["id"], "disciplina_id": disc["id"]}
+    ficha = {**params, "regime": "Anual", "tempos_teoricos": 2, "tempos_praticos": 2, "precedencia": "",
+             "objectivos": "Comunicar por escrito\nApresentar oralmente", "bibliografia": "Autor (2003). Título. Luanda; Editora."}
+    _ok(client.put("/api/fichas-disciplina", headers=admin, json=ficha))
+    guardada = _ok(client.get("/api/fichas-disciplina", headers=admin, params=params))
+    assert guardada["tempos_teoricos"] == 2 and guardada["precedencia"] is None and guardada["objectivos"].count("\n") == 1
+    _ok(client.put("/api/fichas-disciplina", headers=admin, json={**ficha, "regime": "1.º e 2.º trimestres"}))
+    assert _ok(client.get("/api/fichas-disciplina", headers=admin, params=params))["id"] == guardada["id"]
+    _ok(client.post("/api/programas", headers=admin, json={**params, "titulo": "Expressão escrita (ficha)",
+                                                          "conteudos": "Regras\n- Acentuação\n- Pontuação"}), 201)
+    pdf = client.get("/api/fichas-disciplina/programa.pdf", headers=admin, params=params)
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
+    fora = next((d for d in client.get("/api/disciplinas", headers=admin).json()
+                 if d["id"] not in {x["id"] for x in client.get(f"/api/classes/{classe['id']}/disciplinas", headers=admin).json()}), None)
+    if fora:
+        _ok(client.put("/api/fichas-disciplina", headers=admin, json={**ficha, "disciplina_id": fora["id"]}), 422)

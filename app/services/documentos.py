@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 
 from app import pdf
 from app.models import (
-    Aluno, AnoLectivo, Assiduidade, Avaliacao, Classe, Cobranca, Disciplina, Encarregado, Estabelecimento, Funcionario,
-    Horario, Matricula, MetodoPagamento, Pagamento, PagamentoAlocacao, PeriodoLectivo, Sala, Servico, Turma,
+    Aluno, AnoLectivo, Assiduidade, Avaliacao, Classe, Cobranca, Disciplina, Encarregado, Estabelecimento, FichaDisciplina, Funcionario,
+    Horario, Matricula, MetodoPagamento, Pagamento, PagamentoAlocacao, PeriodoLectivo, ProgramaUnidade, Sala, Servico, Turma,
 )
 from app.services.alertas import comportamento_actual
 from app.services.calendario import assiduidade_professores
@@ -322,6 +322,71 @@ def assiduidade_professores_pdf(db: Session, est_id: int, desde: date, ate: date
               tabela if linhas else pdf.p("Não há aulas previstas com professor neste período."), Spacer(1, 14 * mm),
               pdf.p("_______________________________<br/>A Direcção Pedagógica")]
     return pdf.gerar(est, f"Assiduidade entre {pdf.dt(desde)} e {pdf.dt(ate)}", blocos)
+
+
+def numerar_conteudos(conteudos: str | None, unidade: int) -> list[tuple[int, str, str]]:
+    """Subunidades numeradas como no programa oficial: cada linha é 1.1, 1.2…; uma linha começada por «-» é um
+    subponto da anterior (1.1.1, 1.1.2…). Devolve (nível, número, texto)."""
+    linhas, sub, subsub = [], 0, 0
+    for bruta in (conteudos or "").splitlines():
+        texto = bruta.strip()
+        if not texto:
+            continue
+        if texto.startswith("-") and sub:
+            subsub += 1
+            linhas.append((3, f"{unidade}.{sub}.{subsub}", texto.lstrip("- ").strip()))
+        else:
+            sub, subsub = sub + 1, 0
+            linhas.append((2, f"{unidade}.{sub}.", texto.lstrip("- ").strip()))
+    return linhas
+
+
+def tempos_semanais(teoricos: int | None, praticos: int | None) -> str:
+    if teoricos is None and praticos is None:
+        return "—"
+    partes = [f"{teoricos} teórico{'s' if teoricos != 1 else ''}" if teoricos else None,
+              f"{praticos} prático{'s' if praticos != 1 else ''}" if praticos else None]
+    return " e ".join(x for x in partes if x) or "0"
+
+
+def programa_disciplina(db: Session, classe: Classe, disciplina: Disciplina) -> bytes:
+    """Programa da disciplina na classe, no formato do programa oficial: identificação, objectivos, programa
+    (unidades e subunidades numeradas) e bibliografia."""
+    est = db.get(Estabelecimento, disciplina.estabelecimento_id)
+    ficha = db.scalar(select(FichaDisciplina).where(FichaDisciplina.classe_id == classe.id,
+                                                    FichaDisciplina.disciplina_id == disciplina.id))
+    unidades = list(db.scalars(select(ProgramaUnidade).where(ProgramaUnidade.classe_id == classe.id,
+                                                             ProgramaUnidade.disciplina_id == disciplina.id)
+                               .order_by(ProgramaUnidade.ordem, ProgramaUnidade.id)))
+    titulo = ParagraphStyle("pt", parent=pdf.NORMAL, fontName="Helvetica-Bold", fontSize=11, spaceBefore=10, spaceAfter=6)
+    item = ParagraphStyle("pi", parent=pdf.NORMAL, fontSize=10, leading=14, leftIndent=12, firstLineIndent=-12)
+    unidade = ParagraphStyle("pu", parent=pdf.NORMAL, fontName="Helvetica-Bold", fontSize=10, leading=14, spaceBefore=6)
+    nivel = {2: ParagraphStyle("p2", parent=pdf.NORMAL, fontSize=10, leading=14, leftIndent=14),
+             3: ParagraphStyle("p3", parent=pdf.NORMAL, fontSize=10, leading=14, leftIndent=34)}
+
+    ident = Table([
+        [pdf.p("<b>Designação da disciplina:</b>"), pdf.p(f"<b>{pdf.esc(disciplina.nome.upper())}</b>")],
+        [pdf.p("<b>Regime:</b>"), pdf.p(pdf.esc(ficha.regime if ficha else "Anual"))],
+        [pdf.p("<b>Classe:</b>"), pdf.p(pdf.esc(classe.designacao))],
+        [pdf.p("<b>Tempos lectivos semanais:</b>"),
+         pdf.p(pdf.esc(tempos_semanais(ficha.tempos_teoricos, ficha.tempos_praticos) if ficha else "—"))],
+        [pdf.p("<b>Precedência obrigatória:</b>"), pdf.p(pdf.esc((ficha.precedencia if ficha else None) or "Não tem"))],
+    ], colWidths=[55 * mm, 119 * mm])
+    ident.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#9aa5a4")),
+                               ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#eef2f1")), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+    blocos = [ident, pdf.p("OBJECTIVOS", titulo)]
+    objectivos = [x.strip().lstrip("•- ").strip() for x in ((ficha.objectivos if ficha else "") or "").splitlines() if x.strip()]
+    blocos += [pdf.p(f"•&nbsp;&nbsp;{pdf.esc(x)}", item) for x in objectivos] or [pdf.p("—")]
+    blocos.append(pdf.p("PROGRAMA", titulo))
+    for n, u in enumerate(unidades, start=1):
+        blocos.append(pdf.p(f"{n}.&nbsp;&nbsp;{pdf.esc(u.titulo.upper())}", unidade))
+        blocos += [pdf.p(f"{num}&nbsp;&nbsp;{pdf.esc(texto)}", nivel[lv]) for lv, num, texto in numerar_conteudos(u.conteudos, n)]
+    if not unidades:
+        blocos.append(pdf.p("—"))
+    blocos.append(pdf.p("BIBLIOGRAFIA", titulo))
+    obras = [x.strip().lstrip("•- ").strip() for x in ((ficha.bibliografia if ficha else "") or "").splitlines() if x.strip()]
+    blocos += [pdf.p(f"•&nbsp;&nbsp;{pdf.esc(x)}", item) for x in obras] or [pdf.p("—")]
+    return pdf.gerar(est, f"Programa de {pdf.esc(disciplina.nome)} — {pdf.esc(classe.designacao)}", blocos)
 
 
 def declaracao(db: Session, m: Matricula) -> bytes:

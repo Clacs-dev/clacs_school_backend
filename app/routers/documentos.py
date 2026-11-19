@@ -12,7 +12,9 @@ from app import armazenamento
 from app import respostas as R
 from app.common import as_dict, obter
 from app.database import get_db
-from app.models import Aluno, AnoLectivo, DocumentoAluno, Funcionario, Matricula, Pagamento, PeriodoLectivo, Turma
+from app.models import (
+    Aluno, AnoLectivo, Classe, Disciplina, DocumentoAluno, Funcionario, Matricula, NivelEnsino, Pagamento, PeriodoLectivo, Turma,
+)
 from app.security import Contexto, auditar, contexto_actual, exige, turmas_permitidas, verificar_turma
 from app.services import documentos as docs
 
@@ -127,6 +129,16 @@ def horario_pdf(tid: int, data: date | None = None, ctx: Contexto = Depends(exig
     t = obter(db, Turma, tid, ctx.estabelecimento_id, "Turma")
     verificar_turma(db, ctx, tid)
     return _pdf(docs.horario_turma(db, t, data or date.today()), f"horario-{t.designacao}")
+
+
+@router.get("/fichas-disciplina/programa.pdf", responses=R.PDF,
+            summary="Programa da disciplina numa classe, no formato do programa oficial (identificação, objectivos, programa e bibliografia)")
+def programa_pdf(classe_id: int, disciplina_id: int, ctx: Contexto = Depends(exige("academico")), db: Session = Depends(get_db)):
+    classe = db.get(Classe, classe_id)
+    if classe is None or db.get(NivelEnsino, classe.nivel_id).estabelecimento_id != ctx.estabelecimento_id:
+        raise HTTPException(404, f"Classe {classe_id} não encontrada")
+    disciplina = obter(db, Disciplina, disciplina_id, ctx.estabelecimento_id, "Disciplina")
+    return _pdf(docs.programa_disciplina(db, classe, disciplina), f"programa-{disciplina.nome}-{classe.designacao}")
 
 
 @router.get("/professores/assiduidade.pdf", responses=R.PDF,

@@ -198,6 +198,23 @@ class ProgramaUnidade(Base):
     tempo_lectivo_id: Mapped[int | None] = fk("tempo_lectivo.id", nullable=True)   # tempo registado (1.º, 2.º…)
 
 
+class FichaDisciplina(Base):
+    """Ficha (programa) da disciplina numa classe, como no programa oficial: regime, tempos lectivos semanais
+    teóricos e práticos, precedência, objectivos gerais e bibliografia. As unidades do programa são ProgramaUnidade."""
+    __tablename__ = "ficha_disciplina"
+    __table_args__ = (UniqueConstraint("classe_id", "disciplina_id"),)
+    id: Mapped[int] = pk()
+    estabelecimento_id: Mapped[int] = estab_fk()
+    classe_id: Mapped[int] = fk("classe.id")
+    disciplina_id: Mapped[int] = fk("disciplina.id")
+    regime: Mapped[str] = mapped_column(Text, server_default="Anual")
+    tempos_teoricos: Mapped[int | None] = mapped_column(SmallInteger)
+    tempos_praticos: Mapped[int | None] = mapped_column(SmallInteger)
+    precedencia: Mapped[str | None] = mapped_column(Text)      # vazio = «Não tem»
+    objectivos: Mapped[str | None] = mapped_column(Text)       # um objectivo por linha
+    bibliografia: Mapped[str | None] = mapped_column(Text)     # uma obra por linha
+
+
 class Funcionario(Base):
     __tablename__ = "funcionario"
     __table_args__ = (ck_in("cargo", "professor", "coordenador", "director", "secretaria", "financeiro", "outro"),)

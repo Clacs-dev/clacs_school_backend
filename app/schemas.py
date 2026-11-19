@@ -140,6 +140,18 @@ class ProgramaUnidadeIn(Entrada):
     tempo_lectivo_id: int | None = Field(None, description="Tempo lectivo registado (Registo académico → Tempos lectivos)")
 
 
+class FichaDisciplinaIn(Entrada):
+    """Ficha (programa oficial) da disciplina numa classe. Objectivos e bibliografia: um por linha."""
+    classe_id: int
+    disciplina_id: int
+    regime: str = Field("Anual", min_length=3, description="Ex.: Anual, 1.º e 2.º trimestres")
+    tempos_teoricos: int | None = Field(None, ge=0, le=40, description="Tempos lectivos teóricos por semana")
+    tempos_praticos: int | None = Field(None, ge=0, le=40, description="Tempos lectivos práticos por semana")
+    precedencia: str | None = Field(None, description="Vazio = Não tem")
+    objectivos: str | None = Field(None, description="Objectivos gerais, um por linha")
+    bibliografia: str | None = Field(None, description="Uma obra por linha")
+
+
 class ClasseDisciplinaIn(Entrada):
     disciplina_id: int
     carga_horaria: int | None = None
@@ -1176,6 +1188,10 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     MotivoIn: {"motivo": "O encarregado pagou a dívida toda de uma vez"},
     EventoIn: {"tipo": "feriado", "titulo": "Dia da Independência", "data_inicio": "2026-11-11", "publico": True},
     CopiarPlanoIn: {"origem_id": 1},
+    FichaDisciplinaIn: {"classe_id": 1, "disciplina_id": 1, "regime": "Anual", "tempos_teoricos": 3, "tempos_praticos": 2,
+                        "precedencia": "Língua Portuguesa da classe anterior",
+                        "objectivos": "Ler e interpretar textos simples\nComunicar por escrito e oralmente com clareza",
+                        "bibliografia": "Ministério da Educação (2019). Manual de Língua Portuguesa. Luanda; Texto Editores."},
     HorarioIn: {"turma_id": 1, "disciplina_id": 1, "funcionario_id": 1, "sala_id": 1, "dia_semana": 1, "tempo": 1,
                 "hora_inicio": "07:30:00", "hora_fim": "08:15:00", "valido_desde": "2026-09-01"},
     HorarioAlterarIn: {"desde": "2026-11-16", "motivo": "Troca com Educação Física", "tempo": 2,

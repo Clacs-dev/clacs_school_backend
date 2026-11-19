@@ -10,12 +10,12 @@ from app import respostas as R
 from app.common import ano_activo, aplicar, as_dict, obter
 from app.database import get_db
 from app.models import (
-    Aluno, AnoLectivo, AtribuicaoDocente, Classe, ClasseDisciplina, Disciplina, Estabelecimento, Funcionario,
+    Aluno, AnoLectivo, AtribuicaoDocente, Classe, ClasseDisciplina, Disciplina, Estabelecimento, FichaDisciplina, Funcionario,
     Matricula, NivelEnsino, Parametro, PeriodoLectivo, ProgramaUnidade, ResultadoFinal, Sala, TempoLectivo, Turma,
 )
 from app.schemas import (
     AnoIn, AtribuicaoIn, ReordenarIn, SituacaoIn, ClasseDisciplinaIn, ClasseIn, DisciplinaIn, Entrada, com_exemplo, EstabelecimentoUpd, FuncionarioIn,
-    FuncionarioUpd, NivelIn, ParametroIn, PeriodoIn, ProgramaUnidadeIn, SalaIn, TurmaIn, TurmaUpd,
+    FichaDisciplinaIn, FuncionarioUpd, NivelIn, ParametroIn, PeriodoIn, ProgramaUnidadeIn, SalaIn, TurmaIn, TurmaUpd,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas
 from app import ordem as ordens
@@ -273,6 +273,31 @@ def criar_programa(dados: ProgramaUnidadeIn, ctx: Contexto = Depends(criar), db:
     irmaos = _unidades_de(dados.classe_id, dados.disciplina_id)
     ordem = ordens.ao_criar(db, ProgramaUnidade, irmaos, dados.ordem, "uma unidade neste programa", lambda u: u.titulo)
     return gravar(db, ProgramaUnidade(estabelecimento_id=ctx.estabelecimento_id, **{**dados.model_dump(), "ordem": ordem}))
+
+
+@router.get("/fichas-disciplina", response_model=R.FichaDisciplina | None,
+            summary="Ficha (programa oficial) da disciplina numa classe; vazio se ainda não foi preenchida")
+def ficha_disciplina(classe_id: int, disciplina_id: int, ctx: Contexto = Depends(ver), db: Session = Depends(get_db)):
+    f = db.scalar(select(FichaDisciplina).where(FichaDisciplina.estabelecimento_id == ctx.estabelecimento_id,
+                                                FichaDisciplina.classe_id == classe_id, FichaDisciplina.disciplina_id == disciplina_id))
+    return as_dict(f) if f else None
+
+
+@router.put("/fichas-disciplina", response_model=R.FichaDisciplina,
+            summary="Preenche ou altera a ficha da disciplina numa classe (regime, tempos, precedência, objectivos e bibliografia)")
+def gravar_ficha_disciplina(dados: FichaDisciplinaIn, ctx: Contexto = Depends(editar), db: Session = Depends(get_db)):
+    _classe(db, dados.classe_id, ctx.estabelecimento_id)
+    obter(db, Disciplina, dados.disciplina_id, ctx.estabelecimento_id, "Disciplina")
+    exigir_no_plano(db, dados.classe_id, dados.disciplina_id)
+    f = db.scalar(select(FichaDisciplina).where(FichaDisciplina.classe_id == dados.classe_id,
+                                                FichaDisciplina.disciplina_id == dados.disciplina_id)) or         FichaDisciplina(estabelecimento_id=ctx.estabelecimento_id, classe_id=dados.classe_id, disciplina_id=dados.disciplina_id)
+    for campo, valor in dados.model_dump(exclude={"classe_id", "disciplina_id"}).items():
+        setattr(f, campo, valor.strip() if isinstance(valor, str) else valor)
+    db.add(f)
+    db.flush()
+    auditar(db, ctx, "ficha_disciplina", f.id, "update", {"classe_id": dados.classe_id, "disciplina_id": dados.disciplina_id})
+    db.commit()
+    return as_dict(f)
 
 
 def _unidades_de(classe_id: int, disciplina_id: int):
