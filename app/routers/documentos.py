@@ -121,6 +121,14 @@ def pauta_pdf(tid: int, periodo_id: int, ctx: Contexto = Depends(exige("pedagogi
     return _pdf(docs.pauta(db, t, _periodo(db, periodo_id, ctx.estabelecimento_id)), f"pauta-{t.designacao}")
 
 
+@router.get("/turmas/{tid}/horario.pdf", responses=R.PDF,
+            summary="Horário da turma em vigor numa data (por omissão hoje), na horizontal, com nomes por extenso")
+def horario_pdf(tid: int, data: date | None = None, ctx: Contexto = Depends(exige("pedagogico")), db: Session = Depends(get_db)):
+    t = obter(db, Turma, tid, ctx.estabelecimento_id, "Turma")
+    verificar_turma(db, ctx, tid)
+    return _pdf(docs.horario_turma(db, t, data or date.today()), f"horario-{t.designacao}")
+
+
 @router.get("/turmas/{tid}/pauta-final.pdf", responses=R.PDF, summary="Pauta final da turma (todos os trimestres), na horizontal")
 def pauta_final_pdf(tid: int, ctx: Contexto = Depends(exige("pedagogico")), db: Session = Depends(get_db)):
     t = obter(db, Turma, tid, ctx.estabelecimento_id, "Turma")

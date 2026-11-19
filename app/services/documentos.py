@@ -1,15 +1,18 @@
 """Conteúdo dos PDFs. Quem chama já verificou as permissões e o estabelecimento."""
 from datetime import date
 
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.platypus import Spacer
-from sqlalchemy import func, select
+from reportlab.platypus import Spacer, Table, TableStyle
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app import pdf
 from app.models import (
-    Aluno, AnoLectivo, Assiduidade, Avaliacao, Classe, Cobranca, Disciplina, Encarregado, Estabelecimento,
-    Matricula, MetodoPagamento, Pagamento, PagamentoAlocacao, PeriodoLectivo, Servico, Turma,
+    Aluno, AnoLectivo, Assiduidade, Avaliacao, Classe, Cobranca, Disciplina, Encarregado, Estabelecimento, Funcionario,
+    Horario, Matricula, MetodoPagamento, Pagamento, PagamentoAlocacao, PeriodoLectivo, Sala, Servico, Turma,
 )
 from app.services.alertas import comportamento_actual
 from app.services.financeiro import cobrancas_detalhe
@@ -143,6 +146,67 @@ def pauta_final_pdf(db: Session, turma: Turma) -> bytes:
               pdf.p("_______________________________ &nbsp;&nbsp;&nbsp;&nbsp; _______________________________<br/>"
                     "O Director de Turma &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; A Direcção Pedagógica")]
     return pdf.gerar(est, "Pauta final", blocos, horizontal=True)
+
+
+DIAS_SEMANA = ("Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado")
+PERIODOS_DIA = {"manha": "Manhã", "tarde": "Tarde", "noite": "Noite"}
+
+
+def horario_turma(db: Session, turma: Turma, dia: date) -> bytes:
+    """Horário da turma em vigor nessa data, na horizontal (como o mapa de horário em papel): uma linha por intervalo
+    de horas, uma coluna por dia; em cada aula a disciplina em maiúsculas, a sala quando não é a da turma e o nome
+    completo do professor."""
+    est = db.get(Estabelecimento, turma.estabelecimento_id)
+    aulas = list(db.scalars(select(Horario).where(
+        Horario.turma_id == turma.id, Horario.valido_desde <= dia, or_(Horario.valido_ate.is_(None), Horario.valido_ate >= dia))
+        .order_by(Horario.hora_inicio, Horario.dia_semana, Horario.id)))
+    dias = [d for d in range(1, 7) if d <= 5 or any(h.dia_semana == d for h in aulas)]
+    faixas = sorted({(h.hora_inicio, h.hora_fim) for h in aulas})
+    classe, ano = db.get(Classe, turma.classe_id), db.get(AnoLectivo, turma.ano_id)
+    sala = db.get(Sala, turma.sala_id) if turma.sala_id else None
+    periodo = db.scalar(select(PeriodoLectivo).where(PeriodoLectivo.ano_id == turma.ano_id, PeriodoLectivo.data_inicio <= dia,
+                                                     PeriodoLectivo.data_fim >= dia))
+
+    centro = ParagraphStyle("hc", parent=pdf.NORMAL, alignment=TA_CENTER, fontSize=9.5, leading=12)
+    cab = ParagraphStyle("hcab", parent=centro, fontName="Helvetica-Bold", fontSize=11)
+    hora = ParagraphStyle("hh", parent=centro, fontName="Helvetica-Bold", fontSize=10, leading=13)
+    subtitulo = ParagraphStyle("hs", parent=centro, fontSize=12, leading=16)
+    nota = ParagraphStyle("hn", parent=pdf.NORMAL, alignment=TA_RIGHT, fontSize=8.5)
+
+    def aula(h: Horario) -> str:
+        texto = f"<b>{pdf.esc(db.get(Disciplina, h.disciplina_id).nome.upper())}</b>"
+        if h.sala_id and h.sala_id != turma.sala_id:
+            texto += f"<br/><b><i>({pdf.esc(db.get(Sala, h.sala_id).designacao)})</i></b>"
+        prof = db.get(Funcionario, h.funcionario_id) if h.funcionario_id else None
+        return texto + f"<br/><br/><i>{pdf.esc(prof.nome_completo) if prof else 'Professor por atribuir'}</i>"
+
+    linhas = [[pdf.p("Hora", cab), *[pdf.p(DIAS_SEMANA[d - 1], cab) for d in dias]]]
+    for ini, fim in faixas:
+        celulas = []
+        for d in dias:
+            daqui = [h for h in aulas if h.dia_semana == d and (h.hora_inicio, h.hora_fim) == (ini, fim)]
+            celulas.append(pdf.p("<br/>——<br/>".join(aula(h) for h in daqui), centro) if daqui else "")
+        linhas.append([pdf.p(f"{ini:%H:%M}<br/>às<br/>{fim:%H:%M}", hora), *celulas])
+    largura_hora = 24 * mm
+    largura_dia = (261 * mm - largura_hora) / len(dias)
+    t = Table(linhas, colWidths=[largura_hora, *[largura_dia] * len(dias)], repeatRows=1)
+    t.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.8, colors.black),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e6e6e6")), ("BACKGROUND", (0, 1), (0, -1), colors.HexColor("#e6e6e6")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("TOPPADDING", (0, 1), (-1, -1), 8), ("BOTTOMPADDING", (0, 1), (-1, -1), 8),
+    ]))
+
+    partes = [f"<b>{pdf.esc(classe.designacao)}</b>", f"<b><u>Turma {pdf.esc(turma.designacao)}</u></b>"]
+    if sala:
+        partes.append(f"<b><u>Sala {pdf.esc(sala.designacao)}</u></b>")
+    partes.append(PERIODOS_DIA.get(turma.periodo_dia, turma.periodo_dia))
+    rodape = " – ".join(x for x in [f"<i>Ano lectivo</i> {pdf.esc(ano.designacao)}",
+                                    pdf.esc(periodo.designacao) if periodo else None, f"em vigor a {pdf.dt(dia)}"] if x)
+    blocos = [pdf.p(" – ".join(partes), subtitulo), Spacer(1, 5 * mm),
+              t if faixas else pdf.p("Esta turma ainda não tem horário nesta data.", centro),
+              Spacer(1, 2 * mm), pdf.p(rodape, nota)]
+    return pdf.gerar(est, f"Horário da turma {pdf.esc(turma.designacao)}", blocos, horizontal=True)
 
 
 def declaracao(db: Session, m: Matricula) -> bytes:

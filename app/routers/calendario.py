@@ -13,7 +13,7 @@ from app.ciclo import livre_de_ciclo
 from app.common import ano_activo, as_dict, obter
 from app.database import get_db
 from app.models import (
-    Aluno, AnoLectivo, Assiduidade, Aula, Disciplina, EventoCalendario, Funcionario, Horario, Matricula, Substituicao, TempoLectivo,
+    Aluno, AnoLectivo, Assiduidade, Aula, Disciplina, EventoCalendario, Funcionario, Horario, Matricula, Sala, Substituicao, TempoLectivo,
     Turma,
 )
 from app import ordem as ordens
@@ -127,8 +127,9 @@ def _fim_do_tempo(db: Session, est: int, tempo: int, inicio) -> object:
 # ---------------------------------------------------------------- horários
 def _horario(db: Session, h: Horario) -> dict:
     prof = h.funcionario_id and db.get(Funcionario, h.funcionario_id)
+    sala = h.sala_id and db.get(Sala, h.sala_id)
     return {**as_dict(h), "turma": db.get(Turma, h.turma_id).designacao, "disciplina": db.get(Disciplina, h.disciplina_id).nome,
-            "professor": prof.nome_completo if prof else None}
+            "professor": prof.nome_completo if prof else None, "sala": sala.designacao if sala else None}
 
 
 @router.get("/horarios", response_model=list[R.HorarioComNomes],

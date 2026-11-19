@@ -393,6 +393,7 @@ class HorarioComNomes(Horario):
     turma: str
     disciplina: str
     professor: str | None
+    sala: str | None = Field(None, description="Sala da aula (a da turma, salvo indicação em contrário)")
 
 
 class AulaRegistada(Aula):

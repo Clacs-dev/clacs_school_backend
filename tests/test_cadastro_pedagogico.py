@@ -33,7 +33,9 @@ def test_pauta_final_e_pdfs_na_horizontal(client, admin):
     final = client.get(f"/api/turmas/{turma['id']}/pauta-final.pdf", headers=admin)
     periodo = client.get(f"/api/anos-lectivos/{turma['ano_id']}/periodos", headers=admin).json()[0]["id"]
     por_periodo = client.get(f"/api/turmas/{turma['id']}/pauta.pdf", headers=admin, params={"periodo_id": periodo})
-    for pdf in (final, por_periodo):
+    horario = client.get(f"/api/turmas/{turma['id']}/horario.pdf", headers=admin)
+    assert all("sala" in h for h in _ok(client.get("/api/horarios", headers=admin, params={"turma_id": turma["id"]})))
+    for pdf in (final, por_periodo, horario):
         assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
         assert b"/MediaBox [ 0 0 841.8898 595.2756 ]" in pdf.content  # A4 na horizontal
 
