@@ -472,6 +472,10 @@ class AssiduidadeProfessor(Saida):
     por_registar: int
     substituicoes_feitas: int
     minutos_atraso: int
+    minutos_previstos: int = Field(0, description="Duração das aulas previstas")
+    minutos_dados: int = Field(0, description="Horas leccionadas (em minutos)")
+    minutos_faltas: int = Field(0, description="Duração das aulas em que o professor faltou")
+    minutos_por_registar: int = Field(0, description="Aulas previstas ainda sem registo")
 
 
 class AssiduidadeResumo(Saida):

@@ -129,6 +129,15 @@ def horario_pdf(tid: int, data: date | None = None, ctx: Contexto = Depends(exig
     return _pdf(docs.horario_turma(db, t, data or date.today()), f"horario-{t.designacao}")
 
 
+@router.get("/professores/assiduidade.pdf", responses=R.PDF,
+            summary="Mapa de assiduidade dos professores num período: horas previstas, faltas, leccionadas e atrasos")
+def assiduidade_professores_pdf(desde: date, ate: date, ctx: Contexto = Depends(exige("academico")),
+                                db: Session = Depends(get_db)):
+    if ate < desde or (ate - desde).days > 366:
+        raise HTTPException(422, "Período inválido (máximo um ano)")
+    return _pdf(docs.assiduidade_professores_pdf(db, ctx.estabelecimento_id, desde, ate), "assiduidade-professores")
+
+
 @router.get("/professores/{fid}/horario.pdf", responses=R.PDF,
             summary="Horário e carga horária semanal do professor em vigor numa data (por omissão hoje), na horizontal")
 def horario_professor_pdf(fid: int, data: date | None = None, ctx: Contexto = Depends(exige("pedagogico")),

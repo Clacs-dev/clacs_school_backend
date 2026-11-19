@@ -15,6 +15,7 @@ from app.models import (
     Horario, Matricula, MetodoPagamento, Pagamento, PagamentoAlocacao, PeriodoLectivo, Sala, Servico, Turma,
 )
 from app.services.alertas import comportamento_actual
+from app.services.calendario import assiduidade_professores
 from app.services.financeiro import cobrancas_detalhe
 from app.services.pedagogico import FALTAS, escala, media_ponderada, pauta_final
 
@@ -292,6 +293,35 @@ def horario_professor(db: Session, prof: Funcionario, dia: date) -> bytes:
               t if faixas else pdf.p("A escola ainda não tem horários nesta data.", centro),
               Spacer(1, 2 * mm), pdf.p(rodape, nota)]
     return pdf.gerar(est, "Horário do professor", blocos, horizontal=True)
+
+
+def _horas(minutos: int) -> str:
+    """Horas com uma casa decimal só quando é preciso: 30, 22,5."""
+    h = round(minutos / 60, 1)
+    return f"{h:g}".replace(".", ",")
+
+
+def assiduidade_professores_pdf(db: Session, est_id: int, desde: date, ate: date) -> bytes:
+    """Mapa de assiduidade dos docentes no período (como o mapa em papel): horas previstas, faltas, horas leccionadas,
+    por registar e atrasos, com os totais."""
+    est = db.get(Estabelecimento, est_id)
+    linhas = assiduidade_professores(db, est_id, desde, ate)
+    cab = ParagraphStyle("acab", parent=pdf.NORMAL, fontName="Helvetica-Bold", fontSize=8.5, leading=10,
+                         textColor=colors.white, alignment=TA_RIGHT)
+    t = [[pdf.p("Professor", ParagraphStyle("acab0", parent=cab, alignment=0)),
+          *[pdf.p(x, cab) for x in ("Previstas (hor.)", "Faltas (hor.)", "Horas leccio.", "Por registar (hor.)", "Atraso (min.)")]]]
+    for x in linhas:
+        t.append([pdf.esc(x["professor"]), _horas(x["minutos_previstos"]), _horas(x["minutos_faltas"]),
+                  _horas(x["minutos_dados"]), _horas(x["minutos_por_registar"]), str(x["minutos_atraso"])])
+    soma = lambda k: sum(x[k] for x in linhas)  # noqa: E731
+    t.append(["Total", _horas(soma("minutos_previstos")), _horas(soma("minutos_faltas")), _horas(soma("minutos_dados")),
+              _horas(soma("minutos_por_registar")), str(soma("minutos_atraso"))])
+    tabela = pdf.tabela(t, [64 * mm, 22 * mm, 22 * mm, 22 * mm, 22 * mm, 22 * mm], total=True)
+    tabela.setStyle(TableStyle([("ALIGN", (1, 0), (-1, -1), "RIGHT")]))
+    blocos = [pdf.p(f"<b>Período lectivo</b> · Todos os docentes · {len(linhas)} professor(es)", pdf.NORMAL), Spacer(1, 4 * mm),
+              tabela if linhas else pdf.p("Não há aulas previstas com professor neste período."), Spacer(1, 14 * mm),
+              pdf.p("_______________________________<br/>A Direcção Pedagógica")]
+    return pdf.gerar(est, f"Assiduidade entre {pdf.dt(desde)} e {pdf.dt(ate)}", blocos)
 
 
 def declaracao(db: Session, m: Matricula) -> bytes:

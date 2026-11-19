@@ -273,7 +273,12 @@ def test_horarios_aulas_substituicoes_e_feriados(client, admin):
     assert any(x["disciplina_id"] == disc["id"] and x["presente"] >= 1 for x in rel)
     prof = _ok(client.get("/api/professores/assiduidade", headers=admin, params={
         "desde": segunda.isoformat(), "ate": segunda.isoformat()}))
-    assert next(x for x in prof if x["funcionario_id"] == profs[-1]["id"])["substituicoes_feitas"] >= 1
+    sub = next(x for x in prof if x["funcionario_id"] == profs[-1]["id"])
+    assert sub["substituicoes_feitas"] >= 1 and sub["minutos_dados"] > 0
+    assert all(x["minutos_previstos"] == x["minutos_dados"] + x["minutos_faltas"] + x["minutos_por_registar"] for x in prof)
+    mapa = client.get("/api/professores/assiduidade.pdf", headers=admin, params={
+        "desde": segunda.isoformat(), "ate": segunda.isoformat()})
+    assert mapa.status_code == 200 and mapa.content.startswith(b"%PDF")
     # alterar a partir de hoje guarda a versão anterior; um feriado tira as aulas do dia
     novo = _ok(client.post(f"/api/horarios/{h['id']}/alterar", headers=admin, json={"desde": date.today().isoformat(), "tempo": 9,
                                                                                    "hora_inicio": "16:00:00", "hora_fim": "16:45:00"}), 201)

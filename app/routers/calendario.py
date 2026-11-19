@@ -1,6 +1,5 @@
 """Calendário escolar, horários (com histórico de alterações), substituições, registo das aulas com a chamada por
 tempo lectivo, assiduidade dos professores e relatório de assiduidade por disciplina."""
-from collections import defaultdict
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -337,28 +336,7 @@ def falta_professor(dados: FaltaProfessorIn, ctx: Contexto = Depends(editar_acad
 def assiduidade_professores(desde: date, ate: date, ctx: Contexto = Depends(ver_acad), db: Session = Depends(get_db)):
     if ate < desde or (ate - desde).days > 366:
         raise HTTPException(422, "Período inválido (máximo um ano)")
-    est = ctx.estabelecimento_id
-    stats: dict[int, dict] = defaultdict(lambda: {"previstas": 0, "dadas": 0, "faltas": 0, "por_registar": 0,
-                                                  "substituicoes_feitas": 0, "minutos_atraso": 0})
-    d = desde
-    while d <= min(ate, date.today()):
-        for x in svc.aulas_do_dia(db, est, d):
-            if x["professor_id"] is None:
-                continue
-            s = stats[x["professor_id"]]
-            s["previstas"] += 1
-            s["substituicoes_feitas"] += x["substituicao"]
-            if x["estado"] == "dada":
-                s["dadas"] += 1
-            elif x["estado"] == "falta_professor":
-                s["faltas"] += 1
-            else:
-                s["por_registar"] += 1
-        d += timedelta(days=1)
-    for a in db.scalars(select(Aula).where(Aula.data.between(desde, ate), Aula.atraso_minutos > 0)):
-        if a.funcionario_id in stats:
-            stats[a.funcionario_id]["minutos_atraso"] += a.atraso_minutos
-    return [{"funcionario_id": fid, "professor": db.get(Funcionario, fid).nome_completo, **s} for fid, s in sorted(stats.items())]
+    return svc.assiduidade_professores(db, ctx.estabelecimento_id, desde, ate)
 
 
 @router.get("/assiduidade/relatorio", response_model=list[R.AssiduidadeResumo],

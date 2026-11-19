@@ -65,6 +65,34 @@ def semanas_do_ciclo(db: Session, ano: AnoLectivo) -> dict:
             "periodos": lista, "semanas": semanas}
 
 
+def assiduidade_professores(db: Session, est: int, desde: date, ate: date) -> list[dict]:
+    """Mapa de assiduidade dos professores no período (até hoje): aulas e horas previstas, faltas, leccionadas e por
+    registar, substituições feitas e minutos de atraso. A aula dada por um substituto conta para o substituto."""
+    def zero():
+        return {"previstas": 0, "dadas": 0, "faltas": 0, "por_registar": 0, "substituicoes_feitas": 0, "minutos_atraso": 0,
+                "minutos_previstos": 0, "minutos_dados": 0, "minutos_faltas": 0, "minutos_por_registar": 0}
+    stats: dict[int, dict] = {}
+    d = desde
+    while d <= min(ate, date.today()):
+        for x in aulas_do_dia(db, est, d):
+            if x["professor_id"] is None:
+                continue
+            s = stats.setdefault(x["professor_id"], zero())
+            dur = (x["hora_fim"].hour * 60 + x["hora_fim"].minute) - (x["hora_inicio"].hour * 60 + x["hora_inicio"].minute)
+            s["previstas"] += 1
+            s["minutos_previstos"] += dur
+            s["substituicoes_feitas"] += x["substituicao"]
+            chave = {"dada": "dados", "falta_professor": "faltas"}.get(x["estado"], "por_registar")
+            s[{"dados": "dadas"}.get(chave, chave)] += 1
+            s[f"minutos_{chave}"] += dur
+        d += timedelta(days=1)
+    for a in db.scalars(select(Aula).where(Aula.data.between(desde, ate), Aula.atraso_minutos > 0)):
+        if a.funcionario_id in stats:
+            stats[a.funcionario_id]["minutos_atraso"] += a.atraso_minutos
+    linhas = [{"funcionario_id": fid, "professor": db.get(Funcionario, fid).nome_completo, **s} for fid, s in stats.items()]
+    return sorted(linhas, key=lambda x: x["professor"].lower())
+
+
 def _mesmo_dia_noutro_ano(d: date, anos: int) -> date:
     try:
         return d.replace(year=d.year + anos)
