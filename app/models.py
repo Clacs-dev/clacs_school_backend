@@ -1430,13 +1430,12 @@ class Despesa(Base):
 # provas e exames (época normal e recurso), entrega de boletins, pausas e férias. Os quatro últimos não têm aulas.
 TIPOS_EVENTO = ("matricula", "abertura", "aulas", "prova", "exame", "recurso", "entrega", "reuniao", "evento",
                 "pausa", "ferias", "interrupcao", "feriado")
-ABRANGENCIAS_EVENTO = ("primeiro_ciclo", "segundo_ciclo", "escola")   # a quem se destina a actividade
 
 
 class EventoCalendario(Base):
     """Actividade do plano do ano lectivo (calendário escolar)."""
     __tablename__ = "evento_calendario"
-    __table_args__ = (ck_in("tipo", *TIPOS_EVENTO), ck_in("abrangencia", *ABRANGENCIAS_EVENTO))
+    __table_args__ = (ck_in("tipo", *TIPOS_EVENTO),)
     id: Mapped[int] = pk()
     estabelecimento_id: Mapped[int] = estab_fk()
     tipo: Mapped[str] = mapped_column(Text)
@@ -1445,7 +1444,7 @@ class EventoCalendario(Base):
     data_fim: Mapped[date | None] = mapped_column(Date)          # vazio = um só dia
     descricao: Mapped[str | None] = mapped_column(Text)
     objectivo: Mapped[str | None] = mapped_column(Text)          # para que serve a actividade
-    abrangencia: Mapped[str] = mapped_column(Text, server_default="escola")   # 1.º ciclo, 2.º ciclo ou toda a escola
+    nivel_id: Mapped[int | None] = fk("nivel_ensino.id", nullable=True)   # a quem se destina; vazio = toda a escola
     responsavel: Mapped[str | None] = mapped_column(Text)        # quem organiza (direcção pedagógica, secretaria…)
     publico: Mapped[bool] = mapped_column(Boolean, server_default=true())   # aparece no portal das famílias
 

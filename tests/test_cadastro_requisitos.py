@@ -301,6 +301,7 @@ def test_plano_de_actividades_por_semanas_e_copia(client, admin):
     b = _ok(client.post("/api/anos-lectivos", headers=admin, json={
         "designacao": "2041/2042 (plano)", "data_inicio": "2041-09-02", "data_fim": "2042-07-19"}), 201)
     p1 = _ok(client.get(f"/api/anos-lectivos/{a['id']}/periodos", headers=admin))[0]
+    nivel = _ok(client.get("/api/niveis", headers=admin))[0]
     seg = date.fromisoformat(p1["data_inicio"])
     seg -= timedelta(days=seg.weekday())
     ferias, feriado = seg + timedelta(weeks=3), seg + timedelta(weeks=5, days=2)
@@ -313,13 +314,13 @@ def test_plano_de_actividades_por_semanas_e_copia(client, admin):
     _ok(client.post("/api/eventos", headers=admin, json={
         "tipo": "exame", "titulo": "Exames do 1.º trimestre", "data_inicio": (seg + timedelta(weeks=12)).isoformat(),
         "data_fim": (seg + timedelta(weeks=13, days=4)).isoformat(), "objectivo": "Avaliar o 1.º trimestre",
-        "abrangencia": "segundo_ciclo"}), 201)
-    # O objectivo é obrigatório e o destino só pode ser 1.º ciclo, 2.º ciclo ou toda a escola.
+        "nivel_id": nivel["id"]}), 201)
+    # O objectivo é obrigatório e o destino é um nível registado (ou toda a escola).
     assert client.post("/api/eventos", headers=admin, json={
         "tipo": "evento", "titulo": "Sem objectivo", "data_inicio": seg.isoformat()}).status_code == 422
     assert client.post("/api/eventos", headers=admin, json={
-        "tipo": "evento", "titulo": "Destino errado", "objectivo": "Teste", "abrangencia": "3_ciclo",
-        "data_inicio": seg.isoformat()}).status_code == 422
+        "tipo": "evento", "titulo": "Destino errado", "objectivo": "Teste", "nivel_id": 999999,
+        "data_inicio": seg.isoformat()}).status_code in (404, 422)
 
     cal = _ok(client.get(f"/api/anos-lectivos/{a['id']}/semanas", headers=admin))
     semanas = {s["inicio"]: s for s in cal["semanas"]}

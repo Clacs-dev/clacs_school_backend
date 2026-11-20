@@ -12,7 +12,7 @@ from app.ciclo import livre_de_ciclo
 from app.common import ano_activo, as_dict, obter
 from app.database import get_db
 from app.models import (
-    Aluno, AnoLectivo, Assiduidade, Aula, Disciplina, EventoCalendario, Funcionario, Horario, Matricula, Sala, Substituicao, TempoLectivo,
+    Aluno, AnoLectivo, NivelEnsino, Assiduidade, Aula, Disciplina, EventoCalendario, Funcionario, Horario, Matricula, Sala, Substituicao, TempoLectivo,
     Turma,
 )
 from app import ordem as ordens
@@ -47,6 +47,8 @@ def eventos(desde: date | None = None, ate: date | None = None, tipo: str | None
 def criar_evento(dados: EventoIn, ctx: Contexto = Depends(editar_acad), db: Session = Depends(get_db)):
     if dados.data_fim and dados.data_fim < dados.data_inicio:
         raise HTTPException(422, "A data de fim é anterior à de início")
+    if dados.nivel_id:
+        obter(db, NivelEnsino, dados.nivel_id, ctx.estabelecimento_id, "Nível de ensino")
     e = EventoCalendario(estabelecimento_id=ctx.estabelecimento_id, **dados.model_dump())
     db.add(e)
     db.commit()

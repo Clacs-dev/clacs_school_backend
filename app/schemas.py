@@ -1,9 +1,9 @@
 """Esquemas Pydantic de entrada. As respostas são dicionários com as colunas das tabelas."""
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
 
 
 class Entrada(BaseModel):
@@ -381,8 +381,9 @@ class EventoIn(Entrada):
     data_fim: date | None = Field(None, description="Vazio = um só dia")
     descricao: str | None = None
     objectivo: str = Field(min_length=3, description="Objectivo da actividade (obrigatório)")
-    abrangencia: Literal["primeiro_ciclo", "segundo_ciclo", "escola"] = Field(
-        "escola", description="A quem se destina: 1.º ciclo, 2.º ciclo ou toda a escola")
+    # 0 ou vazio = toda a escola (o validador fica no tipo para valer também ao editar)
+    nivel_id: Annotated[int | None, BeforeValidator(lambda v: None if v in (0, "0", "") else v)] = Field(
+        None, description="Nível de ensino a que se destina (Registo académico → Níveis); vazio ou 0 = toda a escola")
     responsavel: str | None = Field(None, description="Quem organiza (ex.: Direcção pedagógica)")
     publico: bool = Field(True, description="Aparece no portal das famílias")
 
@@ -1205,7 +1206,7 @@ EXEMPLOS: dict[type[Entrada], dict] = {
                     "prestacoes": [{"valor": 15000, "vencimento": "2026-12-10"}, {"valor": 30000, "vencimento": "2027-02-10"}]},
     MotivoIn: {"motivo": "O encarregado pagou a dívida toda de uma vez"},
     EventoIn: {"tipo": "feriado", "titulo": "Dia da Independência", "data_inicio": "2026-11-11",
-               "objectivo": "Celebrar a independência nacional", "abrangencia": "escola", "publico": True},
+               "objectivo": "Celebrar a independência nacional", "nivel_id": None, "publico": True},
     CopiarPlanoIn: {"origem_id": 1},
     FichaDisciplinaIn: {"classe_id": 1, "disciplina_id": 1, "regime": "Anual", "tempos_teoricos": 3, "tempos_praticos": 2,
                         "precedencia": "Língua Portuguesa da classe anterior",

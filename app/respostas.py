@@ -427,7 +427,7 @@ class ActividadeDaSemana(Saida):
     id: int
     titulo: str
     tipo: str
-    abrangencia: str = "escola"
+    nivel_id: int | None = None
     data_inicio: date
     data_fim: date | None = None
 

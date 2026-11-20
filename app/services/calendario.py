@@ -56,7 +56,7 @@ def semanas_do_ciclo(db: Session, ano: AnoLectivo) -> dict:
         semanas.append({
             "inicio": segunda, "fim": domingo, "numero": n, "fase": fase, "periodo_id": periodo.id if periodo else None,
             "lectiva": bool(lectivos), "dias_lectivos": len(lectivos),
-            "actividades": [{"id": e.id, "titulo": e.titulo, "tipo": e.tipo, "abrangencia": e.abrangencia, "data_inicio": e.data_inicio, "data_fim": e.data_fim}
+            "actividades": [{"id": e.id, "titulo": e.titulo, "tipo": e.tipo, "nivel_id": e.nivel_id, "data_inicio": e.data_inicio, "data_fim": e.data_fim}
                             for e in eventos if e.data_inicio <= domingo and (e.data_fim or e.data_inicio) >= segunda]})
         segunda += timedelta(days=7)
     lista = list(resumo.values())
@@ -122,7 +122,7 @@ def copiar_plano(db: Session, origem: AnoLectivo, destino: AnoLectivo) -> dict:
         else:
             db.add(EventoCalendario(estabelecimento_id=destino.estabelecimento_id, tipo=e.tipo, titulo=e.titulo,
                                     data_inicio=inicio, data_fim=fim, descricao=e.descricao, responsavel=e.responsavel,
-                                    objectivo=e.objectivo, abrangencia=e.abrangencia,
+                                    objectivo=e.objectivo, nivel_id=e.nivel_id,
                                     publico=e.publico))
             existentes.add((e.tipo, e.titulo.strip().lower(), inicio))
             res["copiadas"] += 1
