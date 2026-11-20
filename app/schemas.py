@@ -406,7 +406,18 @@ class ReordenarIn(Entrada):
 class TempoLectivoIn(Entrada):
     designacao: str | None = Field(None, description="Em branco: «N.º tempo»")
     ordem: int | None = Field(None, ge=1, le=12, description="1.º, 2.º… tempo do dia; em branco, o seguinte")
-    duracao_minutos: int = Field(45, ge=5, le=240, description="Duração em minutos")
+    duracao_minutos: int = Field(45, ge=5, le=240, description="Duração em minutos (com as horas, é calculada)")
+    hora_inicio: time | None = Field(None, description="Hora de início do tempo (ex.: 07:30)")
+    hora_fim: time | None = Field(None, description="Hora de fim do tempo (ex.: 08:15)")
+
+
+class ParTemposIn(Entrada):
+    """Regista (ou corrige) um par de tempos lectivos com as horas de cada um: 1.º e 2.º, 3.º e 4.º, 5.º e 6.º tempo."""
+    par: int = Field(ge=1, le=6, description="1 = 1.º e 2.º tempo, 2 = 3.º e 4.º, 3 = 5.º e 6.º…")
+    primeiro_inicio: time
+    primeiro_fim: time
+    segundo_inicio: time
+    segundo_fim: time
 
 
 class HorarioIn(Entrada):
@@ -416,8 +427,8 @@ class HorarioIn(Entrada):
     sala_id: int | None = Field(None, description="Em branco: a sala da turma")
     dia_semana: int = Field(ge=1, le=6, description="1 = segunda … 6 = sábado")
     tempo: int = Field(ge=1, le=12, description="1.º, 2.º… tempo do dia")
-    hora_inicio: time
-    hora_fim: time | None = Field(None, description="Em branco: início + duração do tempo lectivo (Registo académico)")
+    hora_inicio: time | None = Field(None, description="Em branco: a hora de início do tempo (Registo académico)")
+    hora_fim: time | None = Field(None, description="Em branco: a hora de fim do tempo (Registo académico)")
     valido_desde: date | None = Field(None, description="Por omissão, hoje")
 
 
@@ -1146,7 +1157,9 @@ EXEMPLOS: dict[type[Entrada], dict] = {
              "localizacao": "Bloco B, ao lado da biblioteca", "observacoes": "Com lavatórios e bancadas"},
     DisciplinaIn: {"nome": "Educação Musical", "sigla": "EM"},
     ClasseDisciplinaIn: {"disciplina_id": 8, "carga_horaria": 2},
-    TempoLectivoIn: {"designacao": "1.º tempo", "duracao_minutos": 45},
+    TempoLectivoIn: {"designacao": "1.º tempo", "hora_inicio": "07:30", "hora_fim": "08:15"},
+    ParTemposIn: {"par": 1, "primeiro_inicio": "07:30", "primeiro_fim": "08:15", "segundo_inicio": "08:20",
+                  "segundo_fim": "09:05"},
     ReordenarIn: {"ids": [1]},
     SituacaoIn: {"situacao": "transita", "motivo": "Decisão do conselho de turma"},
     HorarioEditarIn: {"funcionario_id": 2, "tempo": 3, "hora_inicio": "09:00", "hora_fim": "09:45"},

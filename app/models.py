@@ -153,8 +153,8 @@ class Sala(Base):
 
 
 class TempoLectivo(Base):
-    """Tempo lectivo da escola (1.º, 2.º… tempo do dia) com a sua duração. No horário escolhe-se o tempo e a hora
-    de fim é a de início mais esta duração."""
+    """Tempo lectivo da escola (1.º, 2.º… tempo do dia), registado aos pares (1.º e 2.º, 3.º e 4.º, 5.º e 6.º) com as
+    horas de cada um. No horário escolhe-se o tempo e as horas vêm dele."""
     __tablename__ = "tempo_lectivo"
     __table_args__ = (CheckConstraint("duracao_minutos BETWEEN 5 AND 240", name="duracao"),)
     id: Mapped[int] = pk()
@@ -162,6 +162,8 @@ class TempoLectivo(Base):
     ordem: Mapped[int] = mapped_column(SmallInteger)
     designacao: Mapped[str] = mapped_column(Text)
     duracao_minutos: Mapped[int] = mapped_column(SmallInteger, server_default="45")
+    hora_inicio: Mapped[time | None] = mapped_column(Time)     # ex.: 07:30
+    hora_fim: Mapped[time | None] = mapped_column(Time)        # ex.: 08:15
 
 
 class Disciplina(Base):

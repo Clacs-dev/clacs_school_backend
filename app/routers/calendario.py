@@ -19,7 +19,7 @@ from app import ordem as ordens
 from app.plano import exigir_no_plano
 from app.schemas import (
     AulaRegistoIn, CopiarPlanoIn, EventoIn,FaltaProfessorIn, HorarioAlterarIn, HorarioEditarIn, HorarioIn, ReordenarIn,
-    SubstituicaoIn, TempoLectivoIn,
+    ParTemposIn, SubstituicaoIn, TempoLectivoIn,
 )
 from app.security import Contexto, auditar, exige, turmas_permitidas, verificar_turma
 from app.services import calendario as svc
@@ -86,6 +86,16 @@ def tempos_lectivos(ctx: Contexto = Depends(ver_ped), db: Session = Depends(get_
     return [as_dict(t) for t in db.scalars(_tempos_de(ctx.estabelecimento_id).order_by(TempoLectivo.ordem, TempoLectivo.id))]
 
 
+def _duracao(inicio, fim, nome: str) -> int:
+    """Duração em minutos entre as horas de um tempo (de 5 a 240)."""
+    m = (fim.hour * 60 + fim.minute) - (inicio.hour * 60 + inicio.minute)
+    if m <= 0:
+        raise HTTPException(422, f"{nome}: a hora de fim tem de ser depois da de início")
+    if not 5 <= m <= 240:
+        raise HTTPException(422, f"{nome}: um tempo dura entre 5 e 240 minutos")
+    return m
+
+
 @router.post("/tempos-lectivos", response_model=R.TempoLectivo, status_code=201,
              summary="Novo tempo lectivo (ordem e nome automáticos se ficarem em branco)")
 def criar_tempo_lectivo(dados: TempoLectivoIn, ctx: Contexto = Depends(editar_acad), db: Session = Depends(get_db)):
@@ -93,11 +103,43 @@ def criar_tempo_lectivo(dados: TempoLectivoIn, ctx: Contexto = Depends(editar_ac
     ordem = ordens.ao_criar(db, TempoLectivo, _tempos_de(est), dados.ordem, "um tempo lectivo", lambda t: t.designacao)
     if ordem > 12:
         raise HTTPException(422, "O dia tem no máximo 12 tempos lectivos")
-    t = TempoLectivo(estabelecimento_id=est, ordem=ordem, duracao_minutos=dados.duracao_minutos,
-                     designacao=(dados.designacao or "").strip() or f"{ordem}.º tempo")
+    duracao = dados.duracao_minutos
+    if dados.hora_inicio and dados.hora_fim:
+        duracao = _duracao(dados.hora_inicio, dados.hora_fim, f"{ordem}.º tempo")
+    t = TempoLectivo(estabelecimento_id=est, ordem=ordem, duracao_minutos=duracao, hora_inicio=dados.hora_inicio,
+                     hora_fim=dados.hora_fim, designacao=(dados.designacao or "").strip() or f"{ordem}.º tempo")
     db.add(t)
     db.commit()
     return as_dict(t)
+
+
+@router.post("/tempos-lectivos/par", response_model=list[R.TempoLectivo], status_code=201,
+             summary="Regista um par de tempos (1.º e 2.º, 3.º e 4.º, 5.º e 6.º) com as horas de cada um")
+def criar_par_tempos(dados: ParTemposIn, ctx: Contexto = Depends(editar_acad), db: Session = Depends(get_db)):
+    """Cria os dois tempos do par ou, se já existem, corrige as horas. Recusa horas que se sobreponham às de outro tempo."""
+    est = ctx.estabelecimento_id
+    a, b = 2 * dados.par - 1, 2 * dados.par
+    pares = ((a, dados.primeiro_inicio, dados.primeiro_fim), (b, dados.segundo_inicio, dados.segundo_fim))
+    duracoes = [_duracao(ini, fim, f"{ordem}.º tempo") for ordem, ini, fim in pares]
+    if dados.segundo_inicio < dados.primeiro_fim:
+        raise HTTPException(422, f"O {b}.º tempo tem de começar depois do fim do {a}.º tempo")
+    outros = [t for t in db.scalars(_tempos_de(est).where(TempoLectivo.ordem.notin_((a, b))))
+              if t.hora_inicio and t.hora_fim]
+    for ordem, ini, fim in pares:
+        for t in outros:
+            if ini < t.hora_fim and t.hora_inicio < fim:
+                raise HTTPException(422, f"O {ordem}.º tempo ({ini:%H:%M}–{fim:%H:%M}) sobrepõe-se ao {t.designacao} "
+                                         f"({t.hora_inicio:%H:%M}–{t.hora_fim:%H:%M})")
+    res = []
+    for (ordem, ini, fim), duracao in zip(pares, duracoes):
+        t = db.scalar(_tempos_de(est).where(TempoLectivo.ordem == ordem).order_by(TempoLectivo.id).limit(1))
+        if t is None:
+            t = TempoLectivo(estabelecimento_id=est, ordem=ordem, designacao=f"{ordem}.º tempo")
+            db.add(t)
+        t.hora_inicio, t.hora_fim, t.duracao_minutos = ini, fim, duracao
+        res.append(t)
+    db.commit()
+    return [as_dict(t) for t in res]
 
 
 @router.post("/tempos-lectivos/reordenar", response_model=list[R.TempoLectivo],
@@ -112,15 +154,29 @@ def _editar_tempo(db: Session, ctx: Contexto, obj: TempoLectivo, mudancas: dict)
         raise HTTPException(422, "O dia tem no máximo 12 tempos lectivos")
     if "designacao" in mudancas and not (mudancas["designacao"] or "").strip():
         mudancas.pop("designacao")
+    inicio, fim = mudancas.get("hora_inicio", obj.hora_inicio), mudancas.get("hora_fim", obj.hora_fim)
+    if inicio and fim and ({"hora_inicio", "hora_fim"} & mudancas.keys()):
+        mudancas["duracao_minutos"] = _duracao(inicio, fim, obj.designacao)
     ordens.ao_editar(db, obj, _tempos_de(ctx.estabelecimento_id), mudancas)
 
 
-def _fim_do_tempo(db: Session, est: int, tempo: int, inicio) -> object:
-    """Hora de fim = início + duração do tempo lectivo com essa ordem (registado no Registo académico)."""
-    t = db.scalar(_tempos_de(est).where(TempoLectivo.ordem == tempo))
-    if t is None:
-        raise HTTPException(422, f"Indique a hora de fim ou registe o {tempo}.º tempo em Registo académico → Tempos lectivos")
-    return (datetime.combine(date.today(), inicio) + timedelta(minutes=t.duracao_minutos)).time()
+def _horas_do_tempo(db: Session, est: int, tempo: int, inicio, fim) -> tuple:
+    """Horas da aula a partir do tempo lectivo registado: o início e o fim do tempo (ex.: 1.º tempo 07:30–08:15).
+    Se o início for outro, o fim é o início mais a duração do tempo."""
+    t = db.scalar(_tempos_de(est).where(TempoLectivo.ordem == tempo).order_by(TempoLectivo.id).limit(1))
+    if inicio is None:
+        if t is None or t.hora_inicio is None:
+            raise HTTPException(422, f"Indique a hora de início ou defina as horas do {tempo}.º tempo em "
+                                     "Registo académico → Tempos lectivos")
+        inicio = t.hora_inicio
+    if fim is None:
+        if t is None:
+            raise HTTPException(422, f"Indique a hora de fim ou registe o {tempo}.º tempo em Registo académico → Tempos lectivos")
+        if t.hora_fim and inicio == t.hora_inicio:
+            fim = t.hora_fim
+        else:
+            fim = (datetime.combine(date.today(), inicio) + timedelta(minutes=t.duracao_minutos)).time()
+    return inicio, fim
 
 
 # ---------------------------------------------------------------- horários
@@ -167,8 +223,9 @@ def criar_horario(dados: HorarioIn, ctx: Contexto = Depends(editar_acad), db: Se
     if dados.sala_id is None:  # a aula é na sala da turma, salvo indicação em contrário
         turma = obter(db, Turma, dados.turma_id, ctx.estabelecimento_id, "Turma")
         dados.sala_id = turma.sala_id
-    if dados.hora_fim is None:
-        dados.hora_fim = _fim_do_tempo(db, ctx.estabelecimento_id, dados.tempo, dados.hora_inicio)
+    if dados.hora_inicio is None or dados.hora_fim is None:
+        dados.hora_inicio, dados.hora_fim = _horas_do_tempo(db, ctx.estabelecimento_id, dados.tempo,
+                                                            dados.hora_inicio, dados.hora_fim)
     _validar(db, ctx, dados)
     h = Horario(estabelecimento_id=ctx.estabelecimento_id, valido_desde=dados.valido_desde or date.today(),
                 **dados.model_dump(exclude={"valido_desde"}))
@@ -212,8 +269,10 @@ def editar_horario(hid: int, dados: HorarioEditarIn, ctx: Contexto = Depends(edi
     campos = {c: getattr(h, c) for c in ("turma_id", "disciplina_id", "funcionario_id", "sala_id", "dia_semana",
                                          "tempo", "hora_inicio", "hora_fim")}
     campos.update(mudancas)
-    if mudancas.get("hora_fim") is None and ({"tempo", "hora_inicio"} & mudancas.keys()):
-        campos["hora_fim"] = _fim_do_tempo(db, est, campos["tempo"], campos["hora_inicio"])
+    if "tempo" in mudancas and mudancas.get("hora_inicio") is None:   # outro tempo: as horas passam a ser as dele
+        campos["hora_inicio"] = None
+    if campos["hora_inicio"] is None or (mudancas.get("hora_fim") is None and ({"tempo", "hora_inicio"} & mudancas.keys())):
+        campos["hora_inicio"], campos["hora_fim"] = _horas_do_tempo(db, est, campos["tempo"], campos["hora_inicio"], None)
     if campos["hora_fim"] <= campos["hora_inicio"]:
         raise HTTPException(422, "A hora de fim tem de ser depois da de início")
     if campos["disciplina_id"] != h.disciplina_id:

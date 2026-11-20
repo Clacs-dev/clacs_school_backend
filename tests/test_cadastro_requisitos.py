@@ -439,6 +439,34 @@ def test_tempos_lectivos_fim_automatico_e_editar_horario(client, admin):
     r = client.post(f"/api/horarios/{novo['id']}/editar", headers=admin, json={"hora_inicio": "08:30", "hora_fim": "09:00"})
     assert r.status_code == 409 and "a turma já tem" in r.json()["detail"]
 
+
+def test_tempos_lectivos_aos_pares_com_horas(client, admin):
+    """Os tempos registam-se aos pares (1.º e 2.º, 3.º e 4.º…) com as horas de cada um; no horário basta escolher o
+    tempo e as horas vêm dele."""
+    par = {"par": 6, "primeiro_inicio": "18:00", "primeiro_fim": "18:45", "segundo_inicio": "18:50", "segundo_fim": "19:35"}
+    t11, t12 = _ok(client.post("/api/tempos-lectivos/par", headers=admin, json=par), 201)
+    assert (t11["ordem"], t11["hora_inicio"], t11["hora_fim"], t11["duracao_minutos"]) == (11, "18:00:00", "18:45:00", 45)
+    assert (t12["ordem"], t12["designacao"], t12["hora_inicio"]) == (12, "12.º tempo", "18:50:00")
+    # registar de novo o mesmo par corrige as horas (não duplica)
+    t11b, _ = _ok(client.post("/api/tempos-lectivos/par", headers=admin, json={**par, "primeiro_inicio": "17:55"}), 201)
+    assert t11b["id"] == t11["id"] and t11b["duracao_minutos"] == 50
+    # o 2.º tempo não pode começar antes do fim do 1.º, nem sobrepor-se a outro par
+    assert client.post("/api/tempos-lectivos/par", headers=admin, json={**par, "segundo_inicio": "18:30"}).status_code == 422
+    assert client.post("/api/tempos-lectivos/par", headers=admin, json={
+        "par": 5, "primeiro_inicio": "16:30", "primeiro_fim": "17:15", "segundo_inicio": "17:20", "segundo_fim": "18:05"}).status_code == 422
+
+    classe = client.get("/api/classes", headers=admin).json()[0]
+    turma = _ok(client.post("/api/turmas", headers=admin, json={"designacao": "Turma dos pares", "classe_id": classe["id"]}), 201)
+    disc = _ok(client.post("/api/disciplinas", headers=admin, json={"nome": "Disciplina dos pares", "sigla": "DPR"}), 201)
+    _ok(client.post(f"/api/classes/{classe['id']}/disciplinas", headers=admin, json={"disciplina_id": disc["id"]}), 201)
+    h = _ok(client.post("/api/horarios", headers=admin, json={"turma_id": turma["id"], "disciplina_id": disc["id"],
+                                                              "dia_semana": 2, "tempo": 12}), 201)
+    assert (h["hora_inicio"], h["hora_fim"]) == ("18:50:00", "19:35:00")
+    e = _ok(client.post(f"/api/horarios/{h['id']}/editar", headers=admin, json={"tempo": 11}))
+    assert (e["hora_inicio"], e["hora_fim"]) == ("17:55:00", "18:45:00")
+    for t in (t11, t12):   # deixa livres o 11.º e o 12.º tempo para os outros testes
+        assert client.delete(f"/api/tempos-lectivos/{t['id']}", headers=admin).status_code in (200, 204)
+
 def test_programa_com_tempo_e_horario_na_sala_da_turma(client, admin):
     """A unidade do programa escolhe um tempo registado; o horário sem sala fica na sala da turma."""
     tempo = _ok(client.post("/api/tempos-lectivos", headers=admin, json={"duracao_minutos": 45}), 201)

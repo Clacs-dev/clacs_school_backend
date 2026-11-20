@@ -3930,7 +3930,9 @@
    "duracao_minutos": 45,
    "estabelecimento_id": 1,
    "id": 1,
-   "ordem": 1
+   "ordem": 1,
+   "hora_inicio": null,
+   "hora_fim": null
   }
  ],
  "GET /api/tempos-lectivos/{id_}": {
@@ -3938,7 +3940,9 @@
   "duracao_minutos": 45,
   "estabelecimento_id": 1,
   "id": 1,
-  "ordem": 1
+  "ordem": 1,
+  "hora_inicio": null,
+  "hora_fim": null
  },
  "GET /api/tipos-avaliacao": [
   {
@@ -4697,7 +4701,9 @@
   "duracao_minutos": 45,
   "estabelecimento_id": 1,
   "id": 1,
-  "ordem": 1
+  "ordem": 1,
+  "hora_inicio": null,
+  "hora_fim": null
  },
  "PATCH /api/tipos-avaliacao/{id_}": {
   "designacao": "Prova trimestral",
@@ -7714,8 +7720,30 @@
   "duracao_minutos": 45,
   "estabelecimento_id": 1,
   "id": 2,
-  "ordem": 2
+  "ordem": 2,
+  "hora_inicio": null,
+  "hora_fim": null
  },
+ "POST /api/tempos-lectivos/par": [
+  {
+   "designacao": "1.º tempo",
+   "duracao_minutos": 45,
+   "estabelecimento_id": 1,
+   "hora_fim": "08:15:00",
+   "hora_inicio": "07:30:00",
+   "id": 1,
+   "ordem": 1
+  },
+  {
+   "designacao": "2.º tempo",
+   "duracao_minutos": 45,
+   "estabelecimento_id": 1,
+   "hora_fim": "09:05:00",
+   "hora_inicio": "08:20:00",
+   "id": 2,
+   "ordem": 2
+  }
+ ],
  "POST /api/tempos-lectivos/reordenar": [
   {
    "designacao": "1.º tempo",

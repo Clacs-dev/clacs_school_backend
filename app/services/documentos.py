@@ -154,6 +154,12 @@ DIAS_SEMANA = ("Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado")
 PERIODOS_DIA = {"manha": "Manhã", "tarde": "Tarde", "noite": "Noite"}
 
 
+def _faixa(aulas, ini, fim) -> str:
+    """Cabeça da linha do mapa de horário: a hora de início e o tempo (ex.: «07:30 · 1.º tempo»)."""
+    tempo = next((h.tempo for h in aulas if (h.hora_inicio, h.hora_fim) == (ini, fim)), None)
+    return f"{ini:%H:%M}<br/>{tempo}.º tempo" if tempo else f"{ini:%H:%M}<br/>às<br/>{fim:%H:%M}"
+
+
 def horario_turma(db: Session, turma: Turma, dia: date) -> bytes:
     """Horário da turma em vigor nessa data, na horizontal (como o mapa de horário em papel): uma linha por intervalo
     de horas, uma coluna por dia; em cada aula a disciplina em maiúsculas, a sala quando não é a da turma e o nome
@@ -188,7 +194,7 @@ def horario_turma(db: Session, turma: Turma, dia: date) -> bytes:
         for d in dias:
             daqui = [h for h in aulas if h.dia_semana == d and (h.hora_inicio, h.hora_fim) == (ini, fim)]
             celulas.append(pdf.p("<br/>——<br/>".join(aula(h) for h in daqui), centro) if daqui else "")
-        linhas.append([pdf.p(f"{ini:%H:%M}<br/>às<br/>{fim:%H:%M}", hora), *celulas])
+        linhas.append([pdf.p(_faixa(aulas, ini, fim), hora), *celulas])
     largura_hora = 24 * mm
     largura_dia = (261 * mm - largura_hora) / len(dias)
     t = Table(linhas, colWidths=[largura_hora, *[largura_dia] * len(dias)], repeatRows=1)
@@ -264,7 +270,7 @@ def horario_professor(db: Session, prof: Funcionario, dia: date) -> bytes:
         for d in dias:
             daqui = [h for h in aulas if h.dia_semana == d and (h.hora_inicio, h.hora_fim) == (ini, fim)]
             celulas.append(pdf.p("<br/>——<br/>".join(aula(h) for h in daqui), centro) if daqui else "")
-        linhas.append([pdf.p(f"{ini:%H:%M}<br/>às<br/>{fim:%H:%M}", hora), *celulas])
+        linhas.append([pdf.p(_faixa(escola, ini, fim), hora), *celulas])
     largura_hora = 24 * mm
     largura_dia = (261 * mm - largura_hora) / len(dias)
     alturas = [None] + [3 * mm if i in intervalos else None for i in range(1, len(linhas))]
