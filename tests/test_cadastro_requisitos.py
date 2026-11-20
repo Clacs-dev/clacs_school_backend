@@ -285,7 +285,7 @@ def test_horarios_aulas_substituicoes_e_feriados(client, admin):
     assert len([x for x in client.get("/api/horarios", headers=admin, params={"turma_id": turma["id"], "historico": True}).json()
                 if x["id"] in (h["id"], novo["id"])]) == 2
     _ok(client.post("/api/eventos", headers=admin, json={"tipo": "feriado", "titulo": "Feriado de teste",
-                                                        "data_inicio": segunda.isoformat()}), 201)
+                                                        "objectivo": "Dia sem aulas", "data_inicio": segunda.isoformat()}), 201)
     assert _ok(client.get("/api/aulas", headers=admin, params={"data": segunda.isoformat()})) == []
     ee = _ee(client)
     assert any(e["titulo"] == "Feriado de teste" for e in client.get("/api/portal/calendario", headers=ee,
@@ -306,12 +306,20 @@ def test_plano_de_actividades_por_semanas_e_copia(client, admin):
     ferias, feriado = seg + timedelta(weeks=3), seg + timedelta(weeks=5, days=2)
     _ok(client.post("/api/eventos", headers=admin, json={
         "tipo": "ferias", "titulo": "Férias intercalares", "data_inicio": ferias.isoformat(),
-        "data_fim": (ferias + timedelta(days=4)).isoformat(), "responsavel": "Direcção pedagógica"}), 201)
+        "data_fim": (ferias + timedelta(days=4)).isoformat(), "responsavel": "Direcção pedagógica",
+        "objectivo": "Descanso dos alunos"}), 201)
     _ok(client.post("/api/eventos", headers=admin, json={
-        "tipo": "feriado", "titulo": "Feriado (plano)", "data_inicio": feriado.isoformat()}), 201)
+        "tipo": "feriado", "titulo": "Feriado (plano)", "objectivo": "Dia sem aulas", "data_inicio": feriado.isoformat()}), 201)
     _ok(client.post("/api/eventos", headers=admin, json={
         "tipo": "exame", "titulo": "Exames do 1.º trimestre", "data_inicio": (seg + timedelta(weeks=12)).isoformat(),
-        "data_fim": (seg + timedelta(weeks=13, days=4)).isoformat()}), 201)
+        "data_fim": (seg + timedelta(weeks=13, days=4)).isoformat(), "objectivo": "Avaliar o 1.º trimestre",
+        "abrangencia": "segundo_ciclo"}), 201)
+    # O objectivo é obrigatório e o destino só pode ser 1.º ciclo, 2.º ciclo ou toda a escola.
+    assert client.post("/api/eventos", headers=admin, json={
+        "tipo": "evento", "titulo": "Sem objectivo", "data_inicio": seg.isoformat()}).status_code == 422
+    assert client.post("/api/eventos", headers=admin, json={
+        "tipo": "evento", "titulo": "Destino errado", "objectivo": "Teste", "abrangencia": "3_ciclo",
+        "data_inicio": seg.isoformat()}).status_code == 422
 
     cal = _ok(client.get(f"/api/anos-lectivos/{a['id']}/semanas", headers=admin))
     semanas = {s["inicio"]: s for s in cal["semanas"]}

@@ -380,6 +380,9 @@ class EventoIn(Entrada):
     data_inicio: date
     data_fim: date | None = Field(None, description="Vazio = um só dia")
     descricao: str | None = None
+    objectivo: str = Field(min_length=3, description="Objectivo da actividade (obrigatório)")
+    abrangencia: Literal["primeiro_ciclo", "segundo_ciclo", "escola"] = Field(
+        "escola", description="A quem se destina: 1.º ciclo, 2.º ciclo ou toda a escola")
     responsavel: str | None = Field(None, description="Quem organiza (ex.: Direcção pedagógica)")
     publico: bool = Field(True, description="Aparece no portal das famílias")
 
@@ -1188,7 +1191,8 @@ EXEMPLOS: dict[type[Entrada], dict] = {
     PlanoAcordoIn: {"motivo": "Pedido do encarregado: adiar a 2.ª prestação",
                     "prestacoes": [{"valor": 15000, "vencimento": "2026-12-10"}, {"valor": 30000, "vencimento": "2027-02-10"}]},
     MotivoIn: {"motivo": "O encarregado pagou a dívida toda de uma vez"},
-    EventoIn: {"tipo": "feriado", "titulo": "Dia da Independência", "data_inicio": "2026-11-11", "publico": True},
+    EventoIn: {"tipo": "feriado", "titulo": "Dia da Independência", "data_inicio": "2026-11-11",
+               "objectivo": "Celebrar a independência nacional", "abrangencia": "escola", "publico": True},
     CopiarPlanoIn: {"origem_id": 1},
     FichaDisciplinaIn: {"classe_id": 1, "disciplina_id": 1, "regime": "Anual", "tempos_teoricos": 3, "tempos_praticos": 2,
                         "precedencia": "Língua Portuguesa da classe anterior",
