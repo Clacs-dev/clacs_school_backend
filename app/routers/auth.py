@@ -15,7 +15,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.integracoes import ErroIntegracao
 from app.integracoes.email import enviar_email
-from app.models import Estabelecimento, Perfil, PerfilPermissao, Permissao, Utilizador, UtilizadorPerfil
+from app.models import Estabelecimento, Funcionario, Perfil, PerfilPermissao, Permissao, Utilizador, UtilizadorPerfil
 from app.schemas import (
     CodigoIn, MeuPerfilIn, PermissoesPerfilIn, RecuperarIn, RedefinirIn, SenhaIn, UtilizadorIn, UtilizadorUpd,
 )
@@ -39,10 +39,23 @@ def _utilizador_out(db: Session, u: Utilizador, est: int) -> dict:
     d = as_dict(u)
     d.pop("senha_hash")
     d.pop("doisfa_segredo", None)
+    f = db.get(Funcionario, u.funcionario_id) if u.funcionario_id else None
+    d["funcionario"] = f.nome_completo if f else None
     d["perfis"] = list(db.scalars(select(Perfil.codigo).join(UtilizadorPerfil, UtilizadorPerfil.perfil_id == Perfil.id)
                                   .where(UtilizadorPerfil.utilizador_id == u.id,
                                          UtilizadorPerfil.estabelecimento_id == est)))
     return d
+
+
+def _validar_funcionario(db: Session, est: int, perfis: list[str], funcionario_id: int | None) -> None:
+    """Um professor só vê as suas turmas e aulas através do funcionário associado: sem ele não vê nada."""
+    if funcionario_id is not None:
+        f = db.get(Funcionario, funcionario_id)
+        if f is None or f.estabelecimento_id != est:
+            raise HTTPException(422, "Funcionário associado não encontrado nesta escola")
+    elif "professor" in perfis:
+        raise HTTPException(422, "Com o perfil professor, escolha o Funcionário associado (o professor a quem a conta "
+                                 "pertence). Sem ele, o professor não vê as suas turmas nem as suas aulas.")
 
 
 def _hash_curto(senha_hash: str) -> str:
@@ -262,6 +275,7 @@ def criar_utilizador(dados: UtilizadorIn, ctx: Contexto = Depends(exige("utiliza
     email = dados.email.lower()
     if db.scalar(select(Utilizador.id).where(func.lower(Utilizador.email) == email)):
         raise HTTPException(409, "Já existe um utilizador com este e-mail")
+    _validar_funcionario(db, ctx.estabelecimento_id, dados.perfis, dados.funcionario_id)
     u = Utilizador(nome=dados.nome, email=email, telefone=dados.telefone, senha_hash=hash_senha(dados.senha),
                    funcionario_id=dados.funcionario_id, encarregado_id=dados.encarregado_id)
     db.add(u)
@@ -281,6 +295,11 @@ def editar_utilizador(uid: int, dados: UtilizadorUpd, ctx: Contexto = Depends(ex
             UtilizadorPerfil.utilizador_id == uid, UtilizadorPerfil.estabelecimento_id == ctx.estabelecimento_id)):
         raise HTTPException(404, "Utilizador não encontrado")
     d = dados.model_dump(exclude_unset=True)
+    if "perfis" in d or "funcionario_id" in d:
+        perfis_finais = d["perfis"] if "perfis" in d else list(db.scalars(
+            select(Perfil.codigo).join(UtilizadorPerfil, UtilizadorPerfil.perfil_id == Perfil.id)
+            .where(UtilizadorPerfil.utilizador_id == uid, UtilizadorPerfil.estabelecimento_id == ctx.estabelecimento_id)))
+        _validar_funcionario(db, ctx.estabelecimento_id, perfis_finais, d.get("funcionario_id", u.funcionario_id))
     if "senha" in d:
         u.senha_hash = hash_senha(d.pop("senha"))
     if "perfis" in d:

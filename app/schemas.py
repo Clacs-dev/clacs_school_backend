@@ -40,6 +40,7 @@ class UtilizadorUpd(Entrada):
     activo: bool | None = None
     perfis: list[str] | None = None
     senha: str | None = Field(default=None, min_length=8)
+    funcionario_id: int | None = None  # liga a conta ao professor/funcionário (obrigatório no perfil professor)
 
 
 class MeuPerfilIn(Entrada):

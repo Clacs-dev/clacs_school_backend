@@ -665,6 +665,7 @@ class FotoPerfil(Saida):
 
 class Utilizador(UtilizadorBase):
     perfis: list[str] = Field(description="Códigos dos perfis neste estabelecimento, ex. ['admin']")
+    funcionario: str | None = Field(default=None, description="Nome do funcionário associado (o professor da conta)")
 
 
 class EstabelecimentoCurto(Saida):
