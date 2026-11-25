@@ -88,9 +88,12 @@ def test_percurso_completo_ate_as_boas_vindas(client, admin):
     assert _ok(client.post(f"{url}/autorizar", headers=admin, json={}))["estado"] == "autorizada"
 
     # 6. secretaria comunica a vaga com o link
+    antes = len(CAIXA_LOCAL)
     c = _ok(client.post(f"{url}/comunicar", headers=secretaria, json={"mensagem": "Prazo: 20 de Novembro."}))
     token = c["link_formalizacao"].rsplit("/", 1)[1]
     assert c["estado"] == "vaga_comunicada" and "token" not in c
+    # o link vai também por e-mail (além do WhatsApp), para não depender só de um canal
+    assert any("ana.p@teste.ao" in m["To"] and c["link_formalizacao"] in m.get_content() for m in CAIXA_LOCAL[antes:])
 
     # 7. família (sem conta) preenche e carrega; não entrega sem os obrigatórios
     pub = f"/api/publico/candidaturas/{token}"
